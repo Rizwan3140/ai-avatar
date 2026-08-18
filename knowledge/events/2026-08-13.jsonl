@@ -1,0 +1,18 @@
+{"at": "2026-08-13T07:38:42+00:00", "event": "question", "session": "default", "text": "is that good for gaming?", "results": 1}
+{"at": "2026-08-13T07:38:42+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop"}
+{"at": "2026-08-13T07:38:47+00:00", "event": "question", "session": "default", "text": "is that good for gaming?", "results": 1}
+{"at": "2026-08-13T07:38:47+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop"}
+{"at": "2026-08-13T07:39:09+00:00", "event": "question", "session": "default", "text": "how much is that one?", "results": 0}
+{"at": "2026-08-13T07:39:14+00:00", "event": "question", "session": "default", "text": "how much is that one?", "results": 0}
+{"at": "2026-08-13T07:39:39+00:00", "event": "question", "session": "default", "text": "how much is that one?", "results": 0}
+{"at": "2026-08-13T07:39:43+00:00", "event": "question", "session": "default", "text": "what does it cost?", "results": 0}
+{"at": "2026-08-13T08:02:45+00:00", "event": "question", "session": "cabinet-A", "avatar": "krish", "text": "I am looking for headphones", "results": 1}
+{"at": "2026-08-13T08:02:45+00:00", "event": "product_shown", "product": "P004", "name": "Wave Headphones"}
+{"at": "2026-08-13T08:02:50+00:00", "event": "question", "session": "cabinet-B", "avatar": "krish", "text": "show me laptops", "results": 2}
+{"at": "2026-08-13T08:02:50+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop"}
+{"at": "2026-08-13T08:02:50+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop"}
+{"at": "2026-08-13T08:02:55+00:00", "event": "question", "session": "cabinet-A", "avatar": "krish", "text": "what was I just asking about?", "results": 0}
+{"at": "2026-08-13T08:02:59+00:00", "event": "question", "session": "cabinet-B", "avatar": "krish", "text": "and what was I asking about?", "results": 0}
+{"at": "2026-08-13T08:04:03+00:00", "event": "question", "session": "t1", "avatar": "krish", "text": "thank you, that is helpful", "results": 0}
+{"at": "2026-08-13T08:04:06+00:00", "event": "question", "session": "t1", "avatar": "krish", "text": "hello there", "results": 0}
+{"at": "2026-08-13T08:04:10+00:00", "event": "question", "session": "t2", "avatar": "krish", "text": "do you sell washing machines?", "results": 0}

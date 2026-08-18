@@ -1,0 +1,20 @@
+[
+  {
+    "id": "autumn-range",
+    "src": "/avatars/krish/campaigns/autumn-range.png",
+    "kind": "image",
+    "invitation": "The autumn range just arrived — would you like to see it?",
+    "starts": "",
+    "ends": "",
+    "seconds": 8
+  },
+  {
+    "id": "linen-week",
+    "src": "/avatars/krish/campaigns/linen-week.png",
+    "kind": "image",
+    "invitation": "Linen week is on. Shall I show you the shirts?",
+    "starts": "",
+    "ends": "",
+    "seconds": 8
+  }
+]

@@ -1,0 +1,50 @@
+# Luxora platform — the cloud role.
+#
+#   fly launch --no-deploy      once, to create the app
+#   fly deploy                  thereafter
+#
+# Mumbai because the kiosks are in India. Fly is the only one of the usual
+# platforms with an Indian region; Singapore adds 50-100ms to every call.
+
+app = "luxora-platform"
+primary_region = "bom"
+
+[build]
+
+[env]
+  LUXORA_ROLE = "cloud"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Zero, not one. A kiosk holds its own config on disk and only syncs every few
+  # minutes, so nothing breaks while the machine is asleep — it just wakes for
+  # the studio. This is most of why the bill is a few dollars.
+  min_machines_running = 0
+
+  [http_service.http_options.response.headers]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  # The platform API is IO-bound and idle most of the time. Start here; the only
+  # thing that will change it is the crawler in Segment 2, which should be a
+  # separate worker rather than a bigger web machine.
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Avatar metadata is written to disk by PATCH /api/avatars. A volume keeps it
+# across deploys. It disappears the day Supabase replaces store.py — which is
+# the intended end state, and why this is 1GB and not more.
+[[mounts]]
+  source = "luxora_data"
+  destination = "/app/frontend/public/avatars"

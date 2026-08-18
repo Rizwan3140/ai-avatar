@@ -1,0 +1,9 @@
+# Avatar footage is binary and replaced wholesale, so every regeneration would
+# otherwise leave an 11 MB blob in history forever. LFS keeps the repo cloneable.
+# Run `git lfs install` once before the first commit.
+frontend/public/avatars/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+frontend/public/avatars/**/*.png filter=lfs diff=lfs merge=lfs -text
+
+* text=auto eol=lf
+*.png binary
+*.mp4 binary

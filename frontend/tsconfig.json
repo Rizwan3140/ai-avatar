@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  // Tests run under `node --test`, which strips types rather than checking them.
+  // Pulling @types/node in just to satisfy tsc here would also swap Node's timer
+  // types into the browser build, so the test is verified by running it.
+  "exclude": ["src/**/*.test.ts"]
+}

@@ -1,0 +1,120 @@
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+
+/* Design tokens. Tailwind v4 is CSS-first, so @theme is the single source of
+   truth that tailwind.config.ts would have been. Commandments live in the plan;
+   these are only the settings. */
+@theme {
+  --color-canvas: #ffffff;
+  --color-ink: #111111;
+  --color-ink-soft: #666666;
+  --color-line: #e8e8e8;
+  /* Accent is 3.7:1 on white — fails WCAG AA for text. Glow, pulse and icon
+     fills only. Never type. */
+  --color-accent: #3b82f6;
+
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+
+  --spacing-safe: 48px;
+
+  --ease-human: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-quick: 200ms;
+  --duration-cross: 250ms;
+  --duration-calm: 300ms;
+
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  overflow: hidden;
+  /* Kiosk: no text selection, no long-press menus, no rubber-band scroll. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Studio only. The kiosk has no form controls and never will — an installation
+   with input fields is an interface, not a person. */
+.input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+/* Breathing layered over footage that already breathes — deliberately almost
+   imperceptible. A fixed-size video on a static page reads flatter than one that
+   lives a little. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.006);
+  }
+}
+
+/* Motion replaces interface: this is how "listening" is communicated. */
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow: var(--shadow-float), 0 0 0 0 rgba(59, 130, 246, 0.45);
+  }
+  50% {
+    box-shadow: var(--shadow-float), 0 0 0 14px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.15;
+  }
+  40% {
+    opacity: 0.7;
+  }
+}
+
+/* Motion before decoration. Every transition eases; nothing snaps. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

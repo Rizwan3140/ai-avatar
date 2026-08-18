@@ -1,0 +1,140 @@
+import { bus } from '../bus/bus.ts'
+import { splitSentences } from '../logic.ts'
+import config from './voice.config.ts'
+
+let voice: SpeechSynthesisVoice | null = null
+let queue: string[] = []
+let buffer = ''
+let streamOpen = false
+let speaking = false
+/** SPEECH_STARTED already announced for the reply in progress. */
+let announced = false
+/** What is leaving the speaker right now — the echo filter compares against this. */
+let spokenNow = ''
+
+/**
+ * Resolve voices before she is ever asked to talk. getVoices() is async in
+ * Chrome and returns [] on first call; skipping this wait is why browser TTS so
+ * often speaks its first sentence in the wrong voice.
+ */
+export function loadVoices(): Promise<void> {
+  return new Promise((resolve) => {
+    const pick = () => {
+      const voices = speechSynthesis.getVoices()
+      if (!voices.length) return false
+      voice =
+        config.preferredVoices
+          .map((name) => voices.find((v) => v.name === name))
+          .find(Boolean) ??
+        voices.find((v) => v.lang.replace('_', '-') === config.lang) ??
+        voices.find((v) => v.lang.startsWith('en')) ??
+        voices[0]
+      return true
+    }
+
+    if (pick()) return resolve()
+    speechSynthesis.addEventListener('voiceschanged', () => { pick(); resolve() }, { once: true })
+    // Some platforms never fire the event. Never block boot on a voice.
+    setTimeout(resolve, 2000)
+  })
+}
+
+/** A reply is beginning. */
+export function openStream(): void {
+  cancel(false)
+  buffer = ''
+  streamOpen = true
+}
+
+/**
+ * Feed streaming tokens. Complete sentences are spoken as soon as they exist
+ * rather than when the reply finishes — this is what puts first audio under a
+ * second instead of waiting out the whole generation.
+ */
+export function feed(chunk: string): void {
+  if (!streamOpen) return
+  buffer += chunk
+  const { sentences, remainder } = splitSentences(buffer)
+  buffer = remainder
+  if (sentences.length) {
+    queue.push(...sentences)
+    pump()
+  }
+}
+
+/** The reply is complete; speak whatever did not end in a terminator. */
+export function closeStream(): void {
+  if (!streamOpen) return
+  streamOpen = false
+  const tail = buffer.trim()
+  buffer = ''
+  if (tail) queue.push(tail)
+  pump()
+  if (!speaking && !queue.length) {
+    announced = false
+    bus.emit('SPEECH_ENDED')
+  }
+}
+
+/** Barge-in, or the end of a session. */
+export function cancel(announce = true): void {
+  const wasActive = speaking || queue.length > 0
+  queue = []
+  buffer = ''
+  streamOpen = false
+  speaking = false
+  announced = false
+  spokenNow = ''
+  speechSynthesis.cancel()
+  if (announce && wasActive) bus.emit('SPEECH_CANCELLED')
+}
+
+export function currentlySpoken(): string {
+  return spokenNow
+}
+
+export function isSpeaking(): boolean {
+  return speaking
+}
+
+function pump(): void {
+  if (speaking) return
+  const text = queue.shift()
+  if (!text) return
+
+  const utterance = new SpeechSynthesisUtterance(text)
+  if (voice) utterance.voice = voice
+  utterance.lang = config.lang
+  utterance.rate = config.rate
+  utterance.pitch = config.pitch
+  utterance.volume = config.volume
+
+  utterance.onstart = () => {
+    spokenNow = text
+    bus.emit('SPEECH_SENTENCE', { text })
+  }
+  utterance.onend = next
+  utterance.onerror = next
+
+  // Once per reply, not once per sentence. `next()` clears `speaking` between
+  // sentences, so a plain `!speaking` check here was true again for every
+  // sentence in the same reply.
+  if (!announced) {
+    announced = true
+    bus.emit('SPEECH_STARTED')
+  }
+  speaking = true
+  speechSynthesis.speak(utterance)
+
+  function next() {
+    speaking = false
+    spokenNow = ''
+    if (queue.length) return pump()
+    // Silence between chunks is not the end of a reply — only a drained queue
+    // on a closed stream is, or she stops mid-thought.
+    if (!streamOpen) {
+      announced = false
+      bus.emit('SPEECH_ENDED')
+    }
+  }
+}

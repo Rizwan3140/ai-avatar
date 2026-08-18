@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+faster-whisper
+numpy
+segno            # QR codes, rendered locally so they survive the network dropping
+pypdf            # PDF text only. DOCX is a zip of XML and needs no library.
+
+# Not listed, on purpose:
+#   auth        hashlib.scrypt, hmac and secrets are stdlib and are the parts
+#               that matter. See backend/accounts.py.
+#   database    sqlite3 is stdlib, and the whole catalog is a few thousand rows.
+#   http        urllib does every outbound call here. requests would be nicer to
+#               read and would not do anything urllib does not.

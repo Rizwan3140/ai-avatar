@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(ls -la \"/d/\" | grep -i \"ar-\" ; ls -la \"/d/\" | grep -i \"tryon\"; echo \"done\")"
+    ]
+  }
+}

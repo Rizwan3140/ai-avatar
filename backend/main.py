@@ -1,0 +1,92 @@
+"""Composition root. The role decides what this process is.
+
+    LUXORA_ROLE=edge     the machine driving a panel — conversation, models,
+                         footage, kiosk UI. Survives the network going down.
+    LUXORA_ROLE=cloud    the platform — avatars, kiosks, studio. No models,
+                         no GPU, no footage.
+    LUXORA_ROLE=all      both, in one process. Development and single-kiosk
+                         installs. The default, so nothing changes by accident.
+
+The split exists for one reason: everything in the conversation path needs a model
+resident in memory. Deploying that to a cloud container means renting a GPU that
+idles through a showroom's quiet hours — more expensive than the entire rest of
+the platform. So the models stay where the panel is.
+
+Imports are role-conditional on purpose. `faster-whisper` and its dependencies
+must never be pulled into the cloud image.
+"""
+
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from backend import config
+from backend.routes import platform, studio
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+IS_EDGE = config.ROLE in ("edge", "all")
+IS_CLOUD = config.ROLE in ("cloud", "all")
+
+app = FastAPI(title=f"Luxora ({config.ROLE})")
+
+# Off unless asked for. The kiosk serves its own UI from this same origin, so
+# there is no cross-origin request to permit and a permissive default would be
+# a hole opened for nobody. It exists for the one deployment shape that needs
+# it: a frontend on a static host talking to this API on another.
+if config.ALLOWED_ORIGINS:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        # Explicit origins, never "*" — the studio sends a bearer token, and a
+        # wildcard origin with credentials is the classic way to hand a session
+        # to whichever page asks for it.
+        allow_origins=config.ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+# The platform API is served by both roles. On the edge it reads the local
+# files that sync keeps up to date, so a kiosk boots with no network at all.
+app.include_router(platform.router)
+
+# Everything that changes something, behind a token. Split by trust rather than
+# by topic: a cabinet is physically reachable by the public and calls only the
+# router above, so the boundary is visible in the import list.
+app.include_router(studio.router)
+
+if IS_EDGE:
+    from backend import sync
+    from backend.routes import conversation
+
+    app.include_router(conversation.router)
+    conversation.warm()
+    sync.start()
+
+print(f"\nLuxora — services\n{config.report()}\n")
+
+
+# Serve the built UI whenever there is one, whatever the role.
+#
+# This used to be edge-only, on the reasoning that a cabinet serves its own
+# footage so clips never cross the network or an egress bill. That reasoning is
+# about *media*, and it still holds — media is not synced and does not live here.
+# It was never a reason to withhold the HTML, and withholding it meant a cloud
+# deployment served an API with no way to look at it, which forces either a
+# second host and a CORS policy or a reviewer running a build locally.
+#
+# A cloud image simply has no `dist/` unless one was built into it, so this is
+# self-limiting rather than conditional.
+if FRONTEND_DIST.is_dir():
+
+    @app.get("/studio{rest:path}", include_in_schema=False)
+    def studio(rest: str):
+        """StaticFiles has no history fallback, so a hard refresh on /studio would
+        404. One route rather than a client-side router nobody else needs."""
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

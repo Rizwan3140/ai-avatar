@@ -1,0 +1,17 @@
+# Keep the cloud image small. Everything here is edge-only or rebuildable.
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend/
+raw/
+.git/
+.env
+*.mp4
+*.png
+*.jpg
+*.exe
+*.zip
+Docs/
+*.md
+!requirements-cloud.txt

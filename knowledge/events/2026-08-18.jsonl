@@ -1,0 +1,53 @@
+{"at": "2026-08-18T07:36:33+00:00", "event": "question", "session": "a4ce136f-141d-4eb4-8dec-d96879689a3c", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:36:33+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:36:33+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:37:23+00:00", "event": "question", "session": "bc7a1d44-1ce8-4c46-a26a-d9fa8e9a92e1", "avatar": "krish", "org": "default", "text": "show me the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:37:23+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:37:23+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:38:42+00:00", "event": "question", "session": "d0b871a5-2fc5-4207-9d9a-6100e8b8a123", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:38:42+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:38:42+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:38:55+00:00", "event": "product_viewed", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:38:55+00:00", "event": "question", "session": "d0b871a5-2fc5-4207-9d9a-6100e8b8a123", "avatar": "krish", "org": "default", "text": "tell me about the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:38:55+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:38:55+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:41:00+00:00", "event": "question", "session": "32275ff4-beda-4684-a1df-08cf4c340469", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:41:00+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:41:00+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:41:13+00:00", "event": "product_viewed", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:41:13+00:00", "event": "question", "session": "32275ff4-beda-4684-a1df-08cf4c340469", "avatar": "krish", "org": "default", "text": "tell me about the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:41:13+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:41:13+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:42:43+00:00", "event": "question", "session": "fab-BEFORE-1374669563627618684", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:42:43+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-18T07:42:47+00:00", "event": "question", "session": "fab-BEFORE-1815609282374075034", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:42:47+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-18T07:42:51+00:00", "event": "question", "session": "fab-BEFORE-6519817514980458759", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:42:55+00:00", "event": "question", "session": "fab-BEFORE-6914613978981911918", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:42:55+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:42:55+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:43:41+00:00", "event": "question", "session": "fab-AFTER-4300175962469243098", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:43:41+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-18T07:43:56+00:00", "event": "question", "session": "fab-AFTER-6315221802246470763", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:43:56+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-18T07:44:00+00:00", "event": "question", "session": "fab-AFTER-7355067943936799021", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:44:00+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-18T07:44:05+00:00", "event": "question", "session": "fab-AFTER-2053022869956886258", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:44:09+00:00", "event": "question", "session": "fab-AFTER-3804989909311682043", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-18T07:44:09+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-18T07:44:09+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-18T07:44:33+00:00", "event": "question", "session": "wm-0", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:44:36+00:00", "event": "question", "session": "wm-1", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:44:40+00:00", "event": "question", "session": "wm-2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:44:44+00:00", "event": "question", "session": "wm-3", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:45:37+00:00", "event": "question", "session": "wm2-0", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:45:42+00:00", "event": "question", "session": "wm2-1", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:45:46+00:00", "event": "question", "session": "wm2-2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:45:50+00:00", "event": "question", "session": "wm2-3", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-18T07:45:54+00:00", "event": "question", "session": "pr2-how mu", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:45:54+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-18T07:45:58+00:00", "event": "question", "session": "pr2-what i", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-18T07:45:58+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-18T07:46:20+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-18T07:50:18+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-18T07:53:07+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

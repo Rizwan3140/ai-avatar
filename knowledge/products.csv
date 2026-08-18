@@ -1,0 +1,9 @@
+product_id,name,category,price,description
+P001,Aria 14 Laptop,Laptops,1299.00,Ultra-light 14-inch laptop with 18-hour battery life, great for travel and everyday work.
+P002,Titan Pro 16 Laptop,Laptops,1899.00,High-performance 16-inch laptop with dedicated GPU, built for gaming and video editing.
+P003,Pulse Buds,Audio,149.00,Wireless earbuds with active noise cancellation and 30-hour total battery life.
+P004,Wave Headphones,Audio,229.00,Over-ear headphones with studio-quality sound and 40-hour battery life.
+P005,Nova Watch,Wearables,249.00,Fitness smartwatch with heart-rate tracking, GPS, and 7-day battery life.
+P006,Click Mouse,Accessories,49.00,Ergonomic wireless mouse with silent clicks and adjustable DPI.
+P007,Flow Keyboard,Accessories,89.00,Compact mechanical keyboard with hot-swappable switches.
+P008,Beam Monitor 27,Monitors,329.00,27-inch 4K monitor with USB-C power delivery, ideal for a clean desk setup.

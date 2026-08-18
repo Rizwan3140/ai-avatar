@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+  <!-- Placeholder only. Replace with poster.png — the true first frame of
+       idle.mp4 — and point renderer.config.ts at it. Deliberately mute and
+       silhouette-only so it never reads as finished art. -->
+  <rect width="300" height="400" fill="#FFFFFF"/>
+  <g fill="#E8E8E8">
+    <circle cx="150" cy="150" r="52"/>
+    <path d="M150 214c-52 0-94 34-102 82a8 8 0 0 0 8 9h188a8 8 0 0 0 8-9c-8-48-50-82-102-82z"/>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+# The cloud role. Nothing here loads a model.
+#
+# faster-whisper, numpy, rembg and Pillow are edge-only — they belong on the
+# machine driving the panel, and pulling them into a container would add
+# gigabytes to the image for code that never runs.
+fastapi
+uvicorn[standard]
+segno            # QR codes, rendered locally so they survive the network dropping
+pypdf            # Pure Python, ~2 MB. Ingest runs on the platform, so it belongs here.

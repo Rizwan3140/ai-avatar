@@ -1,0 +1,31 @@
+backend\test_catalog.py:18:def fixture() -> None:
+backend\test_catalog.py:49:def check(label: str, actual, expected) -> None:
+backend\test_catalog.py:50:    if actual != expected:
+backend\test_catalog.py:56:def names(products) -> list[str]:
+backend\test_catalog.py:60:def main() -> int:
+backend\test_catalog.py:129:    found = [p for p in (product_from_jsonld(n, "https://shop/p/1") for n in parser.jsonld) if p]
+backend\test_catalog.py:148:if __name__ == "__main__":
+backend\test_catalog.py:150:    sys.exit(main())
+backend\test_platform.py:37:def check(label: str, condition: bool) -> None:
+backend\test_platform.py:39:    if condition:
+backend\test_platform.py:47:def section(name: str) -> None:
+backend\test_platform.py:51:def product(pid: str, name: str, **kw) -> catalog.Product:
+backend\test_platform.py:65:    "salts, so the same password hashes differently",
+backend\test_platform.py:71:check("a token round-trips", accounts.verify_token(token).org_id == "org-a")
+backend\test_platform.py:76:    forged = ("B" if body[0] != "B" else "C") + body[1:] + "." + sig
+backend\test_platform.py:77:    accounts.verify_token(forged)
+backend\test_platform.py:83:    accounts.verify_token(accounts.issue_token(who, ttl=-1))
+backend\test_platform.py:89:    accounts.verify_token("nonsense")
+backend\test_platform.py:94:# A token signed with a different secret must not verify — otherwise every
+backend\test_platform.py:100:    accounts.verify_token(foreign)
+backend\test_platform.py:199:                description="A completely different machine"),
+backend\test_platform.py:290:def docx(rows: list[list[str]] | None = None, paragraphs: list[str] | None = None) -> bytes:
+backend\test_platform.py:295:    W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+backend\test_platform.py:297:    def para(text: str) -> str:
+backend\test_platform.py:301:    if rows:
+backend\test_platform.py:425:section("identifiers")
+backend\test_platform.py:445:sys.exit(1 if failed else 0)
+backend\test_api.py:43:from backend.main import app  # noqa: E402
+backend\test_api.py:49:def check(label, condition, extra=""):
+backend\test_api.py:51:    if condition:
+backend\test_api.py:227:sys.exit(1 if bad else 0)

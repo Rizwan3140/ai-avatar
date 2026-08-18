@@ -1,0 +1,21 @@
+{"at": "2026-08-16T07:28:16+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-16T07:29:17+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-16T07:30:03+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-16T07:32:25+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-16T07:33:23+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-16T08:02:04+00:00", "event": "question", "session": "drive", "avatar": "krish", "org": "default", "text": "how long do I have to return something", "results": 0, "passages": 1}
+{"at": "2026-08-16T08:02:08+00:00", "event": "question", "session": "drive", "avatar": "krish", "org": "default", "text": "do you deliver to Pune", "results": 1, "passages": 1}
+{"at": "2026-08-16T08:02:08+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-16T08:02:12+00:00", "event": "question", "session": "drive", "avatar": "krish", "org": "default", "text": "what warranty comes with a laptop", "results": 2, "passages": 1}
+{"at": "2026-08-16T08:02:12+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-16T08:02:12+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-16T08:02:30+00:00", "event": "question", "session": "drive2", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-16T08:02:30+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-16T08:02:34+00:00", "event": "question", "session": "drive2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:06:59+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "Hello, how are you doing?", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:07:39+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "A lot better accident than it would be today.", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:07:53+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "Yeah. Do that. Good, good. Good.", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:08:25+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "I don't know that I think.", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:08:27+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "Okay, gotcha.", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:17:24+00:00", "event": "question", "session": "73188237-7453-4d47-8a12-7456390839da", "avatar": "krish", "org": "default", "text": "Okay.", "results": 0, "passages": 0}
+{"at": "2026-08-16T08:20:05+00:00", "event": "question", "session": "246170ff-5a5a-4627-8772-ec07b601ea01", "avatar": "krish", "org": "default", "text": "Hello, good morning.", "results": 0, "passages": 0}

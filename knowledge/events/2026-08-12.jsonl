@@ -1,0 +1,4 @@
+{"at": "2026-08-12T20:33:32+00:00", "event": "product_viewed", "product": "P002", "name": "Titan Pro 16 Laptop"}
+{"at": "2026-08-12T20:33:32+00:00", "event": "question", "session": "default", "text": "show me headphones", "results": 1}
+{"at": "2026-08-12T20:33:32+00:00", "event": "product_shown", "product": "P004", "name": "Wave Headphones"}
+{"at": "2026-08-12T20:33:36+00:00", "event": "question", "session": "default", "text": "do you sell umbrellas", "results": 0}
