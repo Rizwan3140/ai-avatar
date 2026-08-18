@@ -40,3 +40,7 @@ frontend/public/avatars/*/source-photo
 # financial documents, and this repository gets shared with colleagues.
 frontend/public/avatars/*/*.pdf
 frontend/public/avatars/*/passport-photo*
+
+# Scratch output from test runs. The suites print to the terminal; these are
+# redirections somebody left behind, not artefacts anything reads.
+test-*.log
