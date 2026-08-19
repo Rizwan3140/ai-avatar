@@ -122,6 +122,23 @@ export type KioskConfig = {
   tryon: { available: boolean; provider: string; on_device: boolean }
 }
 
+/**
+ * One named avatar, for the Studio's "talk to this avatar" link.
+ *
+ * Same shape as `fetchKiosk` minus the kiosk row, so `boot()` destructures the
+ * result identically either way. `/api/avatar` 404s on an id it does not know
+ * and only falls back to the default when the id is *empty* — so a mistyped
+ * link fails loudly instead of quietly showing somebody else's avatar.
+ */
+export async function fetchAvatar(avatarId: string): Promise<Omit<KioskConfig, 'kiosk'>> {
+  const [avatar, tryon] = await Promise.all([
+    fetch(`/api/avatar?id=${encodeURIComponent(avatarId)}`),
+    fetch('/api/tryon'),
+  ])
+  if (!avatar.ok) throw new Error('That avatar is no longer here.')
+  return { avatar: await avatar.json(), tryon: await tryon.json() }
+}
+
 /** Who this cabinet is. Replaces the avatar name the app used to be built with. */
 export async function fetchKiosk(kioskId: string): Promise<KioskConfig> {
   const response = await fetch(`/api/kiosk/${encodeURIComponent(kioskId)}`)

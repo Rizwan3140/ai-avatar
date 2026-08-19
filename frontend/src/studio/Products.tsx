@@ -1,36 +1,30 @@
 import { useState } from 'react'
-import { api, upload, type Document, type Principal, type Product } from './api.ts'
+import { api, upload, type Principal, type Product } from './api.ts'
+import { importMessage, type ImportResult, type Screen } from './import.ts'
 import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
 /**
- * Everything the avatar is allowed to know — the catalog, and the company's own
- * documents.
+ * The catalog — what the avatar may recommend, and the only source of a price it
+ * is allowed to say out loud.
  *
- * These were command-line only. That was defensible while one engineer ran one
- * kiosk and indefensible the moment a showroom manager needs to correct a price
- * on a Saturday.
- *
- * Products and documents share a screen because the person uploading a file
- * generally does not know which one they are holding: a brochure with a spec
- * table in it is both, and the server decides by shape rather than by extension.
+ * Its own screen because correcting a price is the most frequent job in the
+ * product, and it used to sit two levels down inside a tab called "Knowledge".
  */
-export function Knowledge({ who }: { who: Principal }) {
+export function Products({ who, onView }: { who: Principal; onView: (view: Screen) => void }) {
   const products = useLoad(() => api<Product[]>('/api/studio/products'))
-  const documents = useLoad(() => api<Document[]>('/api/studio/knowledge'))
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState<{ text: string; screen?: Screen } | null>(null)
 
   const mayWrite = who.role !== 'viewer'
 
-  async function act(work: () => Promise<string>) {
+  async function act(work: () => Promise<{ text: string; screen?: Screen } | null>) {
     setBusy(true)
     setProblem('')
-    setNote('')
+    setNote(null)
     try {
       setNote(await work())
       products.reload()
-      documents.reload()
     } catch (failure) {
       setProblem((failure as Error).message)
     } finally {
@@ -40,50 +34,59 @@ export function Knowledge({ who }: { who: Principal }) {
 
   const importFile = (file: File) =>
     act(async () => {
-      const result = await upload<{ source: string; products: number; passages: number }>(
-        '/api/studio/import',
-        file,
-      )
-      const bits = [
-        result.products ? `${result.products} products` : '',
-        result.passages ? `${result.passages} passages` : '',
-      ].filter(Boolean)
-      return `${result.source}: ${bits.join(' and ')} indexed.`
+      const result = await upload<ImportResult>('/api/studio/import', file)
+      return importMessage(result, 'products')
     })
 
   const crawl = () =>
     act(async () => {
       const url = window.prompt('Storefront URL to read')
-      if (!url?.trim()) return ''
+      if (!url?.trim()) return null
       const result = await api<{ imported: number }>('/api/studio/products/crawl', {
         method: 'POST',
         body: { url, limit: 40 },
       })
-      return result.imported
-        ? `${result.imported} products read from ${url}.`
-        : `Nothing found at ${url}. The crawler reads schema.org data, which not every site publishes.`
+      return {
+        text: result.imported
+          ? `${result.imported} products read from ${url}.`
+          : `Nothing found at ${url}. The crawler reads schema.org data, which not every site publishes.`,
+      }
     })
 
-  const removeProduct = (product: Product) =>
+  const remove = (product: Product) =>
     act(async () => {
       await api(`/api/studio/products/${encodeURIComponent(product.id)}`, { method: 'DELETE' })
-      return `${product.name} removed.`
-    })
-
-  const removeDocument = (source: string) =>
-    act(async () => {
-      await api(`/api/studio/knowledge/${encodeURIComponent(source)}`, { method: 'DELETE' })
-      return `${source} removed. The avatar can no longer quote it.`
+      return { text: `${product.name} removed.` }
     })
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       {problem && <Note tone="warn">{problem}</Note>}
-      {note && <Note>{note}</Note>}
+      {note && (
+        <Note>
+          {note.text}
+          {/* The destination is a control, not prose — a file that landed
+              somewhere unexpected is then one click away rather than a sentence
+              somebody has to notice. */}
+          {note.screen && (
+            <>
+              {' '}
+              <button
+                type="button"
+                onClick={() => onView(note.screen!)}
+                className="underline underline-offset-2 capitalize"
+              >
+                {note.screen}
+              </button>
+              .
+            </>
+          )}
+        </Note>
+      )}
 
       <Section
         title="Catalog"
-        hint="What the avatar may recommend, and the only source of a price it is allowed to say out loud."
+        hint="Column names are matched by meaning, so a company's own export works without editing. A file is read by its shape — rows become products, prose becomes passages."
         action={
           mayWrite && (
             <div className="flex gap-2">
@@ -106,8 +109,7 @@ export function Knowledge({ who }: { who: Principal }) {
           <Empty>Loading…</Empty>
         ) : products.data.length === 0 ? (
           <Empty>
-            No products. Import a CSV, a JSON export or a Word document with a table in it — column
-            names are matched by meaning, so the company's own headers are fine.
+            No products yet. Import a CSV, a JSON export or a Word document with a table in it.
           </Empty>
         ) : (
           <div className="overflow-x-auto rounded border border-line">
@@ -136,8 +138,8 @@ export function Knowledge({ who }: { who: Principal }) {
                     <td className="text-ink-soft px-3 py-2">{product.category || '—'}</td>
                     <td className="px-3 py-2 tabular-nums">{product.spoken_price || '—'}</td>
                     <td className="px-3 py-2">
-                      {/* A catalog row with no image shows a placeholder on the
-                          cabinet, and cannot be used for try-on at all. */}
+                      {/* A row with no image shows a placeholder on the cabinet,
+                          and cannot be used for try-on at all. */}
                       <span className={product.image ? 'text-ink-soft' : 'text-amber-700'}>
                         {product.image ? 'yes' : 'none'}
                       </span>
@@ -146,7 +148,7 @@ export function Knowledge({ who }: { who: Principal }) {
                       {mayWrite && (
                         <button
                           type="button"
-                          onClick={() => removeProduct(product)}
+                          onClick={() => remove(product)}
                           disabled={busy}
                           className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
                         >
@@ -159,45 +161,6 @@ export function Knowledge({ who }: { who: Principal }) {
               </tbody>
             </table>
           </div>
-        )}
-      </Section>
-
-      <Section
-        title="Documents"
-        hint="Policies, warranties, delivery terms — the half of showroom questions no product row answers. Passages are quoted back verbatim, so what is uploaded is what gets said."
-      >
-        {documents.error && <Note tone="warn">{documents.error}</Note>}
-        {!documents.data ? (
-          <Empty>Loading…</Empty>
-        ) : documents.data.length === 0 ? (
-          <Empty>
-            Nothing indexed. Upload a returns policy or a brochure as PDF, Word, Markdown or plain
-            text, and the avatar can answer from it instead of guessing.
-          </Empty>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {documents.data.map((doc) => (
-              <li
-                key={doc.source}
-                className="flex items-center gap-4 rounded border border-line bg-white px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate font-medium">{doc.source}</span>
-                <span className="text-ink-soft text-xs tabular-nums">
-                  {doc.passages} passages · {Math.round(doc.characters / 1000)}k chars
-                </span>
-                {mayWrite && (
-                  <button
-                    type="button"
-                    onClick={() => removeDocument(doc.source)}
-                    disabled={busy}
-                    className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
-                  >
-                    remove
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
         )}
       </Section>
 

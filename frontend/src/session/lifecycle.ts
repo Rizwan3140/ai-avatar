@@ -3,7 +3,7 @@ import { mp4Renderer } from '../renderer/Mp4VideoRenderer.tsx'
 import config, { KIOSK_ID } from '../renderer/renderer.config.ts'
 import { setAvatarMedia } from '../renderer/renderer.avatar.ts'
 import type { Pose } from '../renderer/renderer.types.ts'
-import { fetchKiosk, resetConversation } from '../provider/http.ts'
+import { fetchAvatar, fetchKiosk, resetConversation } from '../provider/http.ts'
 import { setIdentity, setTryOn, useStore } from '../state/store.ts'
 import * as voice from '../voice/voice.ts'
 import { sessionId } from './session.ts'
@@ -24,8 +24,16 @@ export async function boot(): Promise<void> {
 
   // Identity first — everything else depends on knowing which avatar this
   // cabinet is showing.
+  //
+  // `?avatar=` overrides the cabinet's own id. It is how the Studio's "talk to
+  // this avatar" link works: rather than embedding a half-alive copy of the
+  // kiosk in a dashboard panel, it opens the real thing pointed at one avatar.
+  const wanted = new URLSearchParams(window.location.search).get('avatar')?.trim() || ''
+
   try {
-    const { avatar, tryon } = await step('identity', () => fetchKiosk(KIOSK_ID))
+    const { avatar, tryon } = await step('identity', () =>
+      wanted ? fetchAvatar(wanted) : fetchKiosk(KIOSK_ID),
+    )
     setIdentity(avatar.id, avatar.name, avatar.greeting)
     // Whether this cabinet may offer a camera at all. Arrives with identity so
     // there is no second round trip and no moment where the button flickers in.
@@ -37,7 +45,12 @@ export async function boot(): Promise<void> {
     })
   } catch {
     setIdentity('', '', 'Welcome.')
-    bus.emit('SYSTEM_ERROR', { message: 'The showroom is offline.' })
+    // A mistyped ?avatar= is a different failure from an unreachable backend,
+    // and saying "offline" for it sends whoever clicked the link to check the
+    // network instead of the name.
+    bus.emit('SYSTEM_ERROR', {
+      message: wanted ? 'That avatar is no longer here.' : 'The showroom is offline.',
+    })
   }
 
   // Each of these is real work. A kiosk that looks ready before it is ready

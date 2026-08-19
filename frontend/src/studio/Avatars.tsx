@@ -252,6 +252,27 @@ export function Avatars({ who }: { who: Principal }) {
                 )}
               </Field>
 
+              <div className="flex flex-wrap items-center gap-3">
+                {/* The real kiosk in a new tab, not a preview panel. A plain
+                    anchor rather than window.open: no popup blocker to fight,
+                    and ctrl- or middle-click work without any code.
+                    Deliberately not disabled when the avatar has no poster —
+                    it falls back to the placeholder and still talks, and
+                    "create an avatar, then talk to it" is the path worth
+                    being able to demonstrate. */}
+                <a
+                  href={`/?avatar=${encodeURIComponent(avatar.id)}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="bg-ink rounded px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                >
+                  Talk to this avatar
+                </a>
+                <span className="text-ink-soft text-xs">
+                  Opens the showroom screen. It will ask for your microphone.
+                </span>
+              </div>
+
               {mayWrite && (
                 <div className="flex flex-wrap items-center gap-3">
                   <Button onClick={save} disabled={!!busy || Object.keys(draft).length === 0}>

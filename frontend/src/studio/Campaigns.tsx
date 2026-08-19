@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, upload, type Avatar, type Campaign, type Principal } from './api.ts'
+import { AdsRunner } from './AdsRunner.tsx'
 import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
 /**
@@ -24,6 +25,7 @@ export function Campaigns({ who }: { who: Principal }) {
   )
 
   const [draft, setDraft] = useState<Campaign[] | null>(null)
+  const [running, setRunning] = useState(false)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
@@ -109,14 +111,22 @@ export function Campaigns({ who }: { who: Principal }) {
         title="Idle campaigns"
         hint="Leave both times blank to play all day. A window like 21:00 to 06:00 crosses midnight and is handled."
         action={
-          mayWrite && (
-            <FilePicker
-              label={busy ? 'Uploading…' : 'Add media'}
-              accept="image/*,video/mp4,video/webm"
-              disabled={busy || !avatarId}
-              onPick={addMedia}
-            />
-          )
+          <div className="flex gap-2">
+            {/* Previews the draft, not the saved list — showing saved content
+                while the screen displays unsaved edits is the surprising one. */}
+            <Button tone="quiet" onClick={() => setRunning(true)} disabled={!items.length}>
+              Run
+            </Button>
+            {mayWrite && (
+              <FilePicker
+                label={busy ? 'Uploading…' : 'Add media'}
+                accept="image/*,video/mp4,video/webm"
+                disabled={busy || !avatarId}
+                onPick={addMedia}
+                tone="primary"
+              />
+            )}
+          </div>
         }
       >
         {campaigns.error && <Note tone="warn">{campaigns.error}</Note>}
@@ -213,6 +223,8 @@ export function Campaigns({ who }: { who: Principal }) {
           </div>
         )}
       </Section>
+
+      {running && <AdsRunner items={items} onClose={() => setRunning(false)} />}
     </div>
   )
 }
