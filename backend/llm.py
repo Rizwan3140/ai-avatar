@@ -68,8 +68,22 @@ SCOPE = (
 )
 
 
-def _system_prompt(
-    persona: str, products: list[Product], on_screen: str = "", knowledge: str = ""
+#: Repeated after the persona, bluntly, because a small local model follows a
+#: persona far less reliably than a frontier model does. Everything here is
+#: spoken aloud, so a rambling answer is dead air a visitor walks away from.
+NL2 = chr(10) + chr(10)
+
+BREVITY = (
+    "CRITICAL: One or two short sentences, then stop. Every word here is "
+    "spoken aloud and he can be interrupted, so a long answer is one the "
+    "visitor never hears the end of. Answer only what was asked. Never list "
+    "products in bullets or numbers. Never use markdown, asterisks or emoji. "
+    "Write the way you would speak out loud."
+)
+
+
+def _turn_prompt(
+    products: list[Product], on_screen: str = '', knowledge: str = ''
 ) -> str:
     """Catalog first, model second.
 
@@ -126,21 +140,27 @@ def _system_prompt(
         else ""
     )
 
-    return (
-        f"{persona}\n\n"
-        f"{grounding}\n\n"
-        f"{company}"
-        f"{screen}"
-        # Repeated here, bluntly, because small local models follow a persona far
-        # less reliably than a frontier model does. Everything below is spoken
-        # aloud, so a rambling answer is dead air a visitor walks away from.
-        f"{SCOPE}\n\n"
-        "CRITICAL: One or two short sentences, then stop. Every word here is "
-        "spoken aloud and he can be interrupted, so a long answer is one the "
-        "visitor never hears the end of. Answer only what was asked. Never list "
-        "products in bullets or numbers. Never use markdown, asterisks or emoji. "
-        "Write the way you would speak out loud."
-    )
+    return grounding + NL2 + company + screen
+
+
+def _stable_prompt(persona: str) -> str:
+    """Everything that does not change between turns.
+
+    Kept byte-identical for the whole conversation so the model's prefix cache
+    survives it. Anything volatile added here costs a full re-evaluation on
+    every turn, which is a latency bug rather than a wording one.
+    """
+    return persona + NL2 + SCOPE + NL2 + BREVITY
+
+
+
+def _system_prompt(
+    persona: str, products, on_screen: str = '', knowledge: str = ''
+) -> str:
+    """The whole prompt as one string. What the model receives is these same
+    pieces split across two messages; this is the composed form, kept because
+    it is far easier to read one string than to reassemble two."""
+    return _stable_prompt(persona) + NL2 + _turn_prompt(products, on_screen, knowledge)
 
 
 def warm() -> None:
@@ -222,11 +242,17 @@ def stream_reply(
     on_screen: str = "",
     knowledge: str = "",
 ) -> Iterator[str]:
+    # Two system messages, not one, and the order is the point.
+    #
+    # The first is byte-identical every turn, so the model's prefix cache holds
+    # it for the whole session. The second carries only what changed. This was
+    # one message with the volatile product list in the middle, which invalidated
+    # the cache from the first token and re-evaluated all ~850 tokens every turn:
+    # time to first word was ~2.9s whether the answer ran to five words or forty,
+    # which is the signature of prompt evaluation rather than generation.
     messages = [
-        {
-            "role": "system",
-            "content": _system_prompt(persona, products or [], on_screen, knowledge),
-        },
+        {"role": "system", "content": _stable_prompt(persona)},
+        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge)},
         *history,
     ]
 

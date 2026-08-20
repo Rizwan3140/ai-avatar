@@ -85,7 +85,16 @@ GROQ_MODEL = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_STT_MODEL = _get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
 GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
-OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
+# 127.0.0.1, never "localhost".
+#
+# On Windows "localhost" resolves to ::1 first. Ollama listens on IPv4 only, so
+# the IPv6 attempt is refused and the client waits out a ~2 second fallback
+# before trying 127.0.0.1 — on every single request. Measured on this machine:
+# localhost 2037ms, 127.0.0.1 3ms, to an endpoint that does no inference at all.
+#
+# It cost two seconds off the front of every reply and looked exactly like a slow
+# model. It is not the model; it is name resolution.
+OLLAMA_HOST = _get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.2:3b")
 WHISPER_MODEL = _get("WHISPER_MODEL", "base.en")
 

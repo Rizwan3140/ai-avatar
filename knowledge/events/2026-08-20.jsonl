@@ -149,3 +149,51 @@
 {"at": "2026-08-20T09:03:49+00:00", "event": "product_shown", "product": "M001", "name": "Kanchipuram Silk Saree", "org": "default"}
 {"at": "2026-08-20T09:03:49+00:00", "event": "product_shown", "product": "M003", "name": "Nehru Jacket", "org": "default"}
 {"at": "2026-08-20T09:06:26+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T09:07:58+00:00", "event": "question", "session": "perf-0", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:08:01+00:00", "event": "question", "session": "perf-1", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:08:01+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:08:01+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:08:04+00:00", "event": "question", "session": "perf-2", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:08:04+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:08:04+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:08:08+00:00", "event": "question", "session": "perf-3", "avatar": "krish", "org": "default", "text": "what is the difference between the two laptops", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:08:08+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T09:08:08+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T09:10:58+00:00", "event": "question", "session": "speed", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:11:02+00:00", "event": "question", "session": "speed", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:11:02+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:11:02+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:11:05+00:00", "event": "question", "session": "speed", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:11:05+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:11:05+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:11:09+00:00", "event": "question", "session": "speed", "avatar": "krish", "org": "default", "text": "what is the difference between the two laptops", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:11:09+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T09:11:09+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T09:11:15+00:00", "event": "question", "session": "speed", "avatar": "krish", "org": "default", "text": "thanks", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:15:36+00:00", "event": "question", "session": "after", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:15:47+00:00", "event": "question", "session": "after", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:15:47+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:15:47+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:15:48+00:00", "event": "question", "session": "after", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:15:48+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:15:48+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:15:50+00:00", "event": "question", "session": "after", "avatar": "krish", "org": "default", "text": "what is the difference between the two laptops", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:15:50+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T09:15:50+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T09:16:13+00:00", "event": "question", "session": "acc-1,899-0", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T09:16:13+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T09:16:14+00:00", "event": "question", "session": "acc-1,899-1", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T09:16:14+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T09:16:15+00:00", "event": "question", "session": "acc-1,299-0", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-20T09:16:15+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T09:16:16+00:00", "event": "question", "session": "acc-1,299-1", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-20T09:16:16+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T09:16:17+00:00", "event": "question", "session": "acc-2,499-0", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:16:17+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:16:17+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:16:18+00:00", "event": "question", "session": "acc-2,499-1", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:16:18+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:16:18+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:16:19+00:00", "event": "question", "session": "acc-wm", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:16:20+00:00", "event": "question", "session": "acc-poem", "avatar": "krish", "org": "default", "text": "write me a poem", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:16:48+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
