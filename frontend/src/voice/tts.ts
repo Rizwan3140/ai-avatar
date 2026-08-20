@@ -76,7 +76,37 @@ export function closeStream(): void {
   }
 }
 
-/** Barge-in, or the end of a session. */
+/**
+ * Stop, but let the sentence in flight land.
+ *
+ * `cancel()` cuts the synthesiser off mid-word, which is what barge-in used to
+ * do. In a real room that is worse than the problem it solves: any cough, any
+ * "mm-hm", any bit of his own voice returning through the microphone chopped him
+ * off in the middle of a word, and a half-said sentence reads as a crash rather
+ * than as attentiveness.
+ *
+ * So the queue is dropped and the stream closed — he will not start another
+ * sentence — but the one already leaving the speaker finishes. `next()` then
+ * finds an empty queue on a closed stream and emits SPEECH_ENDED on its own.
+ *
+ * This is the one place the design deliberately reversed after being used: the
+ * original note said talking over the visitor was the most human-breaking
+ * failure. Being cut off mid-word turned out to be worse.
+ */
+export function finishThenStop(): void {
+  queue = []
+  buffer = ''
+  streamOpen = false
+
+  // Nothing in flight to wait for — this is an ordinary stop.
+  if (!speaking) {
+    announced = false
+    spokenNow = ''
+    bus.emit('SPEECH_CANCELLED')
+  }
+}
+
+/** Hard stop, mid-word. The end of a session, or a reply that failed. */
 export function cancel(announce = true): void {
   const wasActive = speaking || queue.length > 0
   queue = []

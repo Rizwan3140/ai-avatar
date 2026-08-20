@@ -1,1 +1,79 @@
 {"at": "2026-08-20T06:29:49+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T06:36:26+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "and latrins.", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:28+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "Hi, can you tell about the any products you have in there?", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:34+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "Hi, can you tell us about what products you have?", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:35+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "Sorry.", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:44+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "again I promise you", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:48+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "Can you show us the products?", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:36:54+00:00", "event": "question", "session": "4a824c40-44f0-40b5-a52d-5bd7a8ae48e3", "avatar": "krish", "org": "default", "text": "Bye bye.", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:41:08+00:00", "event": "question", "session": "brief-0", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:41:13+00:00", "event": "question", "session": "brief-1", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:41:13+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:41:13+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:41:18+00:00", "event": "question", "session": "brief-2", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:41:18+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:41:22+00:00", "event": "question", "session": "brief-3", "avatar": "krish", "org": "default", "text": "do you deliver to Pune", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:41:22+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-20T06:41:26+00:00", "event": "question", "session": "brief-4", "avatar": "krish", "org": "default", "text": "what is the difference between the two laptops", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:41:26+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:41:26+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T06:41:31+00:00", "event": "question", "session": "brief-5", "avatar": "krish", "org": "default", "text": "thanks", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:42:23+00:00", "event": "question", "session": "final-0", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:42:27+00:00", "event": "question", "session": "final-1", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:42:27+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:42:27+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:42:32+00:00", "event": "question", "session": "final-2", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:42:32+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:42:36+00:00", "event": "question", "session": "final-3", "avatar": "krish", "org": "default", "text": "do you deliver to Pune", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:42:36+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-20T06:42:40+00:00", "event": "question", "session": "final-4", "avatar": "krish", "org": "default", "text": "what is the difference between the two laptops", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:42:40+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:42:40+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T06:42:47+00:00", "event": "question", "session": "final-5", "avatar": "krish", "org": "default", "text": "is the linen shirt good for summer", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:42:47+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:42:47+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:42:50+00:00", "event": "question", "session": "final-6", "avatar": "krish", "org": "default", "text": "thanks", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:43:17+00:00", "event": "question", "session": "price-0", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:43:17+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:43:22+00:00", "event": "question", "session": "price-1", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:43:22+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:43:25+00:00", "event": "question", "session": "price-2", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:43:25+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:43:29+00:00", "event": "question", "session": "price-3", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:43:29+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:43:32+00:00", "event": "question", "session": "price-4", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:43:32+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:39+00:00", "event": "question", "session": "t2-1,899-0", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:39+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:43+00:00", "event": "question", "session": "t2-1,899-1", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:43+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:46+00:00", "event": "question", "session": "t2-1,899-2", "avatar": "krish", "org": "default", "text": "how much is the Titan Pro", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:46+00:00", "event": "product_shown", "product": "P002", "name": "Titan Pro 16 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:49+00:00", "event": "question", "session": "t2-1,299-0", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:49+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:53+00:00", "event": "question", "session": "t2-1,299-1", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:53+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T06:44:56+00:00", "event": "question", "session": "t2-1,299-2", "avatar": "krish", "org": "default", "text": "what is the price of the Aria 14", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:44:56+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T06:45:00+00:00", "event": "question", "session": "t2-2,499-0", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:45:00+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:45:00+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:45:03+00:00", "event": "question", "session": "t2-2,499-1", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:45:03+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:45:03+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:45:06+00:00", "event": "question", "session": "t2-2,499-2", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:45:06+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:45:06+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:45:24+00:00", "event": "question", "session": "g-wm-0", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:28+00:00", "event": "question", "session": "g-wm-1", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:31+00:00", "event": "question", "session": "g-wm-2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:34+00:00", "event": "question", "session": "g-wm-3", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:37+00:00", "event": "question", "session": "g-off-write", "avatar": "krish", "org": "default", "text": "write me a poem about the sea", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:40+00:00", "event": "question", "session": "g-off-what ", "avatar": "krish", "org": "default", "text": "what is 47 times 89", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:45+00:00", "event": "question", "session": "g-off-what ", "avatar": "krish", "org": "default", "text": "what is the capital of France", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:45:50+00:00", "event": "question", "session": "g-help-show ", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T06:45:50+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T06:45:50+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T06:45:55+00:00", "event": "question", "session": "g-help-do yo", "avatar": "krish", "org": "default", "text": "do you deliver to Pune", "results": 1, "passages": 0}
+{"at": "2026-08-20T06:45:55+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-20T06:46:17+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

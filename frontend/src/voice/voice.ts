@@ -64,7 +64,9 @@ function onFinal(text: string) {
   if (tts.isSpeaking() && isEcho(text, tts.currentlySpoken())) {
     return bus.emit('USER_DISCARDED', { text, reason: 'echo' })
   }
-  tts.cancel()
+  // Let the sentence he is on finish rather than clipping it. The reply itself
+  // is already being abandoned upstream — this is only about the audio.
+  tts.finishThenStop()
   bus.emit('USER_UTTERANCE', { text })
 }
 
@@ -77,11 +79,16 @@ function onInterim(text: string) {
 /**
  * Energy crossed the barge-in floor. Acting on loudness rather than on words is
  * what makes an interruption feel instant — a transcript is a second too late.
+ *
+ * It stops him queueing anything further, but does not cut the current sentence.
+ * Loudness is a crude signal: a cough, a passer-by, or his own voice coming back
+ * through the microphone all cross the same floor, and none of them are worth
+ * chopping a word in half for.
  */
 function onVoiceStart() {
   if (!active || !tts.isSpeaking()) return
   bus.emit('USER_STARTED_SPEAKING')
-  tts.cancel()
+  tts.finishThenStop()
 }
 
 function onError(message: string) {

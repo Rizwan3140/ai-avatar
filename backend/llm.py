@@ -135,9 +135,11 @@ def _system_prompt(
         # less reliably than a frontier model does. Everything below is spoken
         # aloud, so a rambling answer is dead air a visitor walks away from.
         f"{SCOPE}\n\n"
-        "CRITICAL: Reply with at most three short sentences. Never list products "
-        "in bullets or numbers. Never use markdown, asterisks or emoji. Write the "
-        "way you would speak out loud."
+        "CRITICAL: One or two short sentences, then stop. Every word here is "
+        "spoken aloud and he can be interrupted, so a long answer is one the "
+        "visitor never hears the end of. Answer only what was asked. Never list "
+        "products in bullets or numbers. Never use markdown, asterisks or emoji. "
+        "Write the way you would speak out loud."
     )
 
 
@@ -180,11 +182,23 @@ def stream_reply(
         "stream": True,
         "keep_alive": KEEP_ALIVE,
         "options": {
-            "temperature": 0.7,
-            # A ceiling, not a target — three sentences fit comfortably. It exists
+            # Low, not conversational. At 0.7 the model quoted a price that was
+            # not in its prompt two times in five — with a single correct product
+            # in front of it, so this was never a retrieval problem. Warmth here
+            # comes from the persona; sampling temperature only buys variation in
+            # the one place variation is a lie.
+            "temperature": 0.2,
+            # A ceiling, not a target — two sentences fit comfortably. It exists
             # so a model that ignores the brevity rule cannot generate for a
-            # minute into a room where nobody is listening any more.
-            "num_predict": 220,
+            # minute into a room where nobody is listening any more. Lowered from
+            # 220 once the avatar was heard out loud: anything longer is a reply
+            # the visitor interrupts rather than finishes.
+            #
+            # Not lower than this. At 110 the cap itself started truncating —
+            # "...would you like to take" — which is the mid-sentence stop this
+            # change exists to remove, arriving from the other direction. The
+            # prompt does the shortening; this only stops a runaway.
+            "num_predict": 170,
         },
     }
 
