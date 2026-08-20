@@ -4,7 +4,7 @@ import { bus } from '../bus/bus.ts'
 import type { Emotion } from '../bus/events.ts'
 import type { DigitalHumanRenderer, Pose } from './renderer.types.ts'
 import config from './renderer.config.ts'
-import { avatarMedia, onAvatarMedia } from './renderer.avatar.ts'
+import { avatarMedia, onAvatarMedia, visiblePose } from './renderer.avatar.ts'
 import { keepPlaying, preloadClips, startIdlePresence } from './animation.ts'
 
 const POSES: Pose[] = ['idle', 'listen', 'think', 'speak']
@@ -77,8 +77,8 @@ export function Mp4VideoRenderer() {
   useEffect(() => onAvatarMedia(setMedia), [])
 
   // Any pose without footage falls back to idle, so a half-finished avatar still
-  // moves rather than freezing into the poster the moment someone speaks to him.
-  const shown: Pose = missing.has(pose) ? 'idle' : pose
+  // moves rather than freezing the moment someone speaks to him.
+  const shown: Pose = visiblePose(media.clips, pose, missing)
 
   useEffect(() => {
     const idle = videos.current.idle

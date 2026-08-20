@@ -106,3 +106,12 @@
 {"at": "2026-08-20T07:47:02+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
 {"at": "2026-08-20T07:47:32+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
 {"at": "2026-08-20T07:53:15+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T07:57:24+00:00", "event": "question", "session": "trace", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T07:57:24+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T07:57:24+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T08:03:14+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T08:03:41+00:00", "event": "question", "session": "sweep", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T08:03:41+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T08:03:41+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T08:03:45+00:00", "event": "question", "session": "sweep2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
+{"at": "2026-08-20T08:03:49+00:00", "event": "question", "session": "sweep3", "avatar": "krish", "org": "default", "text": "write me a poem", "results": 0, "passages": 0}

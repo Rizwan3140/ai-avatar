@@ -37,3 +37,26 @@ export function onAvatarMedia(fn: (media: AvatarMedia) => void): () => void {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
+
+
+/**
+ * Which clip actually plays for a pose.
+ *
+ * Two ways a pose can have no footage, and only one of them announces itself:
+ *
+ *   - the clip failed to load — the `<video>` fires `onError` and lands in `missing`
+ *   - the clip was never there — `clips[pose]` is undefined, so the element gets
+ *     no `src`, never attempts a load, and never errors
+ *
+ * The second case is the normal one for a half-finished avatar, and checking only
+ * `missing` left it showing an empty video element at full opacity while the idle
+ * clip sat behind it at zero. He froze the instant anyone spoke to him.
+ */
+export function visiblePose(
+  clips: Partial<Record<Pose, string>>,
+  pose: Pose,
+  missing: ReadonlySet<Pose>,
+): Pose {
+  if (clips[pose] && !missing.has(pose)) return pose
+  return 'idle'
+}
