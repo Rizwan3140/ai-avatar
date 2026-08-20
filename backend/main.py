@@ -25,7 +25,8 @@ from fastapi.staticfiles import StaticFiles
 from backend import config
 from backend.routes import platform, studio
 
-FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIST = ROOT / "frontend" / "dist"
 
 IS_EDGE = config.ROLE in ("edge", "all")
 IS_CLOUD = config.ROLE in ("cloud", "all")
@@ -109,6 +110,22 @@ print(f"\nLuxora — services\n{config.report()}\n")
 #
 # A cloud image simply has no `dist/` unless one was built into it, so this is
 # self-limiting rather than conditional.
+# Avatar media is written at runtime and must be served from where it is
+# written, not from the build output.
+#
+# Vite copies `frontend/public/` into `frontend/dist/` when the bundle is built.
+# Everything the Studio uploads — posters, clips, campaign media — lands in
+# `public/`, because that is where `store.py` reads an avatar's metadata from and
+# the two must not disagree. Serving only `dist/` therefore meant every upload
+# 404'd until somebody happened to run `npm run build`: the Studio showed four
+# green clips while the cabinet showed a placeholder silhouette.
+#
+# Mounted before the catch-all below so it wins, and pointed at `public/` so an
+# upload is live the moment it is written.
+RUNTIME_MEDIA = ROOT / "frontend" / "public" / "avatars"
+if RUNTIME_MEDIA.is_dir():
+    app.mount("/avatars", StaticFiles(directory=RUNTIME_MEDIA), name="avatars")
+
 if FRONTEND_DIST.is_dir():
 
     @app.get("/studio{rest:path}", include_in_schema=False)
