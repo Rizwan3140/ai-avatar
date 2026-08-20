@@ -49,6 +49,11 @@ SYNC_INTERVAL = int(_get("SYNC_INTERVAL", "300"))
 # tenant's. Must match what was registered in the studio.
 KIOSK_ID = _get("KIOSK_ID", "default")
 
+# Load the sample catalog when the database is empty. On by default, because a
+# fresh deploy with an empty showroom looks broken. Off for anything that builds
+# its own fixtures — a test's data should be the test's, not the sample's.
+SEED_SAMPLE = _get("LUXORA_SEED", "1") != "0"
+
 # Comma-separated origins allowed to call this API from a browser. Blank — the
 # default — adds no CORS middleware at all, which is correct for a kiosk serving
 # its own UI from this same origin. Set it only when the frontend is hosted

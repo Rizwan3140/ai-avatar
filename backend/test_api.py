@@ -29,6 +29,11 @@ TMP = Path(tempfile.mkdtemp(prefix="luxora-test-api-"))
 
 os.environ["LUXORA_ROLE"] = "cloud"  # no model, no whisper, no microphone
 os.environ["LUXORA_SECRET"] = "test-only-secret"
+# This suite builds its own catalog and asserts exact counts. Importing the app
+# would otherwise seed twelve sample products into the fixture and every count
+# below would be wrong — a side effect at import time is exactly the kind that
+# hides until something depends on it.
+os.environ["LUXORA_SEED"] = "0"
 
 from backend import accounts, catalog, documents, store  # noqa: E402
 

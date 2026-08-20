@@ -89,7 +89,7 @@ if IS_EDGE:
 try:
     from backend import ingest
 
-    _seeded = ingest.seed_if_empty()
+    _seeded = ingest.seed_if_empty() if config.SEED_SAMPLE else 0
     if _seeded:
         print(f"  seeded {_seeded} sample products (catalog was empty)")
 except Exception as _error:  # never block startup on sample data
