@@ -82,6 +82,19 @@ if IS_EDGE:
 
     sync.start()
 
+# A deployed container usually has no persistent disk, and `catalog.db` is kept
+# out of the image because it holds password hashes. Without this the first thing
+# anyone sees on a fresh deploy is an empty showroom. Runs only when the catalog
+# is genuinely empty, so it can never overwrite a real one.
+try:
+    from backend import ingest
+
+    _seeded = ingest.seed_if_empty()
+    if _seeded:
+        print(f"  seeded {_seeded} sample products (catalog was empty)")
+except Exception as _error:  # never block startup on sample data
+    print(f"  could not seed the sample catalog: {_error}")
+
 print(f"\nLuxora — services\n{config.report()}\n")
 
 

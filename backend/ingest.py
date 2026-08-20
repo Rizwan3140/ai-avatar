@@ -40,6 +40,8 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from backend import documents
+
+ROOT = Path(__file__).resolve().parent.parent
 from backend.catalog import DEFAULT_ORG, Product, upsert
 
 
@@ -294,6 +296,40 @@ def absorb(data: bytes, filename: str, org_id: str = DEFAULT_ORG) -> dict:
         documents.replace_source(source, passages, org_id)
 
     return {"source": source, "products": len(products), "passages": len(passages)}
+
+
+def seed_if_empty(org_id: str = DEFAULT_ORG) -> int:
+    """Load the sample catalog on first boot, and only then.
+
+    A container's filesystem is usually ephemeral: `catalog.db` is deliberately
+    not baked into the image (it holds password hashes), so a fresh deploy starts
+    with nothing and the first thing a reviewer sees is an empty showroom.
+
+    The CSVs beside this do ship, so the shortest honest fix is to read them when
+    — and only when — the catalog is empty. An install that already has products,
+    or one whose products were all deliberately deleted and then re-seeded, is a
+    worse outcome than an empty demo, so this checks rather than upserts.
+    """
+    from backend.catalog import all_products
+
+    if all_products(org_id):
+        return 0
+
+    total = 0
+    for name in ("products.csv", "apparel.csv"):
+        path = ROOT / "knowledge" / name
+        if not path.exists():
+            continue
+        try:
+            products, _ = from_bytes(path.read_bytes(), path.name)
+        except Exception:
+            # Seed data is a convenience. A malformed sample must never stop the
+            # server coming up.
+            continue
+        if products:
+            upsert(products, org_id)
+            total += len(products)
+    return total
 
 
 def from_file(path: Path) -> list[Product]:
