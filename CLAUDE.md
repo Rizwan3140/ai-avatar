@@ -23,13 +23,13 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 50 checks
+(cd frontend && npm test)                   # 57 checks
 ./.venv/bin/python -m backend.test_catalog  # 27 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 98 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 52 — the same through the real routes
 ```
 
-227 checks total. **Never run the Python suites through `unittest`** — they are
+234 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -163,6 +163,21 @@ company's prices out loud.
   twelve ninety-nine as the price of *every* product — a laptop at ₹1,899 and a
   shirt at ₹2,499 included. This was read as the model fabricating for months.
   Never put a sample value in a prompt that shares a shape with real data.
+- **Temperature is not a personality setting.** `0.7` reads as a sensible
+  conversational default and quietly costs factual accuracy: prices were wrong 2
+  times in 5 with the correct product alone in the prompt. Warmth belongs in the
+  persona; sampling temperature only buys variation, and a price is the one place
+  variation is a lie. `0.2`.
+- **A brevity cap is not brevity.** Lowering `num_predict` to force short answers
+  just truncates them mid-word — the same "stopped mid-sentence" complaint from
+  the other direction. The prompt does the shortening; the cap only stops a
+  runaway.
+- **Barge-in must not cut mid-word.** The original note said talking over the
+  visitor was the most human-breaking failure, so interruption called
+  `speechSynthesis.cancel()`. In a real room a cough, a passer-by or his own
+  echo all cross the loudness floor, and being chopped mid-word reads as a crash.
+  He now finishes the sentence in flight and starts no more. Reversed after being
+  used, not after being reasoned about.
 - **Small models need prohibitions, not policies.** "Say plainly that we do not
   carry it" was answered with "we do carry washing machines" three times in four.
   Rewritten as flat "Do not say we carry it. Do not offer to show it." it refuses
@@ -183,14 +198,15 @@ company's prices out loud.
 
 1. **The voice loop has never been run with a human microphone.** Not once, across
    the whole project. Everything else rests on it. Half a day to settle.
-2. **The 3B model fabricated — and most of it was the prompt, not the model.**
-   Measured against the running model: prices were wrong because the persona
-   supplied a copyable example number, and the invented category survived because
-   the instruction described a policy rather than forbidding a sentence. With
-   both fixed, prices are correct and "do you sell washing machines" is refused
-   four times in four, on the same `llama3.2:3b`. Four samples per case, so this
-   is a measurement rather than a guarantee, and a larger model on the Mac is
-   still the right answer — but "the model fabricates" was not the whole story.
+2. **The 3B model fabricated — and none of it was the model.** Two causes, both
+   ours. The persona supplied a copyable example number, so every price came back
+   as that number. Then, with the prompt fixed, prices were still only 3 in 5 —
+   because `temperature` was `0.7`, a conversational setting applied to factual
+   recall, and the model invented a price with the correct one alone in its
+   prompt. At `0.2` prices are 9 of 9 and refusals hold 4 of 4 on the same
+   `llama3.2:3b`. Three to five samples per case, so a measurement rather than a
+   guarantee, and a larger model on the Mac is still the right answer — but
+   "the model fabricates" was never the whole story.
 3. **Local lip-sync on Apple Silicon is unproven.** MuseTalk has no official macOS
    support; MLX is the better bet. Spike 0 in the plan, still unrun. The seam is
    in place — `DigitalHumanRenderer` in the frontend, `avatar_provider.py` in the

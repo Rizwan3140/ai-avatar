@@ -71,10 +71,10 @@ drive the panel as a second display over HDMI, which keeps it on `localhost` and
 sidesteps the whole problem.
 
 ```bash
-(cd frontend && npm test)                   # 47 — conversation, navigation, audio
+(cd frontend && npm test)                   # 57 — conversation, navigation, audio, studio
 ./.venv/bin/python -m backend.test_catalog  # 27 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 94 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 49 — the same through the real routes
+./.venv/bin/python -m backend.test_platform # 98 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 52 — the same through the real routes
 ```
 
 No test framework anywhere: `node --test` and a plain assert script. **Tenancy is
@@ -374,7 +374,7 @@ worth nothing.
 | | state |
 |---|---|
 | **The voice loop with a human microphone** | Written, unit-tested, **never once run by a person speaking**. Every attempt was blocked by something environmental. Half an hour on the Mac mini settles it, and until it is settled every estimate resting on it is provisional. |
-| **Model accuracy** | The 3B model fabricates: four documented cases, including quoting one laptop's price for another. That is the model, not the wording. The Mac runs models ten times larger; that test has not been run. |
+| **Model accuracy** | Two causes found, both ours: a copyable example number in the persona, and `temperature` at `0.7` — a conversational setting applied to factual recall. At `0.2` prices are 9 of 9 and refusals 4 of 4 on the same 3B. Three to five samples per case, so a measurement rather than a guarantee. The Mac runs models ten times larger; that comparison has not been run. |
 | **Lip-sync** | The seam exists on both sides and has no second implementation, deliberately. Spike 0 — MLX versus MuseTalk on an M4 Pro — is unrun, and building a renderer for a provider nobody has written is a factory for one product. |
 | **Three of four clips** | Missing, so listen, think and speak all fall back to idle and he does not change when spoken to. That needs footage, not code. |
 | **Try-on has never produced an image** | Consent, camera, endpoint and refusals are all exercised. The two hosted providers are written against published APIs and have never run — that needs a key. Local is declared and refuses. |

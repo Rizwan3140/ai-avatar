@@ -1,7 +1,7 @@
 # Test Execution Report
 
 **Project:** Luxora — AI Digital Human for Transparent OLED Showroom Cabinets
-**Report date:** 17 August 2026
+**Report date:** 20 August 2026
 **Prepared for:** design and engineering review
 
 ---
@@ -67,16 +67,16 @@ On the development machine the interpreter is the project virtualenv:
 ### 4.1 Frontend — `npm test`
 
 ```
-ℹ tests 50
-ℹ pass 50
+ℹ tests 57
+ℹ pass 57
 ℹ fail 0
 ```
 
-**50 passed, 0 failed, 0 errors.**
+**57 passed, 0 failed, 0 errors.**
 
 Covers the conversation state machine, session lifecycle, product navigation and
-pronoun resolution, try-on voice intent, WAV encoding and RMS measurement, and
-selection persistence.
+pronoun resolution, try-on voice intent, WAV encoding and RMS measurement,
+selection persistence, and the import-destination message.
 
 ### 4.2 Backend catalog — `python -m backend.test_catalog`
 
@@ -117,13 +117,13 @@ actual routes and their dependencies rather than the modules behind them.
 
 | Suite | Checks |
 |---|---|
-| Frontend | 50 |
+| Frontend | 57 |
 | Backend catalog | 27 |
 | Backend platform | 98 |
 | Backend API | 52 |
-| **Total** | **227** |
+| **Total** | **234** |
 
-**227 passed · 0 failed · 0 errors.**
+**234 passed · 0 failed · 0 errors.**
 
 ### 5.1 Relationship to the previously reported figures
 
@@ -131,12 +131,13 @@ actual routes and their dependencies rather than the modules behind them.
 |---|---|---|
 | Pre-audit | 217 | Superseded |
 | After Cline Phase 0 + Phase 1 | 221 | Superseded |
-| **This report** | **227** | Current |
+| After try-on and showcase work | 227 | Superseded |
+| **This report** | **234** | Current |
 
-The increase from 221 to 227 is six regression checks added while completing
-Phase 2 and the showcase work — four in `test_platform` and two in the frontend.
-No check was removed, weakened or skipped. Every previously passing check still
-passes.
+221 → 227 was six regression checks from the try-on and showcase work. 227 → 234
+is seven more covering `importMessage`, added when the Products and Documents
+screens were split. No check was removed, weakened or skipped. Every previously
+passing check still passes.
 
 ## 6. Regression tests added
 
@@ -158,10 +159,11 @@ passes.
 | A missing garment file is refused | Silent failure deep inside a provider call |
 | Naming a product keeps it selected when its results arrive | Detail view opening and bouncing back to the grid |
 | A selection no longer in the results is dropped | A stale product staying selected after a new search |
+| `importMessage`, 7 cases across both screens | A file uploaded on one screen landing on the other with nothing said |
 
 ## 7. Limitations
 
-These are the boundaries of what the 227 checks establish. Each is a real gap,
+These are the boundaries of what the 234 checks establish. Each is a real gap,
 not a caveat.
 
 ### 7.1 The API suite runs in cloud role
@@ -229,29 +231,60 @@ frontend) and drove it in Chromium at 1080×1920, 1440×820 and 1920×1080:
 
 ### 8.2 Fabrication measurement
 
-Measured against `llama3.2:3b` through the real `/api/chat` endpoint.
+Measured against `llama3.2:3b` through the real `/api/chat` endpoint. Two
+separate rounds, and the second corrected the first.
 
-| Case | Before | After |
+**Round one — the prompt.** The persona carried a formatting example,
+`Use plain spoken numbers — "twelve ninety-nine"`, and the model copied that
+literal string as the answer to *every* price question: the ₹1,899 laptop and
+the ₹2,499 shirt included. The invented-category case was corrected separately,
+by rewriting the empty-catalog instruction as explicit prohibitions rather than
+as a policy statement.
+
+**Round two — the temperature.** With the prompt fixed, prices *looked* correct
+on small samples. Measured properly they were **3 of 5**. With a single, correct
+product in the prompt the model still answered ₹2,499 for the ₹1,899 laptop —
+so this was never a retrieval failure. `temperature` was `0.7`, a conversational
+setting applied to factual recall. At `0.2` the same questions are **9 of 9**.
+
+| Case | Original | Prompt fixed, temp 0.7 | Prompt fixed, temp 0.2 |
+|---|---|---|---|
+| "How much is the Titan Pro" (₹1,899) | ₹1,299 every time | 3 of 5 | **3 of 3** |
+| "Price of the Aria 14" (₹1,299) | ₹1,299 | correct | **3 of 3** |
+| "How much is the linen shirt" (₹2,499) | ₹1,299 | correct | **3 of 3** |
+| "Do you sell washing machines" (not stocked) | Invented a range, 3 of 4 | Refused 4 of 4 | **Refused 4 of 4** |
+
+Off-topic refusals (poem, arithmetic, general knowledge) hold at `0.2`, and the
+avatar remains helpful and warm on ordinary product questions — warmth comes
+from the persona, not from sampling temperature.
+
+**The correction is the point.** The first round was reported as "prices are
+fixed" on the strength of samples that happened to pass. They were not fixed;
+they were better. Anything measured on fewer than five runs of a
+non-deterministic model should be read as an indication, not a result.
+
+Sample sizes here are three to five runs per case. This remains a measurement,
+not a guarantee, and a larger model on the Mac is still the right answer.
+
+### 8.3 Answer length and interruption
+
+Reported from live use rather than from a test: the avatar stopped mid-word when
+interrupted, and its answers ran long.
+
+| | Before | After |
 |---|---|---|
-| "How much is the Titan Pro" (₹1,899) | Answered ₹1,299 | **Correct** |
-| "What is the price of the Aria 14" (₹1,299) | Answered ₹1,299 | **Correct** |
-| "How much is the linen shirt" (₹2,499) | Answered ₹1,299 | **Correct** |
-| "Do you sell washing machines" (not stocked) | Invented a range, 3 of 4 runs | **Refused, 4 of 4 runs** |
+| Words per reply, 7 questions | 40–60 | **28 average** |
+| Replies truncated by the token cap | — | **0 of 7** |
+| Barge-in behaviour | Cut off mid-word | Finishes the sentence in flight |
 
-**Root cause of the price fabrication was a defect in the prompt, not the
-model.** The persona contained a formatting example — `Use plain spoken numbers
-— "twelve ninety-nine"` — and the 3B model copied that literal string as the
-answer to every price question. Removing the copyable number corrected all three
-price cases.
-
-The invented-category case was corrected by rewriting the empty-catalog
-instruction as explicit prohibitions rather than a policy statement.
-
-Sample size is four runs per case. This is a measurement, not a guarantee.
+`num_predict` went 220 → 110 → 170. At 110 the cap itself truncated
+("…would you like to take"), which is the same mid-sentence stop arriving from
+the other direction. The prompt does the shortening; the cap only stops a
+runaway.
 
 ## 9. Conclusion
 
-The automated baseline is **227 passing checks with zero failures and zero
+The automated baseline is **234 passing checks with zero failures and zero
 errors**, and it is reproducible with four commands.
 
 That baseline covers the platform thoroughly — tenancy, accounts, catalog,
