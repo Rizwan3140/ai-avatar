@@ -14,6 +14,9 @@ import * as tts from './tts.ts'
 
 let active = false
 
+/** Who this cabinet's avatar sounds like. Set once identity is known. */
+export const setVoiceProfile = tts.setVoiceProfile
+
 export function initialize(): Promise<void> {
   return tts.loadVoices()
 }

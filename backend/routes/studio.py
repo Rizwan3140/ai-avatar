@@ -191,6 +191,7 @@ class AvatarPatch(BaseModel):
     persona: str | None = None
     greeting: str | None = None
     language: str | None = None
+    gender: str | None = None
     voice: str | None = None
     renderer: str | None = None
 
@@ -200,6 +201,7 @@ class AvatarCreate(BaseModel):
     greeting: str = ""
     persona: str = ""
     language: str = "en-US"
+    gender: str = ""
 
 
 def _avatar_or_404(avatar_id: str, caller: Principal) -> store.Avatar:
@@ -229,6 +231,7 @@ def create_avatar(req: AvatarCreate, caller: Principal = Depends(editor)):
         greeting=req.greeting,
         persona=req.persona,
         language=req.language,
+        gender=req.gender,
     )
     return _with_status(avatar)
 

@@ -1,8 +1,23 @@
 import { bus } from '../bus/bus.ts'
 import { splitSentences } from '../logic.ts'
+import { pickVoice } from './pickVoice.ts'
 import config from './voice.config.ts'
 
 let voice: SpeechSynthesisVoice | null = null
+/** Who is speaking — set from the avatar this cabinet is showing. */
+let profile: { gender?: string; voice?: string; lang?: string } = {}
+
+/**
+ * Tell the synthesiser who it is speaking as.
+ *
+ * Called at boot once the kiosk knows its avatar. Re-picks immediately, so a
+ * cabinet re-pointed at a different avatar does not keep the previous voice.
+ */
+export function setVoiceProfile(next: typeof profile): void {
+  profile = next
+  const voices = speechSynthesis.getVoices()
+  if (voices.length) voice = pickVoice(voices, profile)
+}
 let queue: string[] = []
 let buffer = ''
 let streamOpen = false
@@ -22,13 +37,7 @@ export function loadVoices(): Promise<void> {
     const pick = () => {
       const voices = speechSynthesis.getVoices()
       if (!voices.length) return false
-      voice =
-        config.preferredVoices
-          .map((name) => voices.find((v) => v.name === name))
-          .find(Boolean) ??
-        voices.find((v) => v.lang.replace('_', '-') === config.lang) ??
-        voices.find((v) => v.lang.startsWith('en')) ??
-        voices[0]
+      voice = pickVoice(voices, profile)
       return true
     }
 

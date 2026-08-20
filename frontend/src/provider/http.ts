@@ -115,6 +115,11 @@ export type KioskConfig = {
     id: string
     name: string
     greeting: string
+    /** "male" | "female" | "" — decides which browser voice speaks. */
+    gender: string
+    /** An exact voice name, overriding gender. */
+    voice: string
+    language: string
     poster: string
     clips: Record<string, string>
   }

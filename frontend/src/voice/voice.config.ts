@@ -2,15 +2,40 @@ export default {
   lang: 'en-US',
 
   /**
-   * Preferred voices, best first. Browser voice names are wildly inconsistent
-   * across platforms, so this is a preference list and not a guarantee — the
-   * first en-* voice is the floor.
+   * Preferred voices per gender, best first.
+   *
+   * Split because the single list this replaced opened with "Google UK English
+   * Female" and continued with Aria, Jenny and Samantha — every one of them a
+   * woman. A male avatar therefore spoke in a woman's voice, on every platform,
+   * from the first day. Nobody notices reading code; everybody notices hearing it.
+   *
+   * Browser voice names are wildly inconsistent across platforms, so these are
+   * preferences and not guarantees. Each list runs Windows, then Chrome, then
+   * macOS, and the first available en-* voice is the floor beneath all of them.
    */
+  voicesByGender: {
+    male: [
+      'Microsoft Guy Online (Natural) - English (United States)',
+      'Microsoft Ryan Online (Natural) - English (United Kingdom)',
+      'Microsoft David - English (United States)',
+      'Google UK English Male',
+      'Daniel',
+      'Alex',
+    ],
+    female: [
+      'Microsoft Aria Online (Natural) - English (United States)',
+      'Microsoft Jenny Online (Natural) - English (United States)',
+      'Microsoft Zira - English (United States)',
+      'Google UK English Female',
+      'Samantha',
+      'Karen',
+    ],
+  } as Record<string, string[]>,
+
+  /** When an avatar has no gender set. Deliberately not a gendered list. */
   preferredVoices: [
-    'Google UK English Female',
     'Google US English',
     'Microsoft Aria Online (Natural) - English (United States)',
-    'Microsoft Jenny Online (Natural) - English (United States)',
     'Samantha',
   ],
 

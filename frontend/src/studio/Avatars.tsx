@@ -206,13 +206,29 @@ export function Avatars({ who }: { who: Principal }) {
                     onChange={(e) => setDraft((d) => ({ ...d, language: e.target.value }))}
                   />
                 </Field>
-                <Field label="Voice" hint="Blank uses the browser's own voice.">
-                  <input
-                    className="input"
-                    disabled={!mayWrite}
-                    value={value('voice') ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, voice: e.target.value }))}
-                  />
+                <Field
+                  label="Voice"
+                  hint="Pick a gender and the browser chooses a matching voice. Type an exact voice name only to override that."
+                >
+                  <div className="flex gap-2">
+                    <select
+                      className="input w-32"
+                      disabled={!mayWrite}
+                      value={value('gender') ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, gender: e.target.value }))}
+                    >
+                      <option value="">Either</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                    <input
+                      className="input"
+                      disabled={!mayWrite}
+                      placeholder="or an exact voice name"
+                      value={value('voice') ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, voice: e.target.value }))}
+                    />
+                  </div>
                 </Field>
               </div>
 

@@ -25,6 +25,7 @@ export type Avatar = {
   persona: string
   greeting: string
   language: string
+  gender: string
   voice: string
   renderer: string
   org_id: string

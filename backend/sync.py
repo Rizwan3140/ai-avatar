@@ -30,7 +30,7 @@ TIMEOUT = 10
 #: Written by sync, read by store.py. Only ever holds this cabinet's own row.
 SYNCED_KEYS = (
     "name", "persona", "greeting", "language",
-    "voice", "renderer", "provider_avatar_id", "org_id",
+    "gender", "voice", "renderer", "provider_avatar_id", "org_id",
 )
 
 

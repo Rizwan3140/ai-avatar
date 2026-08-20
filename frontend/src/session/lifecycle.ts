@@ -35,6 +35,13 @@ export async function boot(): Promise<void> {
       wanted ? fetchAvatar(wanted) : fetchKiosk(KIOSK_ID),
     )
     setIdentity(avatar.id, avatar.name, avatar.greeting)
+    // Who is speaking. Without this the synthesiser takes the first name on a
+    // fixed list, which is how a male avatar ended up with a woman's voice.
+    voice.setVoiceProfile({
+      gender: avatar.gender,
+      voice: avatar.voice,
+      lang: avatar.language,
+    })
     // Whether this cabinet may offer a camera at all. Arrives with identity so
     // there is no second round trip and no moment where the button flickers in.
     if (tryon) setTryOn(tryon)

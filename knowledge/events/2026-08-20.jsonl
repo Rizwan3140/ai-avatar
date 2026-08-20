@@ -115,3 +115,4 @@
 {"at": "2026-08-20T08:03:41+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
 {"at": "2026-08-20T08:03:45+00:00", "event": "question", "session": "sweep2", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
 {"at": "2026-08-20T08:03:49+00:00", "event": "question", "session": "sweep3", "avatar": "krish", "org": "default", "text": "write me a poem", "results": 0, "passages": 0}
+{"at": "2026-08-20T08:41:07+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

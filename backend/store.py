@@ -43,7 +43,11 @@ class Avatar:
     persona: str
     greeting: str
     language: str = "en-US"
-    voice: str = ""              # Kokoro / ElevenLabs voice id, blank = browser default
+    #: "male", "female", or blank when it does not matter. Decides which browser
+    #: voice speaks for this avatar — without it the picker takes the first name
+    #: on a fixed list, which is how a man ended up speaking in a woman's voice.
+    gender: str = ""
+    voice: str = ""              # an exact voice name, overriding gender entirely
     renderer: str = "mp4"        # mp4 | simli | heygen | anam
     provider_avatar_id: str = "" # set once a lip-sync provider has cloned them
     org_id: str = DEFAULT_ORG
@@ -90,6 +94,7 @@ def _read_avatar(folder: Path) -> Avatar:
         persona=meta.get("persona") or DEFAULT_PERSONA,
         greeting=meta.get("greeting") or "Welcome.\nHow may I help you today?",
         language=meta.get("language", "en-US"),
+        gender=meta.get("gender", ""),
         voice=meta.get("voice", ""),
         renderer=meta.get("renderer", "mp4"),
         provider_avatar_id=meta.get("provider_avatar_id", ""),
@@ -145,6 +150,7 @@ def create_avatar(name: str, org_id: str = DEFAULT_ORG, **fields) -> Avatar:
         persona=fields.get("persona") or DEFAULT_PERSONA,
         greeting=fields.get("greeting") or "Welcome.\nHow may I help you today?",
         language=fields.get("language", "en-US"),
+        gender=fields.get("gender", ""),
         voice=fields.get("voice", ""),
         renderer=fields.get("renderer", "mp4"),
         org_id=org_id,
