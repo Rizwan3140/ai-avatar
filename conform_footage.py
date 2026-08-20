@@ -76,7 +76,9 @@ def conform(sources: list[Path], name: str, out_dir: Path, pingpong: bool = True
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(result.stderr[-1500:])
-        raise SystemExit(f"ffmpeg failed on {source}")
+        # `sources`, not `source` — the singular never existed in this scope, so
+        # every ffmpeg failure raised NameError and hid its own error message.
+        raise SystemExit(f"ffmpeg failed on {joined_names}")
 
 
 def poster_from(source: Path, out_dir: Path) -> None:

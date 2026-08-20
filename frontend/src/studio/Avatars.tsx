@@ -12,6 +12,18 @@ import { Button, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
  * Everything shown is real state. The gaps it reports — a missing clip, a
  * renderer with no key — are gaps in the product rather than in the page.
  */
+/**
+ * What each clip has to show. Lifted from frontend/public/README.md so the
+ * person commissioning the footage can read it at the moment they upload it,
+ * rather than finding out afterwards that `speak` needed a moving mouth.
+ */
+const CLIP_HINT: Record<string, string> = {
+  idle: 'Stands still and breathes, occasional blink, mouth closed. 25–40s.',
+  listen: 'Attentive, slight forward lean, small understanding nod. Mouth closed. 6–10s.',
+  think: 'Eyes drift up and aside, considers, returns to camera. 4–8s.',
+  speak: 'Talks to camera — mouth moving, eyebrows, small head movements. 8–12s.',
+}
+
 export function Avatars({ who }: { who: Principal }) {
   const { data: avatars, setData, error, reload } = useLoad(() => api<Avatar[]>('/api/studio/avatars'))
   const [selected, setSelected] = useState('')
@@ -76,6 +88,26 @@ export function Avatars({ who }: { who: Principal }) {
       if (!avatar) return
       replace(await upload<Avatar>(`/api/studio/avatars/${avatar.id}/photo`, file))
       setNote('Poster rebuilt. He still needs clips before he moves.')
+    })
+
+  const clip = (pose: string, file: File) =>
+    act(`clip-${pose}`, async () => {
+      if (!avatar) return
+      replace(await upload<Avatar>(`/api/studio/avatars/${avatar.id}/clips/${pose}`, file))
+      setNote(
+        `${pose} installed — cropped to 9:16, forced to true white and ping-ponged so it ` +
+          `loops without a seam. Reload the kiosk to see it.`,
+      )
+    })
+
+  const dropClip = (pose: string) =>
+    act(`clip-${pose}`, async () => {
+      if (!avatar) return
+      if (!window.confirm(`Remove the ${pose} clip? It falls back to idle.`)) return
+      replace(
+        await api<Avatar>(`/api/studio/avatars/${avatar.id}/clips/${pose}`, { method: 'DELETE' }),
+      )
+      setNote(`${pose} removed. That pose falls back to idle.`)
     })
 
   if (error) return <Note tone="warn">{error}</Note>
@@ -229,25 +261,57 @@ export function Avatars({ who }: { who: Principal }) {
 
               <Field
                 label="Footage"
-                hint="Produced by conform_footage.py and installed on the kiosk's own disk — clips are tens of megabytes and never sync."
+                hint="One short clip per state. Uploads are cropped to 9:16, forced to true white and ping-ponged so they loop without a visible seam — a raw generator clip does none of that. Installed on this machine's disk; clips are tens of megabytes and never sync."
               >
-                <div className="flex gap-2">
-                  {POSES.map((pose) => (
-                    <span
-                      key={pose}
-                      className={`rounded px-2 py-1 text-xs ${
-                        avatar.clips[pose]
-                          ? 'bg-emerald-50 text-emerald-800'
-                          : 'bg-line/50 text-ink-soft line-through'
-                      }`}
-                    >
-                      {pose}
-                    </span>
-                  ))}
+                <div className="flex flex-col gap-1">
+                  {POSES.map((pose) => {
+                    const have = Boolean(avatar.clips[pose])
+                    const working = busy === `clip-${pose}`
+                    return (
+                      <div
+                        key={pose}
+                        className="flex flex-wrap items-center gap-3 rounded border border-line bg-white px-3 py-2 text-sm"
+                      >
+                        <span
+                          aria-hidden
+                          className={`size-2 shrink-0 rounded-full ${have ? 'bg-emerald-600' : 'bg-line-strong'}`}
+                        />
+                        <span className="w-14 font-medium">{pose}</span>
+                        <span className="text-ink-soft min-w-0 flex-1 text-xs">
+                          {working
+                            ? 'Conforming — ffmpeg is re-encoding, this takes a moment…'
+                            : have
+                              ? CLIP_HINT[pose]
+                              : `Missing — falls back to idle. ${CLIP_HINT[pose]}`}
+                        </span>
+                        {mayWrite && (
+                          <FilePicker
+                            label={have ? 'Replace' : 'Upload'}
+                            accept="video/mp4,video/webm,video/quicktime"
+                            disabled={!!busy}
+                            onPick={(file) => clip(pose, file)}
+                          />
+                        )}
+                        {mayWrite && have && pose !== 'idle' && (
+                          <button
+                            type="button"
+                            onClick={() => dropClip(pose)}
+                            disabled={!!busy}
+                            className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
+                          >
+                            remove
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
                 {avatar.missing_clips.length > 0 && (
                   <span className="text-ink-soft text-xs">
-                    Missing poses fall back to idle, so he does not change when spoken to.
+                    Missing poses fall back to idle, so he does not change when spoken to — and with
+                    no <code className="bg-line/50 rounded px-1">speak</code> clip his mouth stays
+                    shut while his voice comes out of the speaker, which is the loudest tell in the
+                    whole product.
                   </span>
                 )}
               </Field>

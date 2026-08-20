@@ -301,6 +301,96 @@ async def upload_photo(
     return _with_status(_avatar_or_404(avatar_id, caller))
 
 
+@router.post("/studio/avatars/{avatar_id}/clips/{pose}")
+async def upload_clip(
+    avatar_id: str, pose: str, request: Request, caller: Principal = Depends(editor)
+):
+    """A raw generated clip in, installed footage out.
+
+    This was command-line only, which meant the one thing standing between an
+    avatar and being believable — the three poses that are not idle — could not
+    be added by the person who commissioned the footage.
+
+    The bytes go through `conform_footage.conform()` rather than to disk, because
+    a raw generator clip is not usable as it arrives. That function crops to 9:16,
+    forces full-range output so #FFFFFF does not decode to ~#EBEBEB, strips the
+    audio track, and — the reason it exists — ping-pongs the clip so it loops
+    without a visible seam. Generators do not produce loopable footage, and a
+    seam every few seconds is the fastest way to stop reading as a person.
+
+    Slow on purpose: `-preset slow -crf 18`. A ten-second clip takes tens of
+    seconds, which is why it runs off the event loop.
+    """
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    if pose not in store.POSES:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
+
+    clip = await request.body()
+    if not clip:
+        raise HTTPException(400, "no clip on the request body")
+    # Generous: conformed footage is ~11 MB and a raw 4K generator clip is larger.
+    if len(clip) > 200 * 1024 * 1024:
+        raise HTTPException(413, "that clip is over 200 MB")
+
+    folder = store.avatar_dir(avatar.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    source = folder / f"upload-{pose}.src"
+    source.write_bytes(clip)
+
+    try:
+        from fastapi.concurrency import run_in_threadpool
+
+        import conform_footage
+
+        await run_in_threadpool(conform_footage.conform, [source], pose, folder)
+
+        # A first frame is only worth taking when there is no poster yet. An
+        # existing one came from a cut-out photograph, which is on true white;
+        # a video frame is not, and silently replacing the better one would put
+        # the grey-rectangle bug back.
+        if pose == "idle" and not (folder / "poster.png").exists():
+            await run_in_threadpool(conform_footage.poster_from, folder / "idle.mp4", folder)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            501,
+            "ffmpeg is not on this machine's PATH, and conforming footage needs it. "
+            "Install ffmpeg, or run conform_footage.py where it is available.",
+        ) from exc
+    except SystemExit as exc:
+        # conform_footage raises this when ffmpeg rejects the input.
+        raise HTTPException(
+            422, f"ffmpeg could not read that clip — is it really a video? ({exc})"
+        ) from exc
+    except Exception as exc:
+        # Anything else ffmpeg or the filter graph throws is still a bad upload
+        # rather than a broken server, and the person who picked the file is the
+        # one who can fix it. Without this a mistyped file is a 500.
+        raise HTTPException(
+            422, f"could not conform that clip — is it really a video? ({type(exc).__name__})"
+        ) from exc
+    finally:
+        source.unlink(missing_ok=True)
+
+    return _with_status(_avatar_or_404(avatar_id, caller))
+
+
+@router.delete("/studio/avatars/{avatar_id}/clips/{pose}")
+def delete_clip(avatar_id: str, pose: str, caller: Principal = Depends(editor)):
+    """Remove one pose. It falls back to idle, which is what a missing pose does
+    anyway — so this is how you undo a clip that turned out wrong."""
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    if pose not in store.POSES:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
+
+    target = store.avatar_dir(avatar.id) / f"{pose}.mp4"
+    if not target.exists():
+        raise HTTPException(404, "no such clip")
+    target.unlink()
+    return _with_status(_avatar_or_404(avatar_id, caller))
+
+
 # --- kiosks ------------------------------------------------------------------
 
 
