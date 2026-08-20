@@ -3,7 +3,11 @@ import { useStore } from '../state/store.ts'
 import { useBurnInShift } from './useBurnInShift.ts'
 
 /**
- * Two controls. Ever. Right edge, middle height, floating.
+ * Three controls. Right edge, middle height, floating.
+ *
+ * It was two — start and end — until a visitor needed to say something to the
+ * person beside them without a cabinet listening. Mute is not a fourth idea, it
+ * is the missing half of start.
  *
  * They are filled rather than glass: a translucent white circle on a pure white
  * page has no edge, so the control and its icon both disappear. Filling them is
@@ -11,10 +15,13 @@ import { useBurnInShift } from './useBurnInShift.ts'
  */
 export function Controls() {
   const status = useStore((s) => s.status)
+  const muted = useStore((s) => s.muted)
   const shift = useBurnInShift()
 
   const live = status !== 'booting' && status !== 'initializing' && status !== 'sleeping'
-  const inConversation = live && status !== 'idle'
+  // Muting parks him at idle, so `status` alone would report the conversation
+  // over and disable the very button needed to switch the microphone back on.
+  const inConversation = live && (status !== 'idle' || muted)
 
   return (
     <div
@@ -32,6 +39,15 @@ export function Controls() {
       </ControlButton>
 
       <ControlButton
+        label={muted ? 'Turn the microphone back on' : 'Mute the microphone'}
+        tone="ink"
+        disabled={!inConversation}
+        onClick={() => bus.emit('MIC_MUTED', { muted: !muted })}
+      >
+        {muted ? <MicOffIcon /> : <MicIcon />}
+      </ControlButton>
+
+      <ControlButton
         label="End conversation"
         tone="ink"
         disabled={!inConversation}
@@ -39,6 +55,15 @@ export function Controls() {
       >
         <StopIcon />
       </ControlButton>
+
+      {/* Said in words as well as in an icon. A person deciding whether to speak
+          freely in front of a camera-height display should not have to interpret
+          a glyph, and the microphone really is released underneath this. */}
+      {muted && (
+        <p className="absolute top-1/2 right-full mr-3 -translate-y-1/2 rounded-full bg-ink px-3 py-1 text-sm whitespace-nowrap text-white">
+          Microphone off
+        </p>
+      )}
     </div>
   )
 }
@@ -84,6 +109,18 @@ function MicIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** The same microphone, struck through. Drawn rather than layered as a rotated
+ *  border, so it survives the button's `overflow-hidden`. */
+function MicOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
+      <path d="M4 3l16 18" strokeLinecap="round" />
     </svg>
   )
 }

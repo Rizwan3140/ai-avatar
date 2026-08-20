@@ -24,7 +24,7 @@ function untilSpeaking() {
 }
 
 beforeEach(() => {
-  useStore.setState({ status: 'booting', subtitle: '', emotion: 'neutral' })
+  useStore.setState({ status: 'booting', subtitle: '', emotion: 'neutral', muted: false })
 })
 
 test('boot ends in idle, not in a conversation', () => {
@@ -100,6 +100,33 @@ test('ending a session returns to a clean idle', () => {
   bus.emit('SESSION_ENDED')
   assert.equal(status(), 'idle')
   assert.equal(subtitle(), '')
+})
+
+test('muting parks him at idle without ending the conversation', () => {
+  untilSpeaking()
+  bus.emit('MIC_MUTED', { muted: true })
+  assert.equal(status(), 'idle')
+  assert.equal(useStore.getState().muted, true)
+  // The caption goes with the microphone — a sentence left on screen after the
+  // room was muted reads as something still being said.
+  assert.equal(subtitle(), '')
+
+  bus.emit('MIC_MUTED', { muted: false })
+  assert.equal(status(), 'listening')
+  assert.equal(useStore.getState().muted, false)
+})
+
+test('a muted session does not stay muted for the next visitor', () => {
+  // `muted` outliving its session would hand the next person a cabinet that
+  // looks live and hears nothing, with no clue why.
+  untilSpeaking()
+  bus.emit('MIC_MUTED', { muted: true })
+  bus.emit('SESSION_ENDED')
+  assert.equal(useStore.getState().muted, false)
+
+  bus.emit('SESSION_STARTED')
+  assert.equal(status(), 'listening')
+  assert.equal(useStore.getState().muted, false)
 })
 
 test('sleep and wake', () => {

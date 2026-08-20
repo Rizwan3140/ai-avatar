@@ -43,6 +43,30 @@ bus.on('SESSION_STARTED', () => {
   void recognition.startListening({ onInterim, onFinal, onVoiceStart, onError })
 })
 
+/**
+ * Mute releases the microphone rather than ignoring what it hears.
+ *
+ * `stopListening` stops the media tracks and closes the AudioContext, so the
+ * browser's own recording indicator goes out and the operating system stops
+ * reporting this tab as listening. A visitor can therefore *check* that the
+ * cabinet is not hearing them, instead of taking a caption's word for it —
+ * which is the only version of this control worth shipping in a room full of
+ * strangers.
+ *
+ * `active` goes down with it, so a transcript already in flight when the button
+ * was pressed is discarded rather than answered.
+ */
+bus.on('MIC_MUTED', ({ muted }) => {
+  if (muted) {
+    active = false
+    void recognition.stopListening()
+    tts.cancel(false)
+    return
+  }
+  active = true
+  void recognition.startListening({ onInterim, onFinal, onVoiceStart, onError })
+})
+
 bus.on('SESSION_ENDED', stopEverything)
 bus.on('SESSION_SLEEP', stopEverything)
 

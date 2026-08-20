@@ -218,3 +218,6 @@
 {"at": "2026-08-20T10:27:31+00:00", "event": "question", "session": "86cb6b51-41f8-4b96-ad55-36b550dccffb", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
 {"at": "2026-08-20T10:27:44+00:00", "event": "question", "session": "0f9a1333-d5a4-4e20-bc07-6f600949aad8", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
 {"at": "2026-08-20T10:28:28+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T10:31:27+00:00", "event": "question", "session": "7224ff58-57a3-410a-8a5e-ad2f830ae7bf", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:31:40+00:00", "event": "question", "session": "8cd2c9e0-acf9-48e8-8885-2335751dd356", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:37:07+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

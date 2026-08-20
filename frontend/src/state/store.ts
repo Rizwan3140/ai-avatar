@@ -22,6 +22,9 @@ type State = {
   greeting: string
   initStep: string
   error: string | null
+  /** The visitor has taken the microphone away. The session is still open;
+   *  he simply cannot hear the room until it comes back. */
+  muted: boolean
 
   /** Products on screen. Empty means he has the whole display to himself. */
   products: Product[]
@@ -51,6 +54,7 @@ export const useStore = create<State>(() => ({
   greeting: '',
   initStep: '',
   error: null,
+  muted: false,
   products: [],
   selected: null,
   // Off until the kiosk says otherwise. A camera that appears by default because
@@ -69,9 +73,22 @@ bus.on('SYSTEM_ERROR', ({ message }) => set({ error: message }))
 
 // The mic stays hot for the whole conversation, so a session begins in
 // listening and returns there after every reply. Idle means no conversation.
-bus.on('SESSION_STARTED', () => set({ status: 'listening', subtitle: '' }))
-bus.on('SESSION_ENDED', () => set({ status: 'idle', subtitle: '', emotion: 'neutral' }))
-bus.on('SESSION_SLEEP', () => set({ status: 'sleeping', subtitle: '' }))
+bus.on('SESSION_STARTED', () => set({ status: 'listening', subtitle: '', muted: false }))
+bus.on('SESSION_ENDED', () =>
+  set({ status: 'idle', subtitle: '', emotion: 'neutral', muted: false }),
+)
+bus.on('SESSION_SLEEP', () => set({ status: 'sleeping', subtitle: '', muted: false }))
+
+// Muting drops him to idle rather than leaving him poised to listen. Standing
+// attentively at someone who has just switched the microphone off is the
+// unsettling version — idle is him waiting, which is what is actually true.
+//
+// The status is the same 'idle' as no-conversation, so the sleep timer arms and
+// a cabinet left muted eventually sleeps. That is the right outcome for the
+// panel; `muted` is what keeps the controls reachable in the meantime.
+bus.on('MIC_MUTED', ({ muted }) =>
+  set({ muted, status: muted ? 'idle' : 'listening', subtitle: '' }),
+)
 bus.on('SESSION_WAKE', () => set({ status: 'idle', subtitle: '' }))
 
 bus.on('USER_STARTED_SPEAKING', () => set({ status: 'listening', subtitle: '' }))

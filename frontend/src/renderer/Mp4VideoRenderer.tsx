@@ -12,9 +12,23 @@ const POSES: Pose[] = ['idle', 'listen', 'think', 'speak']
 /**
  * Renderer-owned state. Pose is not status: booting and sleeping are not poses.
  *
- * `live` is whether he is in a conversation. Out of one he is a still poster —
- * a figure moving at an empty room is unsettling, and coming alive the moment
- * someone engages him is the whole first impression.
+ * `live` is whether any footage is shown at all. It is false only while asleep,
+ * when the panel is dark and there is nothing to render.
+ *
+ * It used to be false out of a conversation too, on the reasoning that a figure
+ * moving at an empty room is unsettling. Three other parts of this project
+ * disagree, and they were built later: the footage brief specifies idle at 25-40
+ * seconds because "a short idle loop is a loop the eye catches",
+ * `conform_footage.py` ping-pongs every clip so it loops without a seam, and
+ * `startIdlePresence` jitters the playback rate to defeat periodicity. None of
+ * that matters unless idle plays for minutes at a time.
+ *
+ * It also meant an avatar with all four clips never showed its idle clip at all,
+ * and an avatar with only idle showed it exclusively while *speaking* — a clip
+ * whose brief reads "mouth closed, no talking".
+ *
+ * A still photograph on a transparent panel reads as a mannequin. Breathing is
+ * the difference between this medium and printed signage.
  */
 const useRenderer = create<{ pose: Pose; present: boolean; live: boolean }>(() => ({
   pose: 'idle',
@@ -38,7 +52,7 @@ export const mp4Renderer: DigitalHumanRenderer = {
   },
   // idle() means "no conversation", so it drops back to the still poster.
   // The other three only ever happen inside one.
-  idle: () => set({ pose: 'idle', present: true, live: false }),
+  idle: () => set({ pose: 'idle', present: true, live: true }),
   listen: () => set({ pose: 'listen', present: true, live: true }),
   think: () => set({ pose: 'think', present: true, live: true }),
   speak: () => set({ pose: 'speak', present: true, live: true }),
@@ -61,6 +75,7 @@ bus.on('USER_UTTERANCE', () => mp4Renderer.think())
 bus.on('SPEECH_STARTED', () => mp4Renderer.speak())
 bus.on('SPEECH_ENDED', () => mp4Renderer.listen())
 bus.on('REPLY_ABORTED', () => mp4Renderer.listen())
+bus.on('MIC_MUTED', ({ muted }) => (muted ? mp4Renderer.idle() : mp4Renderer.listen()))
 bus.on('SESSION_SLEEP', () => mp4Renderer.stop())
 bus.on('SESSION_WAKE', () => mp4Renderer.idle())
 bus.on('EMOTION_CHANGED', ({ emotion }) => mp4Renderer.setEmotion(emotion))
