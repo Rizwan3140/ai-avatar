@@ -26,6 +26,14 @@ let speaking = false
 let announced = false
 /** What is leaving the speaker right now — the echo filter compares against this. */
 let spokenNow = ''
+/**
+ * Bumped by `cancel()`. A cancelled utterance still fires its `onend`, and
+ * that callback used to announce SPEECH_ENDED — so ending a conversation set
+ * the renderer to idle and then immediately back to listening, and he stood
+ * there leaning attentively at an empty room. Callbacks from a superseded
+ * utterance check this and stay quiet.
+ */
+let epoch = 0
 
 /**
  * Resolve voices before she is ever asked to talk. getVoices() is async in
@@ -117,6 +125,7 @@ export function finishThenStop(): void {
 
 /** Hard stop, mid-word. The end of a session, or a reply that failed. */
 export function cancel(announce = true): void {
+  epoch += 1
   const wasActive = speaking || queue.length > 0
   queue = []
   buffer = ''
@@ -138,6 +147,7 @@ export function isSpeaking(): boolean {
 
 function pump(): void {
   if (speaking) return
+  const mine = epoch
   const text = queue.shift()
   if (!text) return
 
@@ -166,6 +176,8 @@ function pump(): void {
   speechSynthesis.speak(utterance)
 
   function next() {
+    // Superseded by a cancel: this utterance's completion is not news.
+    if (mine !== epoch) return
     speaking = false
     spokenNow = ''
     if (queue.length) return pump()

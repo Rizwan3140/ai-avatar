@@ -207,3 +207,14 @@
 {"at": "2026-08-20T09:23:24+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
 {"at": "2026-08-20T09:23:24+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
 {"at": "2026-08-20T09:37:09+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T10:18:00+00:00", "event": "question", "session": "tiny-0", "avatar": "krish", "org": "default", "text": "how much is the linen shirt", "results": 2, "passages": 0}
+{"at": "2026-08-20T10:18:00+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T10:18:00+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T10:18:01+00:00", "event": "question", "session": "tiny-1", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T10:18:01+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T10:18:01+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T10:25:55+00:00", "event": "question", "session": "5e7c3ccb-c46c-41d9-a96d-00d7b47f83be", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:26:08+00:00", "event": "question", "session": "2bb8c483-c15f-4f6e-9c97-574adf7a5f10", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:27:31+00:00", "event": "question", "session": "86cb6b51-41f8-4b96-ad55-36b550dccffb", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:27:44+00:00", "event": "question", "session": "0f9a1333-d5a4-4e20-bc07-6f600949aad8", "avatar": "krish", "org": "default", "text": "hello", "results": 0, "passages": 0}
+{"at": "2026-08-20T10:28:28+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
