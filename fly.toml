@@ -13,6 +13,19 @@ primary_region = "bom"
 
 [env]
   LUXORA_ROLE = "cloud"
+  # Which cabinet the deployed kiosk page identifies as. A reviewer opening the
+  # root URL gets this one; /studio can register others.
+  KIOSK_ID = "cloud-demo"
+
+# Secrets are never in this file. Set them once with:
+#   fly secrets set LUXORA_SECRET="$(openssl rand -base64 48)"
+#   fly secrets set GROQ_API_KEY=gsk_...
+#
+# LUXORA_SECRET signs studio sessions — without it a redeploy logs everyone out,
+# because it is otherwise generated per-machine onto ephemeral storage.
+# GROQ_API_KEY is what makes conversation work at all in this role: with it,
+# llm.py and stt.py resolve to their hosted branches. Without it the platform
+# still runs and simply cannot talk.
 
 [http_service]
   internal_port = 8080

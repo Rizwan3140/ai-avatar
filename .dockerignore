@@ -1,17 +1,40 @@
-# Keep the cloud image small. Everything here is edge-only or rebuildable.
+# Keep the cloud image small — but not so small it cannot build the interface.
+#
+# `frontend/` used to be excluded wholesale, from when the image was API-only.
+# The Dockerfile now builds the UI in a first stage, so the source has to reach
+# the build context; what must not reach it is anything rebuildable or heavy.
+
+# Rebuilt inside the image, and platform-specific if copied.
 .venv/
 __pycache__/
 *.pyc
-node_modules/
-frontend/
-raw/
-.git/
-.env
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+
+# Footage is edge-only. Clips are tens of megabytes each and a cabinet serves
+# its own from local disk — copying them here would inflate the image for files
+# the cloud role never reads.
 *.mp4
-*.png
-*.jpg
-*.exe
-*.zip
+*.webm
+raw/
+
+# The full-resolution source photograph, kept only for regenerating a poster.
+# The generated poster.png is small and does ship.
+frontend/public/avatars/*/Krish.png
+frontend/public/avatars/*/source-photo
+
+# Secrets and local state. The volume supplies these at runtime.
+.env
+knowledge/.secret
+knowledge/catalog.db
+
+# Not part of the build.
+.git/
+.github/
 Docs/
 *.md
-!requirements-cloud.txt
+!frontend/public/README.md
+*.exe
+*.zip
+test-*.log

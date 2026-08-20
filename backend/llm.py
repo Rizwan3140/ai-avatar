@@ -163,6 +163,58 @@ def warm() -> None:
     threading.Thread(target=load, daemon=True).start()
 
 
+def _stream_groq(messages: list[dict]) -> Iterator[str]:
+    """The same contract, answered in the cloud.
+
+    Groq is OpenAI-compatible, so this is server-sent events carrying
+    `choices[0].delta.content`. Written with urllib like every other outbound
+    call in this project — an SDK would be a dependency for one POST and one
+    line-loop.
+
+    This exists so the cloud role can hold a conversation at all. A cabinet
+    should still answer locally: a free tier has no SLA, and the whole point of
+    the edge/cloud split is that talking survives the network.
+    """
+    payload = {
+        "model": config.GROQ_MODEL,
+        "messages": messages,
+        "stream": True,
+        "temperature": 0.2,
+        "max_tokens": 170,
+    }
+    request = urllib.request.Request(
+        f"{config.GROQ_BASE_URL}/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {config.GROQ_API_KEY}",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            for raw in response:
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                body = line[5:].strip()
+                if body == "[DONE]":
+                    break
+                try:
+                    delta = json.loads(body)["choices"][0].get("delta", {})
+                except (ValueError, KeyError, IndexError):
+                    # One malformed frame is not worth ending a reply over.
+                    continue
+                text = delta.get("content") or ""
+                if text:
+                    yield text
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", "replace")[:200]
+        raise RuntimeError(f"Groq refused the request ({error.code}): {detail}") from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"Cannot reach Groq. ({error})") from error
+
+
 def stream_reply(
     history: list[dict],
     persona: str,
@@ -170,15 +222,23 @@ def stream_reply(
     on_screen: str = "",
     knowledge: str = "",
 ) -> Iterator[str]:
+    messages = [
+        {
+            "role": "system",
+            "content": _system_prompt(persona, products or [], on_screen, knowledge),
+        },
+        *history,
+    ]
+
+    # The seam. Everything above this line — retrieval, grounding, scope, the
+    # persona — is identical whichever answers.
+    if config.llm_provider() == "groq":
+        yield from _stream_groq(messages)
+        return
+
     payload = {
         "model": MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": _system_prompt(persona, products or [], on_screen, knowledge),
-            },
-            *history,
-        ],
+        "messages": messages,
         "stream": True,
         "keep_alive": KEEP_ALIVE,
         "options": {

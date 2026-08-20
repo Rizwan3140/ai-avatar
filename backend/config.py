@@ -61,6 +61,25 @@ ALLOWED_ORIGINS = [o for o in _get("ALLOWED_ORIGINS").split(",") if o.strip()]
 # Local by default. A kiosk that goes mute when the Wi-Fi drops is a worse
 # failure than a slower one, so these keep working with nothing configured.
 
+# Which implementation answers, and which one listens.
+#
+# "auto" is the useful default: local when nothing is configured, hosted the
+# moment a key exists. That way a cabinet needs no settings at all and a cloud
+# deployment needs exactly one.
+#
+# The seam is real either way — `llm.stream_reply()` and `stt.transcribe()` are
+# the whole contract, and nothing above them knows which of these is running.
+LLM_PROVIDER = _get("LLM_PROVIDER", "auto")   # auto | ollama | groq
+STT_PROVIDER = _get("STT_PROVIDER", "auto")   # auto | whisper | groq
+
+# Groq is OpenAI-compatible and has a free tier with no card, which makes it the
+# one hosted option that can be demonstrated without a purchase order. It has no
+# SLA, so it belongs in a cloud demo rather than on a showroom floor — a cabinet
+# should keep its models local and survive the network.
+GROQ_MODEL = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_STT_MODEL = _get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.2:3b")
 WHISPER_MODEL = _get("WHISPER_MODEL", "base.en")
@@ -123,12 +142,32 @@ def using_supabase() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 
+def llm_provider() -> str:
+    """Which implementation will actually answer. Resolved once, here, so the
+    module that answers and the banner that reports it can never disagree."""
+    if LLM_PROVIDER != "auto":
+        return LLM_PROVIDER
+    return "groq" if GROQ_API_KEY else "ollama"
+
+
+def stt_provider() -> str:
+    if STT_PROVIDER != "auto":
+        return STT_PROVIDER
+    return "groq" if GROQ_API_KEY else "whisper"
+
+
+def hosted_models() -> bool:
+    """True when conversation can run without a model on this machine — which is
+    what lets the cloud role serve `/api/chat` at all."""
+    return llm_provider() != "ollama" and stt_provider() != "whisper"
+
+
 _GROUPS = {
     "conversation": [
-        ("Ollama", OLLAMA_HOST, f"local, {OLLAMA_MODEL}"),
-        ("Whisper", WHISPER_MODEL, "local"),
+        ("answers", llm_provider(), f"-> {GROQ_MODEL if llm_provider() == 'groq' else OLLAMA_MODEL}"),
+        ("listens", stt_provider(), f"-> {GROQ_STT_MODEL if stt_provider() == 'groq' else WHISPER_MODEL}"),
         ("Anthropic", ANTHROPIC_API_KEY, "hosted LLM"),
-        ("Groq", GROQ_API_KEY, "intent + routing"),
+        ("Groq", GROQ_API_KEY, "hosted LLM + STT"),
         ("Deepgram", DEEPGRAM_API_KEY, "streaming STT"),
         ("Cartesia", CARTESIA_API_KEY, "streaming TTS"),
         ("ElevenLabs", ELEVENLABS_API_KEY, "expressive TTS"),

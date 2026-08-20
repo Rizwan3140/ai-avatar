@@ -59,12 +59,27 @@ app.include_router(platform.router)
 # router above, so the boundary is visible in the import list.
 app.include_router(studio.router)
 
-if IS_EDGE:
-    from backend import sync
+# Conversation needs a model — but not necessarily one on this machine.
+#
+# The edge role has Ollama and Whisper locally, which is the design: a showroom
+# cabinet must keep talking when the network drops. The cloud role has neither,
+# and used to mean the deployed platform simply could not hold a conversation.
+#
+# With a hosted provider configured it can. `llm.py` and `stt.py` resolve which
+# implementation answers; nothing here or above them knows which it is. The
+# import stays conditional because `stt.py` pulls faster-whisper the moment it
+# actually needs it, and a cloud image has no reason to carry that.
+SERVES_CONVERSATION = IS_EDGE or config.hosted_models()
+
+if SERVES_CONVERSATION:
     from backend.routes import conversation
 
     app.include_router(conversation.router)
     conversation.warm()
+
+if IS_EDGE:
+    from backend import sync
+
     sync.start()
 
 print(f"\nLuxora — services\n{config.report()}\n")

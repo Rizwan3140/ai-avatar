@@ -1,6 +1,23 @@
-# The cloud role only. It serves avatars, kiosks and the studio API — no models,
-# no GPU, no footage. Installing faster-whisper here would add gigabytes and buy
-# nothing: the conversation runs on the machine that drives the panel.
+# The cloud role. Serves the platform API, the Studio and the kiosk UI.
+#
+# No local models: with GROQ_API_KEY set, `llm.py` and `stt.py` resolve to their
+# hosted branches and conversation works from a URL. Without it the image still
+# runs — it simply serves everything except talking, and says so at startup.
+#
+# faster-whisper is deliberately absent. It is a few hundred megabytes of model
+# runtime that this container would never execute, which is why `stt.py` imports
+# it inside the function that needs it rather than at module scope.
+
+# --- the interface -----------------------------------------------------------
+# Built here rather than committed, so a deploy cannot serve a stale bundle.
+FROM node:20-slim AS ui
+WORKDIR /ui
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# --- the server --------------------------------------------------------------
 FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -16,8 +33,12 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt
 COPY backend/ ./backend/
 COPY knowledge/ ./knowledge/
 
-# Avatar metadata lives here. Media does not — clips stay on each kiosk's disk,
-# where they cost nothing to serve.
+# The built interface. `main.py` serves this whenever it exists, in any role.
+COPY --from=ui /ui/dist ./frontend/dist
+
+# Avatar metadata and campaign media live here, on the mounted volume. Clips do
+# not — footage stays on each cabinet's own disk, where serving it costs nothing
+# and never appears on an egress bill.
 RUN mkdir -p frontend/public/avatars
 
 EXPOSE 8080

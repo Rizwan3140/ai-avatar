@@ -78,3 +78,26 @@
 {"at": "2026-08-20T06:45:55+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
 {"at": "2026-08-20T06:46:17+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
 {"at": "2026-08-20T06:49:11+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T06:52:13+00:00", "event": "question", "session": "2c62ddfd-169f-4eda-b100-9451839025ec", "avatar": "krish", "org": "default", "text": "Hello?", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:52:15+00:00", "event": "question", "session": "2c62ddfd-169f-4eda-b100-9451839025ec", "avatar": "krish", "org": "default", "text": "You know", "results": 0, "passages": 0}
+{"at": "2026-08-20T06:52:21+00:00", "event": "question", "session": "2c62ddfd-169f-4eda-b100-9451839025ec", "avatar": "krish", "org": "default", "text": "Nice to meet you.", "results": 0, "passages": 0}
+{"at": "2026-08-20T07:17:49+00:00", "event": "question", "session": "x", "avatar": "krish", "org": "default", "text": "hi", "results": 8, "passages": 0}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "P006", "name": "Click Mouse", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "P007", "name": "Flow Keyboard", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "A003", "name": "Indigo Dress", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T07:17:49+00:00", "event": "product_shown", "product": "P005", "name": "Nova Watch", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "question", "session": "x", "avatar": "krish", "org": "default", "text": "hi", "results": 8, "passages": 0}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "P001", "name": "Aria 14 Laptop", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "P008", "name": "Beam Monitor 27", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "P006", "name": "Click Mouse", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "P007", "name": "Flow Keyboard", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "A003", "name": "Indigo Dress", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T07:18:05+00:00", "event": "product_shown", "product": "P005", "name": "Nova Watch", "org": "default"}
+{"at": "2026-08-20T07:18:21+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T07:19:59+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

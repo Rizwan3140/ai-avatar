@@ -441,6 +441,42 @@ check(
 )
 
 
+# --- provider resolution ------------------------------------------------------
+
+section("providers")
+
+import importlib  # noqa: E402
+
+from backend import config as _config  # noqa: E402
+
+
+def resolved(llm: str, stt: str, key: str) -> tuple[str, str, bool]:
+    """Re-resolve with the module's inputs swapped. The helpers read the module
+    attributes at call time on purpose, so a deployment can be reasoned about
+    without restarting anything."""
+    old = (_config.LLM_PROVIDER, _config.STT_PROVIDER, _config.GROQ_API_KEY)
+    _config.LLM_PROVIDER, _config.STT_PROVIDER, _config.GROQ_API_KEY = llm, stt, key
+    try:
+        return _config.llm_provider(), _config.stt_provider(), _config.hosted_models()
+    finally:
+        _config.LLM_PROVIDER, _config.STT_PROVIDER, _config.GROQ_API_KEY = old
+
+
+check("nothing configured stays local", resolved("auto", "auto", "") == ("ollama", "whisper", False))
+check("a groq key switches both", resolved("auto", "auto", "k") == ("groq", "groq", True))
+check(
+    "an explicit choice beats the key",
+    resolved("ollama", "whisper", "k") == ("ollama", "whisper", False),
+)
+check(
+    "half hosted is not hosted",
+    resolved("groq", "whisper", "k")[2] is False,
+)
+check(
+    "a cabinet with a key can still be pinned local",
+    resolved("ollama", "whisper", "k")[:2] == ("ollama", "whisper"),
+)
+
 # --- store, ids ---------------------------------------------------------------
 
 section("identifiers")
