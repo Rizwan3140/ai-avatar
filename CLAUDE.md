@@ -23,13 +23,13 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 57 checks
+(cd frontend && npm test)                   # 71 checks
 ./.venv/bin/python -m backend.test_catalog  # 27 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 98 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_platform # 103 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 52 — the same through the real routes
 ```
 
-234 checks total. **Never run the Python suites through `unittest`** — they are
+253 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -37,9 +37,11 @@ like a pass.
 them. Both exist because a module can be perfectly tenant-safe behind a route that
 forgot to ask who was calling.
 
-Two `ponytail:` markers are outstanding — the echo filter in `frontend/src/logic.ts`
-and idle-loop periodicity in `frontend/src/renderer/animation.ts`. Both name their
-ceiling and their upgrade path. A third, in `backend/memory.py`, has been paid.
+Three `ponytail:` markers are outstanding — the echo filter in
+`frontend/src/logic.ts`, idle-loop periodicity in
+`frontend/src/renderer/animation.ts`, and the single global transcription lock in
+`backend/stt.py`. Each names its ceiling and its upgrade path. A fourth, in
+`backend/memory.py`, has been paid.
 
 ## Hardware, actual
 
@@ -108,6 +110,20 @@ company's prices out loud.
   frozen frame or a decode hitch reads instantly as software.
 - **`setEmotion()` is deliberately inert.** No emotional footage exists; inventing
   a visual response to populate an interface is the manifesto inverted.
+- **The idle clip plays while idle.** It did not, for most of this project:
+  `idle()` set `live: false`, which zeroes every video and shows the poster, so an
+  avatar with all four clips never showed `idle.mp4` at all and an avatar with only
+  idle showed it exclusively while *speaking*. Three things written later assume it
+  runs — the footage brief sizing idle at 25-40s because "a short idle loop is a
+  loop the eye catches", `conform_footage.py` ping-ponging for a seamless loop, and
+  `startIdlePresence` jittering the rate to defeat periodicity. A still photograph
+  on a transparent panel reads as a mannequin. `live` is now false only in sleep.
+- **Mute releases the microphone, it does not ignore it.** `stopListening` stops
+  the tracks and closes the AudioContext, so the browser's recording indicator goes
+  out and a visitor can *check* the cabinet is not listening rather than trusting a
+  caption. In a room full of strangers that is the only version worth shipping.
+  Muting parks him at idle — standing attentively at someone who just switched the
+  microphone off is the unsettling version.
 - **No auth library, no ORM, no HTTP client.** `hashlib.scrypt`, `hmac` and
   `secrets` are the parts of auth that matter and are stdlib; `sqlite3` holds a
   few thousand rows without complaint; `urllib` makes every outbound call here.
@@ -189,6 +205,12 @@ company's prices out loud.
   was `#FDFDFD` across 93% of the frame and invisible under `fit: cover`; the
   moment `contain` put true white beside it, a grey rectangle appeared. The
   pipeline's own check sampled one corner pixel and reported "true white".
+- **A muted cabinet reports `status: 'idle'`,** because that is what it is. Any
+  control derived from status alone therefore disables itself during a mute —
+  including the one button that undoes the mute. `Controls.tsx` consults `muted`
+  as well as `status` for exactly this reason. The same shape catches the sleep
+  timer, which arms on idle and so eventually sleeps a cabinet left muted; that
+  one is correct and deliberate.
 - **Navigation selects, then the same utterance's results arrive.** "Tell me
   about the linen shirt" opened the detail view and bounced straight back to the
   grid, because `PRODUCTS_SHOWN` reset the selection navigation had just made. A
@@ -217,8 +239,10 @@ company's prices out loud.
    camera and the refusals are all exercised; the two hosted providers are
    written against published APIs and have never run, because that needs a key.
    Local — the one that keeps the photo in the cabinet — is declared and refuses.
-5. **Three of four clips are still missing,** so he does not change when spoken
-   to. That needs footage, not code.
+5. **Clips are complete for one avatar, not the other.** `satya` has all four —
+   idle, listen, think, speak — and changes as the conversation moves. `krish`
+   has only `idle.mp4` and falls back to it for every pose, so he does not change
+   when spoken to. That gap needs footage, not code.
 
 ## How to work here
 
