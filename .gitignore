@@ -44,3 +44,7 @@ frontend/public/avatars/*/passport-photo*
 # Scratch output from test runs. The suites print to the terminal; these are
 # redirections somebody left behind, not artefacts anything reads.
 test-*.log
+
+# Written the first time the sample catalog is loaded, so clearing it and
+# restarting does not put it back.
+knowledge/.seeded

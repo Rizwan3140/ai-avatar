@@ -53,6 +53,16 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
       }
     })
 
+  const clearAll = () =>
+    act(async () => {
+      const n = products.data?.length ?? 0
+      if (!window.confirm(`Remove all ${n} products? Import your own afterwards.`)) return null
+      const { removed } = await api<{ removed: number }>('/api/studio/products', {
+        method: 'DELETE',
+      })
+      return { text: `${removed} removed. The catalog is empty — import yours now.` }
+    })
+
   const remove = (product: Product) =>
     act(async () => {
       await api(`/api/studio/products/${encodeURIComponent(product.id)}`, { method: 'DELETE' })
@@ -99,6 +109,15 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
               />
               <Button tone="quiet" onClick={crawl} disabled={busy}>
                 Read a website
+              </Button>
+              {/* Sample data is useful until the moment a customer uploads
+                  their own, and then it is a laptop in a saree shop. */}
+              <Button
+                tone="danger"
+                onClick={clearAll}
+                disabled={busy || !products.data?.length}
+              >
+                Clear all
               </Button>
             </div>
           )

@@ -488,6 +488,16 @@ def delete_product(product_id: str, caller: Principal = Depends(editor)):
     return {"ok": True}
 
 
+@router.delete("/studio/products")
+def clear_products(caller: Principal = Depends(editor)):
+    """Empty the catalog, so a customer's own products are not mixed with the
+    sample data this install ships with. Seeding never runs again once anything
+    has been imported, so this does not quietly refill."""
+    _mirrored()
+    removed = catalog.clear(caller.org_id)
+    return {"removed": removed}
+
+
 @router.post("/studio/import")
 async def import_file(
     request: Request, filename: str = "", caller: Principal = Depends(editor)

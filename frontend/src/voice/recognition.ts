@@ -21,6 +21,8 @@ let turn: Float32Array[] = []
 let turnSamples = 0
 let speaking = false
 let voiceStartedAt = 0
+/** When the level last crossed the barge-in floor and stayed there. */
+let loudSince = 0
 let lastVoiceAt = 0
 let partialAt = 0
 let peak = 0
@@ -112,6 +114,7 @@ function reset() {
   transcribing = false
   peak = 0
   barged = false
+  loudSince = 0
 }
 
 function onSamples(block: Float32Array) {
@@ -134,6 +137,7 @@ function onSamples(block: Float32Array) {
       partialAt = now
       peak = 0
       barged = false
+      loudSince = 0
     }
     lastVoiceAt = now
     peak = Math.max(peak, level)
@@ -144,9 +148,17 @@ function onSamples(block: Float32Array) {
     // Once per turn, on the edge. This ran on every 128-sample block above the
     // floor — ~125 USER_STARTED_SPEAKING events a second for as long as someone
     // talked over her, each one re-entering cancel and re-clearing the caption.
-    if (!barged && level >= config.bargeInThreshold) {
-      barged = true
-      handlers?.onVoiceStart()
+    if (level >= config.bargeInThreshold) {
+      // Sustained, not instantaneous. `loudSince` restarts every time the level
+      // drops back under the floor, so only a voice that keeps going counts —
+      // a transient never accumulates.
+      if (!loudSince) loudSince = now
+      if (!barged && now - loudSince >= config.bargeInSustainMs) {
+        barged = true
+        handlers?.onVoiceStart()
+      }
+    } else {
+      loudSince = 0
     }
   }
 

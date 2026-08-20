@@ -312,7 +312,12 @@ def seed_if_empty(org_id: str = DEFAULT_ORG) -> int:
     """
     from backend.catalog import all_products
 
-    if all_products(org_id):
+    # Once per install, not whenever the catalog happens to be empty. Someone who
+    # cleared the samples in order to upload their own has said what they want,
+    # and having twelve laptops reappear on the next restart would be the app
+    # arguing with them.
+    marker = ROOT / "knowledge" / ".seeded"
+    if marker.exists() or all_products(org_id):
         return 0
 
     total = 0
@@ -329,6 +334,14 @@ def seed_if_empty(org_id: str = DEFAULT_ORG) -> int:
         if products:
             upsert(products, org_id)
             total += len(products)
+
+    # Written even when nothing loaded, so a missing sample file is not retried
+    # on every single boot.
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("sample catalog loaded once", encoding="utf-8")
+    except OSError:
+        pass  # A read-only disk is not a reason to fail startup.
     return total
 
 

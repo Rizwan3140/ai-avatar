@@ -219,6 +219,20 @@ def delete(product_id: str, org_id: str = DEFAULT_ORG) -> bool:
     return cursor.rowcount > 0
 
 
+def clear(org_id: str = DEFAULT_ORG) -> int:
+    """Empty one org's catalog.
+
+    Exists because a customer's first act is uploading their own products, and
+    until now the sample data could only be removed one row at a time — so a
+    showroom selling sarees also sold a Titan Pro 16, and the avatar would
+    happily recommend it.
+    """
+    init()
+    with _connect() as conn:
+        cursor = conn.execute("DELETE FROM products WHERE org_id = ?", (org_id,))
+    return cursor.rowcount
+
+
 def reassign_org(from_org: str, to_org: str) -> int:
     """Move a catalog between orgs.
 

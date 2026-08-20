@@ -59,6 +59,25 @@ export default {
    * Browser echo cancellation removes most of her voice but not all of it.
    */
   bargeInThreshold: 0.05,
+
+  /**
+   * How long a voice must stay above that floor before it counts as an
+   * interruption.
+   *
+   * Barge-in used to fire on a single 128-sample block — roughly a millisecond.
+   * A cough, a door, a chair, someone talking across the room: anything that
+   * momentarily crossed the line stopped him, and he appeared to give up
+   * mid-answer for no reason a visitor could see.
+   *
+   * The end-of-turn logic already refuses to treat a transient as speech
+   * (`minSpeechMs`); this applies the same judgement to interruption, which is
+   * the more damaging of the two places to get it wrong.
+   *
+   * Deliberately shorter than `minSpeechMs`: stopping a moment late is a small
+   * fault, and stopping for a cough is a large one, but a real interruption
+   * still has to feel immediate.
+   */
+  bargeInSustainMs: 320,
   /** Ignore blips: a door, a cough, a chair. */
   minSpeechMs: 200,
 
