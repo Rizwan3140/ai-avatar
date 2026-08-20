@@ -197,3 +197,13 @@
 {"at": "2026-08-20T09:16:19+00:00", "event": "question", "session": "acc-wm", "avatar": "krish", "org": "default", "text": "do you sell washing machines", "results": 0, "passages": 0}
 {"at": "2026-08-20T09:16:20+00:00", "event": "question", "session": "acc-poem", "avatar": "krish", "org": "default", "text": "write me a poem", "results": 0, "passages": 0}
 {"at": "2026-08-20T09:16:48+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}
+{"at": "2026-08-20T09:19:13+00:00", "event": "question", "session": "94372699-9432-4907-952f-b0d2b9a0573f", "avatar": "krish", "org": "default", "text": "Hello.", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:19:41+00:00", "event": "question", "session": "94372699-9432-4907-952f-b0d2b9a0573f", "avatar": "krish", "org": "default", "text": "Mm-hmm.", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:20:23+00:00", "event": "question", "session": "94372699-9432-4907-952f-b0d2b9a0573f", "avatar": "krish", "org": "default", "text": "I think it's very good.", "results": 0, "passages": 0}
+{"at": "2026-08-20T09:21:43+00:00", "event": "question", "session": "prod-timing", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:21:43+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:21:43+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:23:24+00:00", "event": "question", "session": "fd972107-384f-4ac7-9f74-dc2b9e01679b", "avatar": "krish", "org": "default", "text": "show me shirts", "results": 2, "passages": 0}
+{"at": "2026-08-20T09:23:24+00:00", "event": "product_shown", "product": "A001", "name": "Linen Shirt", "org": "default"}
+{"at": "2026-08-20T09:23:24+00:00", "event": "product_shown", "product": "A002", "name": "Charcoal Tee", "org": "default"}
+{"at": "2026-08-20T09:37:09+00:00", "event": "product_viewed", "product": "titan-pro-16", "name": "Titan Pro 16", "org": "northwind"}

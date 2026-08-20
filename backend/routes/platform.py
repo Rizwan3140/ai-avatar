@@ -219,4 +219,23 @@ async def try_on(product_id: str, request: Request, avatar: str = "", consent: s
 
 @router.get("/health")
 def health():
-    return {"ok": True, "role": config.ROLE, "avatars": len(store.list_avatars())}
+    """Also reports whether the models are loaded.
+
+    A cold faster-whisper takes about eleven seconds and a cold Ollama about ten.
+    Both are warmed at boot in the background, but until they finish the first
+    visitor pays the whole load — so `ready` is the difference between "the
+    process is up" and "you can demonstrate this now".
+    """
+    models = True
+    if config.ROLE in ("edge", "all"):
+        # Edge-only import: a cloud container has no faster-whisper to ask.
+        from backend import stt
+
+        models = stt.ready()
+
+    return {
+        "ok": True,
+        "role": config.ROLE,
+        "avatars": len(store.list_avatars()),
+        "models_ready": models,
+    }

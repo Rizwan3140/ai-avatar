@@ -121,6 +121,18 @@ def _transcribe_groq(audio: bytes) -> str:
     return text
 
 
+def ready() -> bool:
+    """Whether a transcription would answer now or block on a model load.
+
+    Loading faster-whisper takes about eleven seconds. `warm()` starts it at
+    boot, but nothing waited for it — so a visitor who spoke in that window sat
+    through the load, and the kiosk had already told them it was ready.
+    """
+    if config.stt_provider() != "whisper":
+        return True  # Nothing to load; the network is the only cost.
+    return _model is not None
+
+
 def transcribe(audio: bytes, partial: bool = False) -> str:
     """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included."""
     import io
