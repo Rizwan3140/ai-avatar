@@ -1,0 +1,63 @@
+# The cloud role on a VPS, with HTTPS.
+#
+#     cd deploy
+#     export DOMAIN=studio.example.com
+#     export LUXORA_SECRET="$(openssl rand -base64 48)"
+#     docker compose up -d --build
+#
+# `fly.toml` covers Fly, which terminates TLS for you. On a bare VPS nothing
+# does, and HTTPS here is a functional requirement rather than hygiene:
+# `getUserMedia` and `crypto.randomUUID` both need a secure context, so without
+# a certificate the cabinet UI cannot open a microphone at all.
+#
+# Caddy is the whole TLS story — it obtains and renews a Let's Encrypt
+# certificate on its own, with no Caddyfile, no certbot and no cron entry. Point
+# an A record at this machine before the first `up`, or the challenge fails and
+# Caddy will back off for a while before trying again.
+
+services:
+  luxora:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      LUXORA_ROLE: cloud
+      # Signs studio tokens. Generated per-machine and written to disk when
+      # unset, which means every redeploy logs everyone out.
+      LUXORA_SECRET: "${LUXORA_SECRET:?generate one with openssl rand -base64 48}"
+      PORT: 8080
+    volumes:
+      # Both of these, not just the first. `catalog.db` holds the catalog, the
+      # documents and the accounts; the avatars folder holds avatar metadata and
+      # uploaded campaign media. Mounting only `knowledge` loses every avatar and
+      # campaign made through the Studio on the next deploy — and it looks like
+      # data loss rather than a missing mount, because the products survive.
+      - knowledge:/home/user/app/knowledge
+      - avatars:/home/user/app/frontend/public/avatars
+    # No published port. Only Caddy reaches it, so the API is never exposed
+    # unencrypted on the VPS's public interface.
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    # One line instead of a Caddyfile. `caddy reverse-proxy` does automatic
+    # HTTPS on its own; a config file here would hold exactly this and one more
+    # thing to keep in sync.
+    command: caddy reverse-proxy --from ${DOMAIN:?the domain this is served on} --to luxora:8080
+    volumes:
+      # The certificate and account key. Without this every restart asks
+      # Let's Encrypt for a new certificate and eventually hits the rate limit.
+      - caddy-data:/data
+    depends_on:
+      - luxora
+
+volumes:
+  knowledge:
+  avatars:
+  caddy-data:
