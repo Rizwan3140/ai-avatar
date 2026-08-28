@@ -49,7 +49,12 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
       return {
         text: result.imported
           ? `${result.imported} products read from ${url}.`
-          : `Nothing found at ${url}. The crawler reads schema.org data, which not every site publishes.`,
+          : // Do not blame the schema. This said the site published no structured
+            // data about a storefront that published perfect JSON-LD on every
+            // product page — the crawl had simply spent its page budget in the
+            // menu before reaching one. Name what to try, not a cause we did not
+            // verify.
+            `Nothing found at ${url}. Try the address of a single product page, or a collection, rather than the home page.`,
       }
     })
 

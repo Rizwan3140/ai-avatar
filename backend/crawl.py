@@ -13,6 +13,7 @@ and `urllib.robotparser` checks we are allowed. A crawler that needs a paid API
 to read a public page is a crawler that stops working when the invoice does.
 """
 
+import html as html_module
 import json
 import re
 import sys
@@ -29,6 +30,11 @@ USER_AGENT = "LuxoraBot/1.0 (+showroom catalog indexer)"
 TIMEOUT = 15
 #: Politeness. A showroom's own site is small and there is no hurry.
 DELAY = 0.5
+
+#: What a product page's URL looks like on every storefront platform worth
+#: naming. Only used to decide what to read first, so a false positive costs one
+#: fetch and a false negative costs nothing.
+PRODUCT_PATH = re.compile(r"/(products?|item|p|dp|sku|shop)/", re.I)
 
 
 class _Extract(HTMLParser):
@@ -167,6 +173,122 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60]
 
 
+def _json(url: str):
+    """Fetch and parse JSON, or None. Used to ask a site a question it may not
+    answer, so a failure here is an answer rather than an error."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            if "json" not in response.headers.get("Content-Type", ""):
+                return None
+            return json.loads(response.read(8_000_000))
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return None
+
+
+def _plain(markup: str) -> str:
+    """`body_html` is a description with markup in it, not a document."""
+    text = re.sub(r"(?is)<(script|style).*?</\1>", " ", markup or "")
+    # A space, not nothing: `<p>one</p><p>two</p>` must not become "onetwo".
+    text = re.sub(r"\s+", " ", html_module.unescape(re.sub(r"<[^>]+>", " ", text)))
+    # Which then leaves "breathable ." wherever a tag closed before punctuation,
+    # and this description is read aloud.
+    return re.sub(r"\s+([.,;:!?])", r"\1", text).strip()
+
+
+def _listing(values) -> str:
+    """Attributes are read aloud and indexed as text, so a list has to arrive as
+    a sentence rather than as a Python repr."""
+    return ", ".join(str(v) for v in values if v)
+
+
+def shopify(base: str, limit: int = 5000) -> list[Product] | None:
+    """Every product a Shopify store sells, from the JSON it already publishes.
+
+    Shopify serves `/products.json` on every storefront, paginated, without a key.
+    It is the same catalog the theme renders, and it carries strictly more than
+    the JSON-LD on a product page does: every image rather than the first, every
+    variant with its own price and stock, the tags, the vendor and the untruncated
+    description. Crawling a 2,750-product store page by page to get less of it
+    takes twenty minutes; this takes eleven requests.
+
+    Returns None when the site is not Shopify, so the caller falls back to the
+    ordinary crawl rather than treating "not a Shopify store" as a failure.
+    """
+    products: list[Product] = []
+    # Not in products.json. A store that will not say gets the platform default
+    # rather than a guess, because a price with the wrong symbol is a wrong price.
+    currency = (_json(f"{base}/meta.json") or {}).get("currency") or "INR"
+
+    for page in range(1, limit // 250 + 2):
+        payload = _json(f"{base}/products.json?limit=250&page={page}")
+        if payload is None:
+            # Page one failing means this is not a Shopify store; a later page
+            # failing means we already have most of a catalog and should keep it.
+            return None if page == 1 else products
+        batch = payload.get("products")
+        if not isinstance(batch, list):
+            return None if page == 1 else products
+        if not batch:
+            break
+        products.extend(_shopify_product(node, base, currency) for node in batch)
+        if len(products) >= limit:
+            break
+        time.sleep(DELAY)
+
+    # A page is 250 whether or not the caller asked for that many.
+    return products[:limit]
+
+
+def _shopify_product(node: dict, base: str, currency: str) -> Product:
+    variants = [v for v in node.get("variants", []) if isinstance(v, dict)]
+    images = [i.get("src", "") for i in node.get("images", []) if isinstance(i, dict)]
+
+    def _price(v):
+        try:
+            return float(v.get("price"))
+        except (TypeError, ValueError):
+            return None
+
+    priced = [p for p in (_price(v) for v in variants) if p is not None]
+    # The lowest, because a listing with sizes shows "from" and a visitor asking
+    # "how much" before choosing a size is asking the cheapest way in.
+    price = min(priced) if priced else None
+
+    # Everything the core columns have no room for. A visitor asks about colour,
+    # size and fabric far more often than about anything in the schema.
+    extras: dict = {}
+    if node.get("vendor"):
+        extras["brand"] = node["vendor"]
+    if node.get("tags"):
+        tags = node["tags"]
+        extras["tags"] = _listing(tags if isinstance(tags, list) else [tags])
+    for option in node.get("options", []):
+        if isinstance(option, dict) and option.get("values"):
+            extras[str(option.get("name", "option")).lower()] = _listing(option["values"])
+    if len(variants) > 1:
+        extras["variants"] = _listing(
+            f"{v.get('title')} {currency} {v.get('price')}" for v in variants[:12]
+        )
+    if len(images) > 1:
+        extras["images"] = _listing(images[:8])
+
+    return Product(
+        # The handle, not the numeric id: it is the URL slug, it is stable across
+        # re-imports, and it is the same key the storefront uses.
+        id=_text(node.get("handle")) or _slug(_text(node.get("title"))),
+        name=_text(node.get("title")),
+        category=_text(node.get("product_type")),
+        price=price,
+        currency=currency,
+        description=_plain(node.get("body_html", ""))[:600],
+        url=f"{base}/products/{_text(node.get('handle'))}",
+        image=images[0] if images else "",
+        availability="in_stock" if any(v.get("available") for v in variants) else "out_of_stock",
+        attributes=extras,
+    )
+
+
 def _fetch(url: str) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
@@ -181,6 +303,13 @@ def crawl(start: str, max_pages: int = 60) -> list[Product]:
     """Walk a site, same host only, and return every product found."""
     origin = urllib.parse.urlparse(start)
     base = f"{origin.scheme}://{origin.netloc}"
+
+    # Ask the storefront for its catalog before walking it. A store that hands
+    # over the whole thing in eleven requests should not be crawled page by page
+    # for a subset of the same data.
+    catalog_json = shopify(base, limit=max(max_pages, 250) * 20)
+    if catalog_json:
+        return catalog_json
 
     robots = urllib.robotparser.RobotFileParser()
     robots.set_url(f"{base}/robots.txt")
@@ -230,7 +359,18 @@ def crawl(start: str, max_pages: int = 60) -> list[Product]:
         for href in parser.links:
             link = urllib.parse.urljoin(url, href).split("#")[0]
             if link.startswith(base) and link not in seen and len(queue) < max_pages * 3:
-                queue.append(link)
+                # Plain breadth-first spends the whole budget on whatever a
+                # homepage links first, which is menus, collections and policy
+                # pages. One storefront put its first product link at position
+                # 60 of 127 with a budget of 60, so a site publishing perfect
+                # JSON-LD on every product page returned nothing at all and
+                # reported that it published no structured data. Pages that
+                # look like products go to the front; the crawl still visits
+                # everything, it just stops running out of budget in the menu.
+                if PRODUCT_PATH.search(link):
+                    queue.insert(0, link)
+                else:
+                    queue.append(link)
 
         time.sleep(DELAY)
 

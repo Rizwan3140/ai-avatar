@@ -141,6 +141,53 @@ def main() -> int:
     fallback = product_from_meta(parser.meta, "https://shop/p/9")
     check("opengraph fallback", (fallback.name, fallback.price), ("Fallback Product", 1299.0))
 
+    # --- the Shopify path, offline ---------------------------------------------
+    # A real store's products.json is one shape, so the mapping is checked against
+    # a captured node rather than against the network. The whole point of this
+    # path is that it keeps what JSON-LD drops, so that is what is asserted.
+    from backend.crawl import PRODUCT_PATH, _plain, _shopify_product
+
+    node = {
+        "handle": "indigo-kurta-set",
+        "title": "Indigo Kurta Set",
+        "product_type": "Kurta Sets",
+        "vendor": "Dhiyona",
+        "tags": ["Ethnic", "Indigo", "Cotton"],
+        "body_html": "<p>Hand-block printed &amp; <b>breathable</b>.</p><script>x()</script>",
+        "images": [{"src": "https://cdn/1.jpg"}, {"src": "https://cdn/2.jpg"}],
+        "options": [{"name": "Size", "values": ["S", "M", "L"]}],
+        "variants": [
+            {"title": "S", "price": "1899.00", "sku": "K-S", "available": False},
+            {"title": "M", "price": "1799.00", "sku": "K-M", "available": True},
+        ],
+    }
+    p = _shopify_product(node, "https://shop", "INR")
+    check("shopify: handle is the id", p.id, "indigo-kurta-set")
+    check("shopify: product_type is the category", p.category, "Kurta Sets")
+    # The cheapest variant, not the first: a listing with sizes shows "from".
+    check("shopify: price is the lowest variant", p.price, 1799.0)
+    # One variant sold out must not take the whole product off the floor.
+    check("shopify: in stock if any variant is", p.availability, "in_stock")
+    check("shopify: keeps every image", p.attributes["images"].count("http"), 2)
+    check("shopify: keeps the tags", p.attributes["tags"], "Ethnic, Indigo, Cotton")
+    check("shopify: keeps the sizes", p.attributes["size"], "S, M, L")
+    check("shopify: vendor becomes brand", p.attributes["brand"], "Dhiyona")
+    check("shopify: markup and entities out of the description",
+          p.description, "Hand-block printed & breathable.")
+    check("shopify: script contents never reach the description",
+          "x()" in p.description, False)
+
+    check("a sold-out product says so",
+          _shopify_product({**node, "variants": [{"price": "1", "available": False}]},
+                           "https://shop", "INR").availability, "out_of_stock")
+    # No variants at all must not raise on min() of an empty sequence.
+    check("no variants is not a crash",
+          _shopify_product({"handle": "x", "title": "X"}, "https://shop", "INR").price, None)
+
+    check("product urls jump the queue", bool(PRODUCT_PATH.search("https://s/products/a")), True)
+    check("collections do not", bool(PRODUCT_PATH.search("https://s/collections/all")), False)
+    check("plain text survives _plain", _plain("a  <br> b"), "a b")
+
     print("\nall checks passed")
     return 0
 
