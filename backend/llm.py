@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 
-from backend import config
+from backend import analytics, config
 from backend.catalog import Product
 
 HOST = config.OLLAMA_HOST
@@ -32,6 +32,12 @@ TIMEOUT = 120
 # about fifteen seconds. On a kiosk that lands on a real visitor mid-sentence, so
 # pin the model in memory for as long as the process runs.
 KEEP_ALIVE = -1
+
+
+#: Both live in `config` rather than here, because `stt.py` needs the same two
+#: and neither module should have to import the other to reach them.
+ProviderUnreachable = config.ProviderUnreachable
+_RETRY_STATUS = config.RETRY_STATUS
 
 
 #: What this avatar is for, and what it must refuse.
@@ -328,9 +334,12 @@ def _stream_groq(messages: list[dict]) -> Iterator[str]:
                     yield text
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:200]
-        raise RuntimeError(f"Groq refused the request ({error.code}): {detail}") from error
+        message = f"Groq refused the request ({error.code}): {detail}"
+        if error.code in _RETRY_STATUS:
+            raise ProviderUnreachable(message) from error
+        raise RuntimeError(message) from error
     except urllib.error.URLError as error:
-        raise RuntimeError(f"Cannot reach Groq. ({error})") from error
+        raise ProviderUnreachable(f"Cannot reach Groq. ({error})") from error
 
 
 def stream_reply(
@@ -356,10 +365,43 @@ def stream_reply(
 
     # The seam. Everything above this line — retrieval, grounding, scope, the
     # persona — is identical whichever answers.
+    #
+    # Hosted first, so every cabinet gives the same answer whatever hardware is
+    # inside it; local underneath, so a showroom's wifi dropping does not leave a
+    # person talking to a mute panel. Neither is a fallback for a bad key: see
+    # `ProviderUnreachable`.
     if config.llm_provider() == "groq":
-        yield from _stream_groq(messages)
+        yield from _hosted_then_local(messages)
         return
 
+    yield from _stream_ollama(messages)
+
+
+def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
+    """Groq, or Ollama if Groq cannot be reached.
+
+    The switch has to happen before the first token leaves this function. A
+    generator that fails halfway has already had its words spoken aloud, and
+    restarting there gives a sentence two beginnings — worse than the error it
+    was trying to hide. So the first chunk is pulled here, where nothing has been
+    committed yet, and a failure after that point is honestly an error.
+    """
+    stream = _stream_groq(messages)
+    try:
+        first = next(stream)
+    except StopIteration:
+        return  # A hosted reply that was empty is still a hosted reply.
+    except ProviderUnreachable as error:
+        print(f"  llm: {error} -- falling back to {MODEL}")
+        analytics.fallback("llm", str(error))
+        yield from _stream_ollama(messages)
+        return
+
+    yield first
+    yield from stream
+
+
+def _stream_ollama(messages: list[dict]) -> Iterator[str]:
     payload = {
         "model": MODEL,
         "messages": messages,

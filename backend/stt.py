@@ -19,7 +19,7 @@ import threading
 import urllib.error
 import urllib.request
 
-from backend import config
+from backend import analytics, config
 
 # Measured on a 12-core CPU, int8, for 3.7 seconds of speech:
 #
@@ -116,9 +116,14 @@ def _transcribe_groq(audio: bytes) -> str:
             text = response.read().decode("utf-8", "replace").strip()
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:200]
-        raise RuntimeError(f"Groq could not transcribe that ({error.code}): {detail}") from error
+        message = f"Groq could not transcribe that ({error.code}): {detail}"
+        if error.code in config.RETRY_STATUS:
+            raise config.ProviderUnreachable(message) from error
+        raise RuntimeError(message) from error
     except urllib.error.URLError as error:
-        raise RuntimeError(f"Cannot reach Groq for transcription. ({error})") from error
+        raise config.ProviderUnreachable(
+            f"Cannot reach Groq for transcription. ({error})"
+        ) from error
 
     # response_format=text returns a bare string, but a JSON body comes back on
     # some paths. Accept either rather than guessing.
@@ -146,8 +151,15 @@ def transcribe(audio: bytes, partial: bool = False) -> str:
     """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included."""
     import io
 
+    # Hosted first, local underneath — the same arrangement `llm.py` uses, and
+    # for the same reason: every cabinet should hear alike, and none of them
+    # should go deaf because a mall's wifi blinked. A rejected key still raises.
     if config.stt_provider() == "groq":
-        return _transcribe_groq(audio)
+        try:
+            return _transcribe_groq(audio)
+        except config.ProviderUnreachable as error:
+            print(f"  stt: {error} -- falling back to {MODEL_SIZE}")
+            analytics.fallback("stt", str(error))
 
     model = _get_model()
 

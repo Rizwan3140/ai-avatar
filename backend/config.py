@@ -161,6 +161,26 @@ def using_supabase() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 
+class ProviderUnreachable(RuntimeError):
+    """A hosted model could not be reached, or would not serve us right now.
+
+    Separate from a plain RuntimeError because the two need opposite handling. A
+    showroom's wifi dropping, or a rate limit on a busy Saturday, should quietly
+    become the local model and a visitor who notices nothing. A rejected key
+    should stay loud, because falling back on it would hide a broken deployment
+    behind a slower answer nobody ever investigates.
+
+    Here rather than in `llm.py` because `stt.py` needs the same distinction, and
+    neither of those should have to import the other to get at it.
+    """
+
+
+#: Statuses worth retrying somewhere else. 429 is the one that will actually
+#: happen — the hosted tier is rate-limited per minute and a Saturday is not.
+#: Every other 4xx is our own fault and must not be swallowed.
+RETRY_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+
+
 def llm_provider() -> str:
     """Which implementation will actually answer. Resolved once, here, so the
     module that answers and the banner that reports it can never disagree."""
@@ -183,8 +203,21 @@ def hosted_models() -> bool:
 
 _GROUPS = {
     "conversation": [
-        ("answers", llm_provider(), f"-> {GROQ_MODEL if llm_provider() == 'groq' else OLLAMA_MODEL}"),
-        ("listens", stt_provider(), f"-> {GROQ_STT_MODEL if stt_provider() == 'groq' else WHISPER_MODEL}"),
+        # Name the fallback too. A banner that says only "groq" is a banner that
+        # lies the moment the wifi drops, and the whole point of the fallback is
+        # that nobody notices it happening.
+        (
+            "answers",
+            llm_provider(),
+            f"-> {GROQ_MODEL}, else {OLLAMA_MODEL}" if llm_provider() == "groq"
+            else f"-> {OLLAMA_MODEL}",
+        ),
+        (
+            "listens",
+            stt_provider(),
+            f"-> {GROQ_STT_MODEL}, else {WHISPER_MODEL}" if stt_provider() == "groq"
+            else f"-> {WHISPER_MODEL}",
+        ),
         ("Anthropic", ANTHROPIC_API_KEY, "hosted LLM"),
         ("Groq", GROQ_API_KEY, "hosted LLM + STT"),
         ("Deepgram", DEEPGRAM_API_KEY, "streaming STT"),

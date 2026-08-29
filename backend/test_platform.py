@@ -552,5 +552,57 @@ check(
     not llm.ungrounded_claim("We do carry a few of those.", ["a product"]),
 )
 
+section("hosted, with a local fallback")
+
+from backend import config, llm  # noqa: E402
+
+# Which failures fall back and which stay loud. This is the whole distinction:
+# a mall's wifi dropping should become the local model and a visitor who notices
+# nothing, while a rejected key must not be hidden behind a slower answer that
+# works. Getting it backwards means a broken deployment nobody investigates.
+check("a rate limit falls back", 429 in config.RETRY_STATUS)
+check("so does a gateway error", 502 in config.RETRY_STATUS)
+check("a rejected key does NOT", 401 not in config.RETRY_STATUS)
+check("nor does a forbidden one", 403 not in config.RETRY_STATUS)
+check("nor a bad request", 400 not in config.RETRY_STATUS)
+check(
+    "the fallback error is catchable as its own kind",
+    issubclass(config.ProviderUnreachable, RuntimeError),
+)
+
+# The switch has to happen before a single token is spoken. A generator that
+# fails halfway has already had its words come out of the speaker, and starting
+# again there gives one sentence two beginnings.
+_local_said = ["from the local model."]
+
+
+def _unreachable():
+    raise config.ProviderUnreachable("wifi went away")
+    yield  # pragma: no cover - generator, never reached
+
+
+def _dead_halfway():
+    yield "half a "
+    raise config.ProviderUnreachable("dropped mid-stream")
+
+
+llm._stream_groq = lambda messages: _unreachable()
+llm._stream_ollama = lambda messages: iter(_local_said)
+check(
+    "an unreachable host is answered locally",
+    list(llm._hosted_then_local([])) == _local_said,
+)
+
+llm._stream_groq = lambda messages: _dead_halfway()
+try:
+    list(llm._hosted_then_local([]))
+    check("a mid-stream failure is not silently restarted", False)
+except config.ProviderUnreachable:
+    check("a mid-stream failure is not silently restarted", True)
+
+# Partials are a local-only luxury: hosted, each one uploads the whole turn so
+# far for a caption no visitor ever sees.
+check("partials are on for a local model", config.stt_provider() == "whisper")
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
