@@ -24,6 +24,11 @@ export function Controls() {
   const shift = useBurnInShift()
 
   const live = status !== 'booting' && status !== 'initializing' && status !== 'sleeping'
+
+  // Asleep the panel is an advertisement and nothing else. Two dimmed circles
+  // floating over it all night are interface with no job: they cannot be used,
+  // because any touch wakes the cabinet before it reaches them.
+  if (status === 'sleeping') return null
   // Muting parks him at idle, so `status` alone would report the conversation
   // over and disable the very button needed to switch the microphone back on.
   const inConversation = live && (status !== 'idle' || muted)
@@ -117,7 +122,7 @@ function ControlButton({
 
 function MicIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[clamp(20px,1.7vh,63px)]" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
     </svg>
@@ -128,7 +133,7 @@ function MicIcon() {
  *  border, so it survives the button's `overflow-hidden`. */
 function MicOffIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[clamp(20px,1.7vh,63px)]" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
       <path d="M4 3l16 18" strokeLinecap="round" />
@@ -140,7 +145,7 @@ function MicOffIcon() {
  *  read as another option rather than as the end of the conversation. */
 function StopIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="size-[42%]" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="currentColor" className="size-[clamp(20px,1.7vh,63px)]" aria-hidden>
       <rect x="7" y="7" width="10" height="10" rx="2" />
     </svg>
   )
@@ -148,7 +153,7 @@ function StopIcon() {
 
 function SpeakerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[clamp(20px,1.7vh,63px)]" aria-hidden>
       <path d="M4 9v6h4l5 4V5L8 9H4z" strokeLinejoin="round" />
       <path d="M17 9a4 4 0 0 1 0 6" strokeLinecap="round" />
     </svg>

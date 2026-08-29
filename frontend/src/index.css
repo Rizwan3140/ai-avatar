@@ -96,13 +96,16 @@ body {
 }
 
 /* Motion replaces interface: this is how "listening" is communicated. */
+/* The listening pulse. The ring spread scales with the panel like the button it
+   surrounds — at a fixed 14px it was a halo on a laptop and a hairline on the
+   cabinet, which is the same mistake the type sizes made. */
 @keyframes glow {
   0%,
   100% {
     box-shadow: var(--shadow-float), 0 0 0 0 rgba(59, 130, 246, 0.45);
   }
   50% {
-    box-shadow: var(--shadow-float), 0 0 0 14px rgba(59, 130, 246, 0);
+    box-shadow: var(--shadow-float), 0 0 0 clamp(14px, 1.2vh, 44px) rgba(59, 130, 246, 0);
   }
 }
 
