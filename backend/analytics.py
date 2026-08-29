@@ -24,22 +24,6 @@ EVENTS_DIR = ROOT / "knowledge" / "events"
 _lock = threading.Lock()
 
 
-def fallback(module: str, reason: str) -> None:
-    """A hosted provider was unreachable and the local one answered instead.
-
-    Worth a line of its own because it is invisible from the front: a cabinet
-    running on its fallback sounds exactly like a cabinet that is fine, and can
-    stay that way for a week. How often a particular showroom loses the cloud is
-    a fact about that showroom, and this is the only place it gets recorded.
-
-    Never raises. Bookkeeping must not break a reply that is already in trouble.
-    """
-    try:
-        record("provider_fallback", module=module, reason=reason[:200])
-    except Exception:
-        pass
-
-
 def record(event: str, **fields) -> None:
     """Never raises and never blocks a conversation. A dropped metric is a
     rounding error; a failed reply is a visitor standing in front of a broken

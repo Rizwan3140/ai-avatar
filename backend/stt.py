@@ -21,17 +21,6 @@ import urllib.request
 
 from backend import analytics, config
 
-# Measured on a 12-core CPU, int8, for 3.7 seconds of speech:
-#
-#   tiny.en   443 ms
-#   base.en   849 ms
-#
-# base.en is the default because a misheard question is unrecoverable — it sends
-# the wrong words to the model and the whole answer is wrong — whereas latency is
-# merely felt. Set WHISPER_MODEL=tiny.en to halve the wait if the room turns out
-# to be quiet and the speech clear.
-MODEL_SIZE = os.getenv("WHISPER_MODEL", "base.en")
-
 _model = None  # WhisperModel, once something asks for it
 _lock = threading.Lock()
 
@@ -44,16 +33,6 @@ _lock = threading.Lock()
 #: final ever becomes the latency that matters.
 _inference = threading.Lock()
 
-#: Above this, Whisper thinks the audio is not speech and we agree with it.
-#:
-#: A calibration knob, not a constant: the right floor depends on the room, the
-#: microphone and how much of the avatar's own voice reaches it. The default is
-#: deliberately permissive — it drops confident hallucinations over a silent
-#: room without discarding a quiet visitor, which is the failure that would be
-#: blamed on the microphone rather than on this line.
-NO_SPEECH = config.WHISPER_NO_SPEECH
-
-
 def _get_model():
     # Imported here, not at module scope. See the note at the top of this file.
     from faster_whisper import WhisperModel
@@ -61,7 +40,7 @@ def _get_model():
     global _model
     with _lock:
         if _model is None:
-            _model = WhisperModel(MODEL_SIZE, device="cpu", compute_type="int8")
+            _model = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="int8")
         return _model
 
 
@@ -158,8 +137,8 @@ def transcribe(audio: bytes, partial: bool = False) -> str:
         try:
             return _transcribe_groq(audio)
         except config.ProviderUnreachable as error:
-            print(f"  stt: {error} -- falling back to {MODEL_SIZE}")
-            analytics.fallback("stt", str(error))
+            print(f"  stt: {error} -- falling back to {config.WHISPER_MODEL}")
+            analytics.record("provider_fallback", module="stt", reason=str(error)[:200])
 
     model = _get_model()
 
@@ -188,5 +167,5 @@ def transcribe(audio: bytes, partial: bool = False) -> str:
         return " ".join(
             segment.text.strip()
             for segment in segments
-            if segment.no_speech_prob < NO_SPEECH
+            if segment.no_speech_prob < config.WHISPER_NO_SPEECH
         ).strip()

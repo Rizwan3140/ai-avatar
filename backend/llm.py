@@ -34,12 +34,6 @@ TIMEOUT = 120
 KEEP_ALIVE = -1
 
 
-#: Both live in `config` rather than here, because `stt.py` needs the same two
-#: and neither module should have to import the other to reach them.
-ProviderUnreachable = config.ProviderUnreachable
-_RETRY_STATUS = config.RETRY_STATUS
-
-
 #: What this avatar is for, and what it must refuse.
 #
 # Lives here rather than in the persona on purpose. A persona is a per-company
@@ -108,7 +102,8 @@ BREVITY = (
 #: answering "do you have washing machines".
 _CLAIMS_STOCK = re.compile(
     r"\b(we|i)\s+(do\s+)?(carry|have|stock|sell|offer)\b"
-    r"|\bwe\s+do\s+carry\b"
+    # Separate because the subject is not always the giveaway: "I can show you
+    # our range of home textiles" claims stock without any of the verbs above.
     r"|\b(a|our)\s+(wide\s+)?(selection|range|variety)\s+of\b",
     re.I,
 )
@@ -335,11 +330,11 @@ def _stream_groq(messages: list[dict]) -> Iterator[str]:
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:200]
         message = f"Groq refused the request ({error.code}): {detail}"
-        if error.code in _RETRY_STATUS:
-            raise ProviderUnreachable(message) from error
+        if error.code in config.RETRY_STATUS:
+            raise config.ProviderUnreachable(message) from error
         raise RuntimeError(message) from error
     except urllib.error.URLError as error:
-        raise ProviderUnreachable(f"Cannot reach Groq. ({error})") from error
+        raise config.ProviderUnreachable(f"Cannot reach Groq. ({error})") from error
 
 
 def stream_reply(
@@ -391,9 +386,9 @@ def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
         first = next(stream)
     except StopIteration:
         return  # A hosted reply that was empty is still a hosted reply.
-    except ProviderUnreachable as error:
+    except config.ProviderUnreachable as error:
         print(f"  llm: {error} -- falling back to {MODEL}")
-        analytics.fallback("llm", str(error))
+        analytics.record("provider_fallback", module="llm", reason=str(error)[:200])
         yield from _stream_ollama(messages)
         return
 

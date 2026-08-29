@@ -96,6 +96,15 @@ GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 # model. It is not the model; it is name resolution.
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.2:3b")
+# Measured on a 12-core CPU, int8, for 3.7 seconds of speech:
+#
+#   tiny.en   443 ms
+#   base.en   849 ms
+#
+# base.en is the default because a misheard question is unrecoverable — it sends
+# the wrong words to the model and the whole answer is wrong — whereas latency is
+# merely felt. Set WHISPER_MODEL=tiny.en to halve the wait if the room turns out
+# to be quiet and the speech clear.
 WHISPER_MODEL = _get("WHISPER_MODEL", "base.en")
 #: Discard a transcribed segment whose `no_speech_prob` is above this. Whisper
 #: invents fluent sentences from silence — "Bye bye", "I will see you in the next
@@ -178,7 +187,7 @@ class ProviderUnreachable(RuntimeError):
 #: Statuses worth retrying somewhere else. 429 is the one that will actually
 #: happen — the hosted tier is rate-limited per minute and a Saturday is not.
 #: Every other 4xx is our own fault and must not be swallowed.
-RETRY_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+RETRY_STATUS = frozenset({408, 429, 500, 502, 503, 504})
 
 
 def llm_provider() -> str:
@@ -195,6 +204,11 @@ def stt_provider() -> str:
     return "groq" if GROQ_API_KEY else "whisper"
 
 
+def _chain(provider: str, hosted: str, local: str) -> str:
+    """"-> groq-model, else local-model" when a hosted one is answering."""
+    return f"-> {hosted}, else {local}" if provider == "groq" else f"-> {local}"
+
+
 def hosted_models() -> bool:
     """True when conversation can run without a model on this machine — which is
     what lets the cloud role serve `/api/chat` at all."""
@@ -206,18 +220,8 @@ _GROUPS = {
         # Name the fallback too. A banner that says only "groq" is a banner that
         # lies the moment the wifi drops, and the whole point of the fallback is
         # that nobody notices it happening.
-        (
-            "answers",
-            llm_provider(),
-            f"-> {GROQ_MODEL}, else {OLLAMA_MODEL}" if llm_provider() == "groq"
-            else f"-> {OLLAMA_MODEL}",
-        ),
-        (
-            "listens",
-            stt_provider(),
-            f"-> {GROQ_STT_MODEL}, else {WHISPER_MODEL}" if stt_provider() == "groq"
-            else f"-> {WHISPER_MODEL}",
-        ),
+        ("answers", llm_provider(), _chain(llm_provider(), GROQ_MODEL, OLLAMA_MODEL)),
+        ("listens", stt_provider(), _chain(stt_provider(), GROQ_STT_MODEL, WHISPER_MODEL)),
         ("Anthropic", ANTHROPIC_API_KEY, "hosted LLM"),
         ("Groq", GROQ_API_KEY, "hosted LLM + STT"),
         ("Deepgram", DEEPGRAM_API_KEY, "streaming STT"),

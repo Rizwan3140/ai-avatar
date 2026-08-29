@@ -107,9 +107,6 @@ export function isEcho(transcript: string, spoken: string | string[]): boolean {
   const recent = (Array.isArray(spoken) ? spoken : [spoken]).map(normalize).filter(Boolean)
   if (!recent.length) return false
 
-  // Still catches the clean case a directional mic gives us, and costs nothing.
-  if (recent.some((said) => said.includes(heard))) return true
-
   const words = heard.split(' ').filter(Boolean)
   if (!words.length) return true
   const said = new Set(recent.join(' ').split(' '))

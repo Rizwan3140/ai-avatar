@@ -24,15 +24,13 @@ let streamOpen = false
 let speaking = false
 /** SPEECH_STARTED already announced for the reply in progress. */
 let announced = false
-/** What is leaving the speaker right now — drives the renderer and the caption. */
-let spokenNow = ''
 /**
  * Everything he has said in the last few seconds, newest first.
  *
- * The echo filter used to compare against `spokenNow` alone, which is empty the
- * moment a sentence ends — and an echo comes back more than a second later,
- * after end-of-turn silence and transcription. So the one thing the filter
- * needed was the one thing it no longer had.
+ * The echo filter used to compare against the sentence in flight alone, which
+ * is empty the moment that sentence ends — and an echo comes back more than a
+ * second later, after end-of-turn silence and transcription. So the one thing
+ * the filter needed was the one thing it no longer had.
  */
 let recent: { text: string; at: number }[] = []
 /** How far back an echo can plausibly arrive. Whisper is slower under load, and
@@ -130,7 +128,6 @@ export function finishThenStop(): void {
   // Nothing in flight to wait for — this is an ordinary stop.
   if (!speaking) {
     announced = false
-    spokenNow = ''
     bus.emit('SPEECH_CANCELLED')
   }
 }
@@ -144,13 +141,8 @@ export function cancel(announce = true): void {
   streamOpen = false
   speaking = false
   announced = false
-  spokenNow = ''
   speechSynthesis.cancel()
   if (announce && wasActive) bus.emit('SPEECH_CANCELLED')
-}
-
-export function currentlySpoken(): string {
-  return spokenNow
 }
 
 /**
@@ -182,7 +174,6 @@ function pump(): void {
   utterance.volume = config.volume
 
   utterance.onstart = () => {
-    spokenNow = text
     // Recorded on start rather than on end: an echo of the first half of a
     // sentence can be transcribed before he has finished saying the second.
     recent.unshift({ text, at: Date.now() })
@@ -205,7 +196,6 @@ function pump(): void {
     // Superseded by a cancel: this utterance's completion is not news.
     if (mine !== epoch) return
     speaking = false
-    spokenNow = ''
     if (queue.length) return pump()
     // Silence between chunks is not the end of a reply — only a drained queue
     // on a closed stream is, or she stops mid-thought.
