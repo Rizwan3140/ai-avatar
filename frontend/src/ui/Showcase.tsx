@@ -31,17 +31,23 @@ function Grid({ products }: { products: Product[] }) {
   return (
     <>
       <Heading count={products.length} />
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-4 overflow-y-auto">
+      {/* Cards were bordered boxes with a 112px image inside a lot of padding,
+          which on a two-metre panel reads as a spreadsheet of thumbnails. The
+          garment is the thing being sold, so the picture is the card: tall,
+          edge to edge, with the words underneath it rather than around it. */}
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-4 gap-y-6 overflow-y-auto">
         {products.map((product) => (
           <button
             key={product.id}
             type="button"
             onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
-            className="group flex flex-col gap-2 rounded-lg border border-line bg-white p-4 text-left transition-transform duration-200 ease-(--ease-human) hover:-translate-y-0.5"
+            className="group flex flex-col gap-2.5 text-left transition-transform duration-200 ease-(--ease-human) hover:-translate-y-1"
           >
-            <Image product={product} className="h-28" />
-            <span className="text-[15px] leading-tight font-medium">{product.name}</span>
-            <span className="text-ink-soft text-sm">{product.spoken_price}</span>
+            <Image product={product} className="aspect-[3/4]" fit="cover" />
+            <span className="line-clamp-2 text-[17px] leading-tight font-medium">
+              {product.name}
+            </span>
+            <span className="text-ink-soft text-[15px]">{product.spoken_price}</span>
           </button>
         ))}
       </div>
@@ -49,8 +55,18 @@ function Grid({ products }: { products: Product[] }) {
   )
 }
 
+/** Short enough to be read at a glance, by someone who is not going to read.
+ *
+ *  This screen used to print every attribute the catalog held, which for a real
+ *  storefront meant brand, tags, a variant list repeating the same price four
+ *  times, and the raw CDN URL of every image — a wall of text on a shop window.
+ *  A visitor here is walking past in an airport: they look at the garment, and
+ *  if they want it they scan. Size is the one fact that changes whether it is
+ *  worth scanning, so size is the one fact that stays. */
+const WORTH_READING = ['size', 'colour', 'color']
+
 function Detail({ product, siblings }: { product: Product; siblings: number }) {
-  const specs = Object.entries(product.attributes).filter(([, v]) => v)
+  const facts = WORTH_READING.map((k) => product.attributes[k]).filter(Boolean) as string[]
   // Coming from a list of results, "back" means back to those results. Throwing
   // the whole search away because someone looked at one item is the kind of thing
   // that makes a visitor stop touching the screen.
@@ -58,13 +74,7 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-[26px] leading-tight font-semibold tracking-tight text-balance">
-            {product.name}
-          </h2>
-          <p className="text-ink-soft text-lg">{product.spoken_price}</p>
-        </div>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
@@ -74,22 +84,20 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
         </button>
       </div>
 
-      <Image product={product} className="h-[34%]" />
+      {/* The garment takes whatever room the rest does not use, rather than a
+          fixed third of the panel. `contain`, not `cover` — a cropped hemline
+          on the screen someone is deciding from is the wrong economy. */}
+      <Image product={product} className="min-h-0 flex-1" fit="contain" />
 
-      {product.description && (
-        <p className="text-[15px] leading-relaxed text-ink-soft">{product.description}</p>
-      )}
-
-      {specs.length > 0 && (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-line pt-4 text-sm">
-          {specs.map(([key, value]) => (
-            <div key={key} className="flex justify-between gap-3">
-              <dt className="text-ink-soft capitalize">{key.replace(/_/g, ' ')}</dt>
-              <dd className="text-right font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-[30px] leading-tight font-semibold tracking-tight text-balance">
+          {product.name}
+        </h2>
+        <p className="text-[22px] leading-none">{product.spoken_price}</p>
+        {facts.length > 0 && (
+          <p className="text-ink-soft mt-1 text-[15px]">{facts.join('  ·  ')}</p>
+        )}
+      </div>
 
       {/* Offered on the product being discussed, not on the grid — "see it on
           you" only means anything once there is a single "it". Renders nothing
@@ -97,20 +105,24 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
       <TryOn product={product} />
 
       {product.url && scope() !== null && (
-        <div className="mt-auto flex items-center gap-4 border-t border-line pt-4">
+        // The point of the whole screen. It was 76px in a footer under a spec
+        // table; nobody crossing a concourse takes their phone out for that.
+        <div className="mt-auto flex items-center gap-5 border-t border-line pt-5">
           {/* Rendered by our own API, not a QR web service — otherwise this is
               the one element on screen that goes blank when the network drops. */}
           <img
             src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
             alt={`QR code linking to ${product.name}`}
-            width={76}
-            height={76}
+            width={132}
+            height={132}
             className="shrink-0 rounded bg-white"
           />
-          <p className="text-ink-soft text-sm">
-            Scan to take this with you
+          <p className="text-[19px] leading-snug font-medium">
+            Scan to buy this
             <br />
-            <span className="text-xs">Keep asking — he is still listening.</span>
+            <span className="text-ink-soft text-[15px] font-normal">
+              Opens on your phone. Keep asking — he is still listening.
+            </span>
           </p>
         </div>
       )}
@@ -126,7 +138,17 @@ function Heading({ count }: { count: number }) {
   )
 }
 
-function Image({ product, className }: { product: Product; className: string }) {
+function Image({
+  product,
+  className,
+  fit,
+}: {
+  product: Product
+  className: string
+  // `cover` fills a grid cell so a row of results lines up; `contain` shows a
+  // whole garment on the screen someone decides from. Neither is right for both.
+  fit: 'cover' | 'contain'
+}) {
   if (!product.image) {
     // Catalogs arrive without images more often than not. A tidy placeholder
     // beats a broken icon, and the name is what the visitor is reading anyway.
@@ -143,7 +165,7 @@ function Image({ product, className }: { product: Product; className: string }) 
     <img
       src={product.image}
       alt=""
-      className={`w-full rounded object-contain ${className}`}
+      className={`w-full rounded ${fit === 'cover' ? 'object-cover' : 'object-contain'} ${className}`}
       loading="lazy"
     />
   )

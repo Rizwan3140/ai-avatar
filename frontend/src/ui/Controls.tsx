@@ -3,11 +3,16 @@ import { useStore } from '../state/store.ts'
 import { useBurnInShift } from './useBurnInShift.ts'
 
 /**
- * Three controls. Right edge, middle height, floating.
+ * Two controls. Right edge, middle height, floating.
  *
- * It was two — start and end — until a visitor needed to say something to the
- * person beside them without a cabinet listening. Mute is not a fourth idea, it
- * is the missing half of start.
+ * It was three, and one of them was a duplicate. Start and mute were separate
+ * buttons wearing the same microphone icon, and their enabled states were exact
+ * complements — start did nothing once a conversation was running, mute was
+ * disabled until one was. So a visitor read two identical icons of which exactly
+ * one was ever live, which is a puzzle rather than an affordance.
+ *
+ * One microphone now: it opens the conversation, then it mutes and unmutes it.
+ * That is the same thing a person means by "the microphone" anyway.
  *
  * They are filled rather than glass: a translucent white circle on a pure white
  * page has no edge, so the control and its icon both disappear. Filling them is
@@ -29,22 +34,25 @@ export function Controls() {
       style={{ transform: `translate(${shift.x}px, calc(-50% + ${shift.y}px))` }}
     >
       <ControlButton
-        label={inConversation ? 'Conversation active' : 'Start talking'}
-        tone="accent"
+        label={
+          !inConversation
+            ? 'Start talking'
+            : muted
+              ? 'Turn the microphone back on'
+              : 'Mute the microphone'
+        }
+        // Accent while it is the way in, ink once it is a mute among the other
+        // controls — the invitation is the thing that has to be found first.
+        tone={inConversation && !muted ? 'ink' : 'accent'}
         disabled={!live}
         glowing={status === 'listening'}
-        onClick={() => !inConversation && bus.emit('SESSION_STARTED')}
+        onClick={() =>
+          inConversation
+            ? bus.emit('MIC_MUTED', { muted: !muted })
+            : bus.emit('SESSION_STARTED')
+        }
       >
-        {status === 'speaking' ? <SpeakerIcon /> : <MicIcon />}
-      </ControlButton>
-
-      <ControlButton
-        label={muted ? 'Turn the microphone back on' : 'Mute the microphone'}
-        tone="ink"
-        disabled={!inConversation}
-        onClick={() => bus.emit('MIC_MUTED', { muted: !muted })}
-      >
-        {muted ? <MicOffIcon /> : <MicIcon />}
+        {muted ? <MicOffIcon /> : status === 'speaking' ? <SpeakerIcon /> : <MicIcon />}
       </ControlButton>
 
       <ControlButton
