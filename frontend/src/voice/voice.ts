@@ -87,8 +87,15 @@ function stopEverything() {
  */
 function onFinal(text: string) {
   if (!active) return
-  // Her own voice coming back through the microphone is not a question.
-  if (tts.isSpeaking() && isEcho(text, tts.currentlySpoken())) {
+  // His own voice coming back through the microphone is not a question.
+  //
+  // No `isSpeaking()` guard. That guard is why a cabinet spent four minutes
+  // answering itself every five seconds: a turn ends on 700ms of silence and
+  // then waits on transcription, so the echo of a sentence arrives well after
+  // that sentence finished — `isSpeaking()` was false, and the filter it guarded
+  // was never called once. The check now stands on its own, against everything
+  // he has said recently rather than against the sentence in flight.
+  if (isEcho(text, tts.recentlySpoken())) {
     return bus.emit('USER_DISCARDED', { text, reason: 'echo' })
   }
   // Let the sentence he is on finish rather than clipping it. The reply itself
@@ -99,7 +106,7 @@ function onFinal(text: string) {
 
 function onInterim(text: string) {
   if (!active) return
-  if (tts.isSpeaking() && isEcho(text, tts.currentlySpoken())) return
+  if (isEcho(text, tts.recentlySpoken())) return
   bus.emit('USER_INTERIM', { text })
 }
 

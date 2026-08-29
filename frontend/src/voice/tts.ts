@@ -24,8 +24,20 @@ let streamOpen = false
 let speaking = false
 /** SPEECH_STARTED already announced for the reply in progress. */
 let announced = false
-/** What is leaving the speaker right now — the echo filter compares against this. */
+/** What is leaving the speaker right now — drives the renderer and the caption. */
 let spokenNow = ''
+/**
+ * Everything he has said in the last few seconds, newest first.
+ *
+ * The echo filter used to compare against `spokenNow` alone, which is empty the
+ * moment a sentence ends — and an echo comes back more than a second later,
+ * after end-of-turn silence and transcription. So the one thing the filter
+ * needed was the one thing it no longer had.
+ */
+let recent: { text: string; at: number }[] = []
+/** How far back an echo can plausibly arrive. Whisper is slower under load, and
+ *  a stale entry only costs a rare ignored utterance. */
+const ECHO_MEMORY_MS = 20000
 /**
  * Bumped by `cancel()`. A cancelled utterance still fires its `onend`, and
  * that callback used to announce SPEECH_ENDED — so ending a conversation set
@@ -141,6 +153,17 @@ export function currentlySpoken(): string {
   return spokenNow
 }
 
+/**
+ * What to test an incoming transcript against: the sentence in flight, plus
+ * everything said in the last few seconds. Prunes on read, so nothing has to run
+ * a timer to keep it tidy.
+ */
+export function recentlySpoken(): string[] {
+  const cutoff = Date.now() - ECHO_MEMORY_MS
+  recent = recent.filter((r) => r.at >= cutoff)
+  return recent.map((r) => r.text)
+}
+
 export function isSpeaking(): boolean {
   return speaking
 }
@@ -160,6 +183,9 @@ function pump(): void {
 
   utterance.onstart = () => {
     spokenNow = text
+    // Recorded on start rather than on end: an echo of the first half of a
+    // sentence can be transcribed before he has finished saying the second.
+    recent.unshift({ text, at: Date.now() })
     bus.emit('SPEECH_SENTENCE', { text })
   }
   utterance.onend = next

@@ -77,18 +77,48 @@ function endsWithAbbreviation(buffer: string, dot: number): boolean {
  * True when a transcript is the speaker feeding back into the microphone rather
  * than a person interrupting.
  *
- * ponytail: substring match against what is being spoken right now. Good enough
- * for a normal room with a directional mic. If the kiosk enclosure echoes,
- * replace with an AudioWorklet RMS gate on the getUserMedia stream
- * (echoCancellation: true) — this filter cannot tell a quiet echo from a quiet
- * person.
+ * The marker that used to sit here said an exact substring match was good enough
+ * for a normal room, and that the enclosure echoing was the case that would break
+ * it. The enclosure echoed. In a glass cabinet with separate speakers, browser
+ * `echoCancellation` — which assumes the microphone and the speaker are the same
+ * device — removes far less than it does on a laptop.
+ *
+ * Two things had to change, and only one of them was here.
+ *
+ * The caller used to ask this only while `isSpeaking()` was true. A turn ends
+ * after 700ms of silence and then waits on transcription, so a transcript arrives
+ * more than a second after he stopped talking — by which point he is not
+ * speaking, the guard was false, and this function was never called at all. That
+ * is the whole bug: not a weak filter, an unreached one.
+ *
+ * And an exact match cannot catch it even when reached, because Whisper does not
+ * hear an echo cleanly. "I'll be here" came back as "I'll be there", "I'll be
+ * good", "I'll be it". So this compares word overlap against everything he said
+ * recently, not a substring against the sentence in flight.
+ *
+ * Cost of a false positive: one utterance ignored, and the visitor repeats
+ * themselves. Cost of a false negative: he answers himself every five seconds
+ * until someone walks away. The threshold leans accordingly.
  */
-export function isEcho(transcript: string, spoken: string): boolean {
+export function isEcho(transcript: string, spoken: string | string[]): boolean {
   const heard = normalize(transcript)
   if (!heard) return true
-  const said = normalize(spoken)
-  if (!said) return false
-  return said.includes(heard)
+
+  const recent = (Array.isArray(spoken) ? spoken : [spoken]).map(normalize).filter(Boolean)
+  if (!recent.length) return false
+
+  // Still catches the clean case a directional mic gives us, and costs nothing.
+  if (recent.some((said) => said.includes(heard))) return true
+
+  const words = heard.split(' ').filter(Boolean)
+  if (!words.length) return true
+  const said = new Set(recent.join(' ').split(' '))
+  const overlap = words.filter((w) => said.has(w)).length / words.length
+
+  // A long transcript sharing most of its words with what he just said is still
+  // him; a short one needs to be nearly all his, because "the linen shirt" is a
+  // thing a visitor genuinely says right after he has said it.
+  return words.length <= 3 ? overlap === 1 : overlap >= 0.7
 }
 
 function normalize(text: string): string {
