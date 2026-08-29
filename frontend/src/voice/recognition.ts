@@ -34,6 +34,31 @@ let barged = false
 /** Longest audio worth re-transcribing for the live caption. */
 const partialSampleCap = (config.sampleRate * config.maxPartialMs) / 1000
 
+/**
+ * Whether to re-transcribe a turn in progress at all.
+ *
+ * With the model on this machine a partial costs a slice of CPU. With a hosted
+ * one it costs an upload of the entire turn so far, every 1.2 seconds — about
+ * forty seconds of audio for a ten-second sentence, across eight billed
+ * requests — to feed a caption that only ever reaches the dev-only transcript.
+ * The visitor-facing subtitle shows nothing at all while he is listening.
+ *
+ * Defaults to true, so a failed or slow check behaves exactly as before. The
+ * final transcript, which is the one that gets answered, never depends on this.
+ */
+let partialsWanted = true
+
+export async function loadCapabilities(): Promise<void> {
+  try {
+    const response = await fetch('/api/health')
+    if (!response.ok) return
+    const data = (await response.json()) as { partials?: boolean }
+    if (typeof data.partials === 'boolean') partialsWanted = data.partials
+  } catch {
+    // Keep the default. A missing capability check is not a reason to go deaf.
+  }
+}
+
 export function isSupported(): boolean {
   return Boolean(navigator.mediaDevices?.getUserMedia) && 'AudioContext' in window
 }
@@ -90,7 +115,9 @@ export async function startListening(h: Handlers): Promise<void> {
     // Without this the failure vanishes into an unawaited promise and the mic
     // simply appears to do nothing.
     await teardown()
-    h.onError(`Could not start audio capture: ${(error as Error).message}`)
+    // The reason belongs in the console, not on a shop window at 18px.
+    console.error('audio capture failed:', error)
+    h.onError('The microphone is not working here.')
   }
 }
 
@@ -184,7 +211,11 @@ function onSamples(block: Float32Array) {
   // cost grows with the square of turn length, and every pass now queues ahead
   // of the final one on the model lock. Past the cap the caption simply stops
   // updating; the final transcript is unaffected.
-  if (now - partialAt >= config.partialInterval && turnSamples <= partialSampleCap) {
+  if (
+    partialsWanted &&
+    now - partialAt >= config.partialInterval &&
+    turnSamples <= partialSampleCap
+  ) {
     partialAt = now
     void sendPartial()
   }

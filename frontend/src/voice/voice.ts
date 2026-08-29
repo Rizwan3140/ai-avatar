@@ -18,7 +18,10 @@ let active = false
 export const setVoiceProfile = tts.setVoiceProfile
 
 export function initialize(): Promise<void> {
-  return tts.loadVoices()
+  // Both are boot-time questions with no answer worth blocking on: which voices
+  // this browser has, and whether transcription is close enough to keep sending
+  // partials to. Neither can fail in a way that should stop a cabinet starting.
+  return Promise.all([tts.loadVoices(), recognition.loadCapabilities()]).then(() => {})
 }
 
 /** Prompt for the microphone during boot, not mid-conversation. */

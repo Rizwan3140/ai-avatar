@@ -238,4 +238,12 @@ def health():
         "role": config.ROLE,
         "avatars": len(store.list_avatars()),
         "models_ready": models,
+        # Whether the browser should keep re-transcribing a turn in progress.
+        #
+        # It costs nothing when the model is on this machine. It costs real money
+        # and real bandwidth when it is not: a partial re-encodes the whole turn
+        # so far, every 1.2 seconds, so a ten-second sentence uploads about forty
+        # seconds of audio across eight requests — for a live caption that only
+        # ever reaches the dev-only transcript panel. No visitor sees it.
+        "partials": config.stt_provider() == "whisper",
     }
