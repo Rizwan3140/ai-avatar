@@ -129,6 +129,23 @@ check("it gets its avatar without a token", r.json()["avatar"]["id"] == AVATAR)
 check("and its greeting", r.json()["avatar"]["greeting"] == "Welcome.")
 check("and whether it may offer a camera", r.json()["tryon"]["available"] is False)
 
+# `/` is the panel, and it must stay the panel. A fresh install with no avatars
+# sends the first person to the Studio instead of to a blank screen reading "the
+# showroom is offline" — but the moment one avatar exists that redirect has to
+# stop, or a cabinet in a mall bounces away from its own face on every reload.
+if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
+    check(
+        "a cabinet with an avatar is served the kiosk, not the studio",
+        client.get("/", follow_redirects=False).status_code == 200,
+    )
+    _real = store.AVATARS_DIR
+    store.AVATARS_DIR = TMP / "nobody"
+    store.AVATARS_DIR.mkdir(exist_ok=True)
+    empty = client.get("/", follow_redirects=False)
+    store.AVATARS_DIR = _real
+    check("with no avatars at all it redirects", empty.status_code == 307)
+    check("and it redirects to the studio", empty.headers.get("location") == "/studio")
+
 r = client.get(f"/api/products?q=laptop for video editing&avatar={AVATAR}")
 names = [p["name"] for p in r.json()]
 # Both are laptops, so both match; what matters is that the one whose

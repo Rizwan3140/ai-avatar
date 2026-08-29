@@ -19,10 +19,10 @@ must never be pulled into the cloud image.
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend import config
+from backend import config, store
 from backend.routes import platform, studio
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -132,6 +132,23 @@ if FRONTEND_DIST.is_dir():
     def studio(rest: str):
         """StaticFiles has no history fallback, so a hard refresh on /studio would
         404. One route rather than a client-side router nobody else needs."""
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/", include_in_schema=False)
+    def root():
+        """The kiosk — unless there is nobody to show yet.
+
+        A fresh install has no avatars, so `/api/kiosk/{id}` 404s and the panel
+        came up blank reading "The showroom is offline". It is not offline, it is
+        empty, and the person who just installed it has no way to guess that the
+        thing they need is at a URL nobody mentioned.
+
+        Registered before the mount below, because a mount at "/" would otherwise
+        answer first. It stops redirecting the moment one avatar exists, so a
+        real cabinet is never bounced away from its own screen.
+        """
+        if not store.list_avatars():
+            return RedirectResponse("/studio")
         return FileResponse(FRONTEND_DIST / "index.html")
 
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

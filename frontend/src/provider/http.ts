@@ -147,6 +147,11 @@ export async function fetchAvatar(avatarId: string): Promise<Omit<KioskConfig, '
 /** Who this cabinet is. Replaces the avatar name the app used to be built with. */
 export async function fetchKiosk(kioskId: string): Promise<KioskConfig> {
   const response = await fetch(`/api/kiosk/${encodeURIComponent(kioskId)}`)
+  // 404 here means the platform answered and has nobody to show — a fresh
+  // install, or an avatar that was deleted out from under a running cabinet.
+  // Telling that person the showroom is offline sends them to check a network
+  // that is working perfectly.
+  if (response.status === 404) throw new Error('EMPTY')
   if (!response.ok) throw new Error('Could not reach the showroom.')
   return response.json()
 }

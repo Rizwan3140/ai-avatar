@@ -50,13 +50,20 @@ export async function boot(): Promise<void> {
       poster: avatar.poster,
       clips: avatar.clips as Partial<Record<Pose, string>>,
     })
-  } catch {
+  } catch (error) {
     setIdentity('', '', 'Welcome.')
-    // A mistyped ?avatar= is a different failure from an unreachable backend,
-    // and saying "offline" for it sends whoever clicked the link to check the
-    // network instead of the name.
+    // Three different failures that used to read as one. A mistyped ?avatar=
+    // sends whoever clicked the link to check the name; an unreachable backend
+    // sends them to check the network; and a platform with no avatars in it
+    // sends them to the Studio to make one. Saying "offline" for the last of
+    // those is how a fresh install looks broken instead of empty.
+    const empty = (error as Error)?.message === 'EMPTY'
     bus.emit('SYSTEM_ERROR', {
-      message: wanted ? 'That avatar is no longer here.' : 'The showroom is offline.',
+      message: wanted
+        ? 'That avatar is no longer here.'
+        : empty
+          ? 'No avatar has been set up yet. Open /studio to create one.'
+          : 'The showroom is offline.',
     })
   }
 
