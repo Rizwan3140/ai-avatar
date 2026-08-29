@@ -97,6 +97,11 @@ GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.2:3b")
 WHISPER_MODEL = _get("WHISPER_MODEL", "base.en")
+#: Discard a transcribed segment whose `no_speech_prob` is above this. Whisper
+#: invents fluent sentences from silence — "Bye bye", "I will see you in the next
+#: video" — and each one reached the model as a visitor's question. Tune per room:
+#: lower catches more hallucinations and risks clipping a quiet visitor.
+WHISPER_NO_SPEECH = float(_get("WHISPER_NO_SPEECH", "0.6"))
 
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
 GROQ_API_KEY = _get("GROQ_API_KEY")          # fast, cheap: intent and routing

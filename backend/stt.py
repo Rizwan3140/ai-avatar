@@ -44,6 +44,15 @@ _lock = threading.Lock()
 #: final ever becomes the latency that matters.
 _inference = threading.Lock()
 
+#: Above this, Whisper thinks the audio is not speech and we agree with it.
+#:
+#: A calibration knob, not a constant: the right floor depends on the room, the
+#: microphone and how much of the avatar's own voice reaches it. The default is
+#: deliberately permissive — it drops confident hallucinations over a silent
+#: room without discarding a quiet visitor, which is the failure that would be
+#: blamed on the microphone rather than on this line.
+NO_SPEECH = config.WHISPER_NO_SPEECH
+
 
 def _get_model():
     # Imported here, not at module scope. See the note at the top of this file.
@@ -156,4 +165,16 @@ def transcribe(audio: bytes, partial: bool = False) -> str:
         # `transcribe` returns a lazy generator — the work happens on
         # consumption, not on the call, so the join has to be inside the lock or
         # the lock guards nothing.
-        return " ".join(segment.text.strip() for segment in segments).strip()
+        #
+        # Drop segments the model itself does not believe are speech. Whisper
+        # hallucinates fluent sentences from near-silence — its training data was
+        # captioned video, so quiet audio comes back as "Thank you for watching",
+        # "Bye bye", "I will see you in the next video". Real examples, from this
+        # cabinet's own logs, each one delivered to the model as a visitor's
+        # question. `no_speech_prob` is exactly this judgement and was being
+        # thrown away one attribute short of the text we kept.
+        return " ".join(
+            segment.text.strip()
+            for segment in segments
+            if segment.no_speech_prob < NO_SPEECH
+        ).strip()
