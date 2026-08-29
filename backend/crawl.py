@@ -196,6 +196,43 @@ def _plain(markup: str) -> str:
     return re.sub(r"\s+([.,;:!?])", r"\1", text).strip()
 
 
+def category(raw: str) -> str:
+    """One bucket per kind of thing, whatever the merchant typed.
+
+    A real storefront is inconsistent about its own categories: this catalog
+    carries "Kurta Sets" and "Kurta sets" as separate kinds, and "Sarees",
+    "saree" and "Lehenga"/"Lehengas" likewise. Every split is a category a
+    visitor cannot browse and a filter that silently returns half the stock —
+    1,375 sarees in one bucket and 268 in another.
+
+    Title case fixes the casing, and pluralising the last word fixes the rest.
+    Naive on purpose: it is a display label and a search term, not a taxonomy,
+    and "Rakhis" for "Rakhi" is the whole cost of being wrong.
+    """
+    text = re.sub(r"\s+", " ", (raw or "")).strip()
+    if not text:
+        return ""
+    # Not str.title(): it capitalises after any non-letter, so "Men's Kurta"
+    # comes back as "Men'S Kurtas" on a shop window. Only the first letter of
+    # each word.
+    words = [w[:1].upper() + w[1:].lower() for w in text.split(" ")]
+    last = words[-1]
+    if not last.lower().endswith("s"):
+        words[-1] = last[:-1] + "ies" if last.lower().endswith("y") else last + "s"
+    return " ".join(words)
+
+
+def _is_internal(tag: str) -> bool:
+    """A merchant's own bookkeeping, not something a visitor asks about.
+
+    Real stores tag products for their own import pipelines — this catalog
+    carries `Myntra_ID_43918230` and `Myntra_Scrape` beside `Blue` and
+    `Jewellery`. Both kinds reach the model's prompt and the visitor's screen,
+    and only one of them is about the product.
+    """
+    return bool(re.search(r"\d{4,}", tag)) or "_" in tag
+
+
 def _listing(values) -> str:
     """Attributes are read aloud and indexed as text, so a list has to arrive as
     a sentence rather than as a Python repr."""
@@ -255,30 +292,30 @@ def _shopify_product(node: dict, base: str, currency: str) -> Product:
     # "how much" before choosing a size is asking the cheapest way in.
     price = min(priced) if priced else None
 
-    # Everything the core columns have no room for. A visitor asks about colour,
-    # size and fabric far more often than about anything in the schema.
+    # Everything the core columns have no room for — and nothing else.
+    #
+    # `attributes` is not a junk drawer: `Product.as_line()` puts every pair into
+    # the model's prompt, and the detail screen prints every pair to a visitor.
+    # So this held image URLs once, which meant a passer-by read a wall of
+    # cdn.shopify.com links off a shop window while the model spent its context
+    # on them. Only things a person would actually ask about belong here.
     extras: dict = {}
     if node.get("vendor"):
         extras["brand"] = node["vendor"]
-    if node.get("tags"):
-        tags = node["tags"]
-        extras["tags"] = _listing(tags if isinstance(tags, list) else [tags])
+    tags = node.get("tags") or []
+    keep = [t for t in (tags if isinstance(tags, list) else [tags]) if not _is_internal(t)]
+    if keep:
+        extras["tags"] = _listing(keep)
     for option in node.get("options", []):
         if isinstance(option, dict) and option.get("values"):
             extras[str(option.get("name", "option")).lower()] = _listing(option["values"])
-    if len(variants) > 1:
-        extras["variants"] = _listing(
-            f"{v.get('title')} {currency} {v.get('price')}" for v in variants[:12]
-        )
-    if len(images) > 1:
-        extras["images"] = _listing(images[:8])
 
     return Product(
         # The handle, not the numeric id: it is the URL slug, it is stable across
         # re-imports, and it is the same key the storefront uses.
         id=_text(node.get("handle")) or _slug(_text(node.get("title"))),
         name=_text(node.get("title")),
-        category=_text(node.get("product_type")),
+        category=category(_text(node.get("product_type"))),
         price=price,
         currency=currency,
         description=_plain(node.get("body_html", ""))[:600],

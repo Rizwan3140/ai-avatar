@@ -168,7 +168,12 @@ def main() -> int:
     check("shopify: price is the lowest variant", p.price, 1799.0)
     # One variant sold out must not take the whole product off the floor.
     check("shopify: in stock if any variant is", p.availability, "in_stock")
-    check("shopify: keeps every image", p.attributes["images"].count("http"), 2)
+    # attributes reaches two places that both punish a junk drawer: the model's
+    # prompt via Product.as_line(), and the visitor's screen. Image URLs went to
+    # both — a shop window listing cdn.shopify.com links.
+    check("shopify: image urls stay out of attributes", "images" in p.attributes, False)
+    check("shopify: the variant dump stays out too", "variants" in p.attributes, False)
+    check("shopify: the image itself is still kept", p.image, "https://cdn/1.jpg")
     check("shopify: keeps the tags", p.attributes["tags"], "Ethnic, Indigo, Cotton")
     check("shopify: keeps the sizes", p.attributes["size"], "S, M, L")
     check("shopify: vendor becomes brand", p.attributes["brand"], "Dhiyona")
@@ -184,9 +189,31 @@ def main() -> int:
     check("no variants is not a crash",
           _shopify_product({"handle": "x", "title": "X"}, "https://shop", "INR").price, None)
 
+    # A real catalog tags products for its own import pipeline. Both kinds of tag
+    # reach the model and the screen; only one is about the product.
+    tagged = _shopify_product(
+        {**node, "tags": ["Blue", "Myntra_ID_43918230", "Myntra_Scrape", "Silk"]},
+        "https://shop", "INR",
+    )
+    check("shopify: merchant bookkeeping is dropped", tagged.attributes["tags"], "Blue, Silk")
+
     check("product urls jump the queue", bool(PRODUCT_PATH.search("https://s/products/a")), True)
     check("collections do not", bool(PRODUCT_PATH.search("https://s/collections/all")), False)
     check("plain text survives _plain", _plain("a  <br> b"), "a b")
+
+    # One bucket per kind of thing. A real store had "Kurta Sets" and "Kurta
+    # sets" as separate categories, and 1,375 "Sarees" beside 268 "saree" — every
+    # split is stock a visitor cannot browse to.
+    from backend.crawl import category
+
+    check("category: casing is merged", category("Kurta sets"), "Kurta Sets")
+    check("category: singular joins the plural", category("saree"), "Sarees")
+    check("category: an existing plural is left alone", category("Sarees"), "Sarees")
+    check("category: y becomes ies", category("Accessory"), "Accessories")
+    # str.title() capitalises after any non-letter, which puts "Men'S Kurtas" on
+    # a shop window.
+    check("category: an apostrophe survives", category("Men's Kurta"), "Men's Kurtas")
+    check("category: nothing stays nothing", category(""), "")
 
     print("\nall checks passed")
     return 0
