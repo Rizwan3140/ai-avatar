@@ -67,9 +67,13 @@ async function run(message: string, onScreen = '') {
   } catch (error) {
     if (controller.signal.aborted) return
     bus.emit('REPLY_ABORTED')
-    bus.emit('SYSTEM_ERROR', {
-      message: (error as Error).message || 'Something went wrong.',
-    })
+    // The panel is a shop window. The message that used to arrive here was
+    // whatever the backend raised — "Cannot reach Ollama at
+    // http://127.0.0.1:11434. Is `ollama serve` running?" — rendered at 18px in
+    // front of the public. The diagnostic still exists, in the console and in
+    // the dev-only transcript; a passer-by gets a sentence a person would say.
+    console.error('reply failed:', error)
+    bus.emit('SYSTEM_ERROR', { message: "Sorry — I didn't catch that. Ask me again?" })
     return
   } finally {
     if (inFlight === controller) inFlight = null
