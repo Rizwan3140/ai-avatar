@@ -44,10 +44,10 @@ function Grid({ products }: { products: Product[] }) {
             className="group flex flex-col gap-2.5 text-left transition-transform duration-200 ease-(--ease-human) hover:-translate-y-1"
           >
             <Image product={product} className="aspect-[3/4]" fit="cover" />
-            <span className="line-clamp-2 text-[17px] leading-tight font-medium">
+            <span className="line-clamp-2 text-body leading-tight font-medium">
               {product.name}
             </span>
-            <span className="text-ink-soft text-[15px]">{product.spoken_price}</span>
+            <span className="text-ink-soft text-label">{product.spoken_price}</span>
           </button>
         ))}
       </div>
@@ -90,12 +90,12 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
       <Image product={product} className="min-h-0 flex-1" fit="contain" />
 
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-[30px] leading-tight font-semibold tracking-tight text-balance">
+        <h2 className="text-display leading-[1.05] font-semibold tracking-[-0.02em] text-balance">
           {product.name}
         </h2>
-        <p className="text-[22px] leading-none">{product.spoken_price}</p>
+        <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
         {facts.length > 0 && (
-          <p className="text-ink-soft mt-1 text-[15px]">{facts.join('  ·  ')}</p>
+          <p className="text-ink-soft mt-1 text-label">{facts.join('  ·  ')}</p>
         )}
       </div>
 
@@ -110,17 +110,19 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
         <div className="mt-auto flex items-center gap-5 border-t border-line pt-5">
           {/* Rendered by our own API, not a QR web service — otherwise this is
               the one element on screen that goes blank when the network drops. */}
+          {/* Scales with the panel like everything else. It is an SVG, so there
+              is no resolution to lose, and this is the one element a visitor
+              points a phone camera at from half a metre away, through glass,
+              at an angle — 132px was about forty millimetres of code. */}
           <img
             src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
             alt={`QR code linking to ${product.name}`}
-            width={132}
-            height={132}
-            className="shrink-0 rounded bg-white"
+            className="aspect-square w-[clamp(104px,7vh,272px)] shrink-0 rounded bg-white"
           />
-          <p className="text-[19px] leading-snug font-medium">
+          <p className="text-body leading-snug font-medium">
             Scan to buy this
             <br />
-            <span className="text-ink-soft text-[15px] font-normal">
+            <span className="text-ink-soft text-label font-normal">
               Opens on your phone. Keep asking — he is still listening.
             </span>
           </p>
@@ -132,7 +134,7 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
 
 function Heading({ count }: { count: number }) {
   return (
-    <h2 className="text-ink-soft text-xs font-medium tracking-[0.14em] uppercase">
+    <h2 className="text-ink-soft text-label font-medium tracking-[0.14em] uppercase">
       {count} {count === 1 ? 'result' : 'results'}
     </h2>
   )

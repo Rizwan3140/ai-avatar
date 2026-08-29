@@ -23,7 +23,7 @@ export function Subtitle() {
 
   function content() {
     if (error) {
-      return <p className="text-ink-soft text-[clamp(14px,1.9vh,18px)]">{error}</p>
+      return <p className="text-ink-soft text-body">{error}</p>
     }
 
     // Boot shows motion, never a progress log. The step name is in the event
@@ -41,7 +41,7 @@ export function Subtitle() {
       return (
         <p
           key={subtitle}
-          className="text-ink animate-[rise_var(--duration-calm)_var(--ease-human)] text-[clamp(17px,2.5vh,25px)] leading-relaxed font-normal text-balance"
+          className="text-ink animate-[rise_var(--duration-calm)_var(--ease-human)] text-title leading-relaxed font-normal text-balance"
         >
           {subtitle}
         </p>
@@ -50,7 +50,7 @@ export function Subtitle() {
 
     return (
       // The greeting is two deliberate lines, so its newline is honoured.
-      <p className="text-ink-soft animate-[rise_var(--duration-calm)_var(--ease-human)] text-[clamp(16px,2.3vh,23px)] leading-relaxed whitespace-pre-line">
+      <p className="text-ink-soft animate-[rise_var(--duration-calm)_var(--ease-human)] text-title leading-relaxed whitespace-pre-line">
         {greeting}
       </p>
     )

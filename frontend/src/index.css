@@ -15,7 +15,27 @@
 
   --font-sans: 'Inter Variable', system-ui, sans-serif;
 
-  --spacing-safe: 48px;
+  /* Type, sized from viewing distance rather than from a laptop.
+
+     The panel is 2160x3840, so 1vh is 38px and the app is read standing up,
+     one to two metres back — not at arm's length. Every size here was a
+     `clamp(14px, 1.9vh, 18px)`, and the ceiling in that clamp is the bug: the
+     vh term reaches 73px on the cabinet and is then thrown away for 18px.
+     Nine millimetres of text, two metres away, on a fifty-two inch screen. It
+     is why the panel photographs as empty with a caption nobody can read.
+
+     The floor keeps a laptop preview legible; the ceiling now sits above what
+     the cabinet asks for, so the middle term is the one that decides. Steps are
+     roughly a major third apart so the hierarchy survives being squinted at. */
+  --text-display: clamp(30px, 3.4vh, 132px);   /* the product being looked at */
+  --text-title: clamp(22px, 2.4vh, 92px);      /* its price, a section heading */
+  --text-body: clamp(17px, 1.8vh, 68px);       /* what he is saying */
+  --text-label: clamp(14px, 1.3vh, 50px);      /* size, colour, result counts */
+
+  /* The margin everything holds off the glass. Fixed at 48px it was a hairline
+     on a 3840px panel — the reason the interface sat squashed against the edge
+     in the cabinet while looking correctly inset on a laptop. */
+  --spacing-safe: clamp(24px, 2.4vh, 96px);
 
   --ease-human: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-quick: 200ms;

@@ -97,7 +97,7 @@ export function Signage() {
       </div>
 
       {campaign.invitation && (
-        <p className="text-ink text-center text-[clamp(15px,2vh,20px)] leading-relaxed text-balance">
+        <p className="text-ink text-center text-title leading-relaxed text-balance">
           {campaign.invitation}
         </p>
       )}

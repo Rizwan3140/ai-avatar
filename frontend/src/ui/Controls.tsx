@@ -30,7 +30,7 @@ export function Controls() {
 
   return (
     <div
-      className="absolute top-1/2 right-safe z-10 flex -translate-y-1/2 flex-col gap-4 transition-transform duration-1000"
+      className="absolute top-1/2 right-safe z-10 flex -translate-y-1/2 flex-col gap-[clamp(16px,1.4vh,54px)] transition-transform duration-1000"
       style={{ transform: `translate(${shift.x}px, calc(-50% + ${shift.y}px))` }}
     >
       <ControlButton
@@ -101,8 +101,11 @@ function ControlButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      // 48px is both the design spec and the accessibility floor for touch.
-      className={`group relative grid size-12 place-items-center overflow-hidden rounded-full text-white shadow-float transition-[transform,opacity] duration-200 ease-(--ease-human) hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 ${fill}`}
+      // 48px is the touch floor for a phone at arm's length. This is a panel
+      // two metres tall that a person stands in front of and reaches up to, so
+      // the floor is where the scale starts, not where it stops — on the
+      // cabinet these come out about 45mm across.
+      className={`group relative grid size-[clamp(48px,4vh,150px)] place-items-center overflow-hidden rounded-full text-white shadow-float transition-[transform,opacity] duration-200 ease-(--ease-human) hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 ${fill}`}
       style={glowing ? { animation: 'glow 1.8s ease-out infinite' } : undefined}
     >
       {/* Press ripple. */}
@@ -114,7 +117,7 @@ function ControlButton({
 
 function MicIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
     </svg>
@@ -125,7 +128,7 @@ function MicIcon() {
  *  border, so it survives the button's `overflow-hidden`. */
 function MicOffIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
       <path d="M4 3l16 18" strokeLinecap="round" />
@@ -137,7 +140,7 @@ function MicOffIcon() {
  *  read as another option rather than as the end of the conversation. */
 function StopIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="size-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="currentColor" className="size-[42%]" aria-hidden>
       <rect x="7" y="7" width="10" height="10" rx="2" />
     </svg>
   )
@@ -145,7 +148,7 @@ function StopIcon() {
 
 function SpeakerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="size-[42%]" aria-hidden>
       <path d="M4 9v6h4l5 4V5L8 9H4z" strokeLinejoin="round" />
       <path d="M17 9a4 4 0 0 1 0 6" strokeLinecap="round" />
     </svg>
