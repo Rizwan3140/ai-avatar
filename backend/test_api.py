@@ -35,7 +35,17 @@ os.environ["LUXORA_SECRET"] = "test-only-secret"
 # hides until something depends on it.
 os.environ["LUXORA_SEED"] = "0"
 
-from backend import accounts, catalog, documents, store  # noqa: E402
+from backend import accounts, catalog, documents, store, tryon  # noqa: E402
+
+# Pin the try-on providers to the one that refuses, for the same reason the
+# database is redirected two lines below: this suite asserts what the routes do,
+# and it must not depend on which keys happen to be in the developer's .env.
+#
+# It did. With a real FAL_KEY present, `POST /api/tryon` stopped returning "no
+# provider" and instead made a live, billable call to fal.ai from the test
+# suite — which is how this was found. A test run must never reach a paid third
+# party, whatever is configured on the machine running it.
+tryon._PROVIDERS = {"local": tryon.LocalProvider()}
 
 catalog.DB_PATH = TMP / "test.db"
 documents.DB_PATH = catalog.DB_PATH
