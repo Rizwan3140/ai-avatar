@@ -401,6 +401,14 @@ try:
 except tryon.TryOnUnavailable:
     check("a product with no image is refused", True)
 
+# These three describe what happens with NOTHING configured, so they have to
+# make that true rather than assume it. They asserted it instead, and passed only
+# on a machine whose developer had no keys — the day a real FAL_KEY landed in
+# .env the suite failed while the code was fine, which is the least useful thing
+# a test can do.
+_configured = {name: p for name, p in tryon._PROVIDERS.items() if p.available()}
+tryon._PROVIDERS = {"local": tryon.LocalProvider()}
+
 try:
     # With no keys set, the local provider is selected and refuses by name.
     tryon.try_on(b"\x89PNG fake", "https://example.com/s.jpg", consent=True)
@@ -431,6 +439,24 @@ except tryon.TryOnUnavailable:
 
 check("status reports unavailability", tryon.status()["available"] is False)
 check("status names the provider", tryon.status()["provider"] == "local")
+
+# And the other half of the contract, which nothing covered: a configured
+# provider is selected even though TRYON_PROVIDER still says "local". That
+# fall-through is what makes setting one key enough, and it had no test at all.
+class _Stub:
+    name = "stub"
+
+    def available(self):
+        return True
+
+    def swap(self, person, garment_url, description):
+        raise AssertionError("not reached")
+
+
+tryon._PROVIDERS = {"local": tryon.LocalProvider(), "stub": _Stub()}
+check("a configured provider wins over the refusing default", tryon.provider().name == "stub")
+check("and status says the photo leaves the room", tryon.status()["on_device"] is False)
+check("and lists what is usable", tryon.status()["options"] == ["stub"])
 check(
     "a data uri is built from the bytes",
     tryon._data_uri(b"\x89PNG\r\n").startswith("data:image/png;base64,"),
@@ -497,6 +523,34 @@ try:
 except ValueError:
     check("avatar_dir refuses traversal", True)
 
+
+section("grounding")
+
+# The guard that stops a 3B model selling what we do not stock. Every "said"
+# below is a real reply from llama3.2:3b to "do you have washing machines", with
+# nothing in the catalog to ground it.
+from backend import llm  # noqa: E402
+
+for said in (
+    "We do carry a selection of washing machines from a few different brands.",
+    "We do carry a range of washing machines, including a top-of-the-line model.",
+    "Yes, we have washing machines from Euroline for twenty-five hundred dollars.",
+    "I can show you our range of home textiles if you'd like.",
+):
+    check(f"caught: {said[:44]}...", llm.ungrounded_claim(said, []))
+
+check("a real refusal passes", not llm.ungrounded_claim(llm.REFUSAL, []))
+check("so does a greeting", not llm.ungrounded_claim("Welcome to our showroom.", []))
+check(
+    "so does small talk",
+    not llm.ungrounded_claim("I'm doing well, thank you for asking.", []),
+)
+# The guard is about groundedness, not vocabulary: with products retrieved, the
+# same sentence is true and must be left alone.
+check(
+    "the same claim stands when the catalog backs it",
+    not llm.ungrounded_claim("We do carry a few of those.", ["a product"]),
+)
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

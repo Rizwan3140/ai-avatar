@@ -77,6 +77,17 @@ def chat(req: ChatRequest):
 
     def generate():
         reply = ""
+        # When nothing matched, hold the reply back and check it before it is
+        # spoken. The model claims to stock things we do not sell — with invented
+        # brands and invented prices — often enough that the prompt cannot be the
+        # only thing standing between a customer and a lie. See
+        # `llm.ungrounded_claim`.
+        #
+        # The cost is first-audio latency, and it is paid only on turns that
+        # matched no product, where there is nothing to put on screen and nothing
+        # to look at while he thinks. Turns that found something still stream.
+        withhold = not products
+
         for chunk in llm.stream_reply(
             memory.get_history(req.session),
             avatar.persona,
@@ -85,7 +96,18 @@ def chat(req: ChatRequest):
             documents.as_context(passages),
         ):
             reply += chunk
-            yield chunk
+            if not withhold:
+                yield chunk
+
+        if withhold:
+            if llm.ungrounded_claim(reply, products):
+                analytics.record(
+                    "ungrounded_claim", session=req.session, avatar=avatar.id,
+                    org=org_id, text=req.message, said=reply[:200],
+                )
+                reply = llm.REFUSAL
+            yield reply
+
         memory.add_message(req.session, "assistant", reply)
 
     return StreamingResponse(

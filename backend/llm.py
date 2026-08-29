@@ -9,6 +9,7 @@ local too means the whole thing runs with no network and no per-utterance cost.
 """
 
 import json
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -74,12 +75,64 @@ SCOPE = (
 NL2 = chr(10) + chr(10)
 
 BREVITY = (
-    "CRITICAL: One or two short sentences, then stop. Every word here is "
-    "spoken aloud and he can be interrupted, so a long answer is one the "
-    "visitor never hears the end of. Answer only what was asked. Never list "
-    "products in bullets or numbers. Never use markdown, asterisks or emoji. "
+    # Prohibitions, not policies. "One or two short sentences" reads as
+    # permission to write two, and "answer only what was asked" is a judgement a
+    # 3B model makes generously — so it answered, then recommended, then asked a
+    # follow-up, every single turn. Each clause below forbids one specific thing
+    # it was actually observed doing on the panel.
+    "CRITICAL: Reply with ONE sentence. Stop after that sentence. "
+    "Do not add a second sentence. Do not recommend anything you were not "
+    "asked about. Do not end with a question. Do not offer further help. "
+    "Never list products in bullets or numbers. Never use markdown, asterisks "
+    "or emoji. Never read a web address aloud. "
+    # He does not get to leave. A cabinet stands in a mall and greets whoever is
+    # in front of it; there is no door for him to show anyone out of, and a
+    # farewell mid-conversation reads as the machine having given up. He said
+    # goodbye because he was answering echoes of himself — but the echo fix does
+    # not make a farewell correct, it only stops it being triggered by noise.
+    "Never say goodbye. Never say the conversation is over, that you will be "
+    "here, that you will leave them to it, or that they should come back. "
+    "Someone is standing in front of you: answer, and wait.\n"
     "Write the way you would speak out loud."
 )
+
+
+#: A claim of stock, in the words a small model actually reaches for.
+#: Measured, not imagined — every one of these came back from `llama3.2:3b`
+#: answering "do you have washing machines".
+_CLAIMS_STOCK = re.compile(
+    r"\b(we|i)\s+(do\s+)?(carry|have|stock|sell|offer)\b"
+    r"|\bwe\s+do\s+carry\b"
+    r"|\b(a|our)\s+(wide\s+)?(selection|range|variety)\s+of\b",
+    re.I,
+)
+
+#: What he says instead. Fixed words, because the whole point is that the model
+#: does not get a say in this one.
+REFUSAL = "I'm afraid we don't carry those."
+
+
+def ungrounded_claim(reply: str, products: list) -> bool:
+    """True when the reply asserts stock that retrieval did not find.
+
+    The prompt cannot be trusted with this. Told plainly not to, `llama3.2:3b`
+    still answered "we do carry a selection of washing machines from a few
+    different brands" 3 times in 5 — twice with an invented price, once with an
+    invented brand. Turning the prohibition up made it refuse greetings instead;
+    turning it down brought the fabrication back. That is a 3B model's ceiling,
+    not a wording problem.
+
+    So the guarantee moves out of the prompt and into code, where it is a fact
+    rather than an instruction: if retrieval returned nothing, there is no
+    product in front of the model, and any sentence claiming we sell something
+    is false by construction. No judgement about what the visitor meant is
+    needed — only what the catalog returned.
+
+    ponytail: a phrase list, checked once per reply. It is deliberately narrow
+    and will miss a paraphrase; the day a larger model makes the whole guard
+    unnecessary, delete it rather than growing it.
+    """
+    return not products and bool(_CLAIMS_STOCK.search(reply))
 
 
 def _turn_prompt(
@@ -92,13 +145,42 @@ def _turn_prompt(
     the context window, costs latency on every turn, and gives the model more
     chances to blend two products' specifications together.
     """
-    if products:
-        catalog = "\n".join(f"- {p.as_line()}" for p in products)
+    if len(products) > 1:
+        # Names only — no prices, no descriptions, no attributes.
+        #
+        # Telling the model not to read the list out does not work while the list
+        # is sitting in its prompt with a price beside every line: it recited all
+        # five, with all five prices, in one breath, describing a grid the visitor
+        # was already looking at. Same lesson as the example price in the persona
+        # — a small model repeats what it is given, so the fix is to stop giving
+        # it. The screen shows the names and the prices in pictures; he only needs
+        # to know what is up there. Ask about one and navigation selects it, which
+        # takes the branch below with the full detail.
+        # Prices stay IN, even though the list is what makes him ramble.
+        #
+        # Taking them out did shorten him — and then he was asked what one cost,
+        # had no number, and invented $245 for a $60 dress. A recited list is a
+        # cosmetic problem; a fabricated price is a lie told to a customer in a
+        # shop. So the list keeps its prices and the prohibition does the work,
+        # and the last line covers the case where he is asked about one of them.
+        listing = "\n".join(f"- {p.name} {p.spoken_price()}".rstrip() for p in products)
         grounding = (
-            "These are the products matching what the visitor asked about. Recommend "
-            "and describe only these. If none of them fit, say so plainly rather than "
-            "inventing something.\n\n"
-            f"{catalog}"
+            f"{len(products)} products matching that request are NOW ON SCREEN in "
+            "front of the visitor, each with its picture, name and price. They can "
+            "see them. Your job is NOT to read them out.\n"
+            "Say ONE short sentence inviting them to look, then stop. Do not name "
+            "the products. Do not describe them. Do not say a price unless they "
+            "have asked about one particular item.\n"
+            "If they do ask about one, give that item's price exactly as written "
+            "below. Never state a price that is not written below.\n\n"
+            f"{listing}"
+        )
+    elif products:
+        grounding = (
+            "This is the product the visitor is asking about. Describe only this "
+            "one. If it does not fit what they asked for, say so plainly rather "
+            "than inventing something.\n\n"
+            f"- {products[0].as_line()}"
         )
     else:
         # Retrieval runs on every utterance, including "thank you" and "what did
@@ -111,16 +193,32 @@ def _turn_prompt(
         # washing machines" three times in four, because the sentence describes a
         # policy; these describe sentences it may not produce.
         grounding = (
-            "NOTHING in this showroom matches what the visitor just asked for. You "
-            "have no products to offer on this turn.\n"
-            "If they asked for a product or a category, the true answer is that we "
-            "do not stock it. Say so, briefly, and offer to help with something "
-            "else.\n"
-            "Do not say that we carry it. Do not offer to show it. Do not offer to "
-            "check, look it up, or go and see. Do not name a brand, a model or a "
-            "price for it.\n"
-            "If they were not asking for a product — a greeting, a thank you, a "
-            "question about the conversation — simply reply as yourself."
+            # The refusal is the most fragile thing this prompt does, so it goes
+            # first and it is stated as the sentence to produce rather than as a
+            # rule to apply. Buried among the other prohibitions it failed 3 times
+            # in 5 — and failing here does not mean a clumsy answer, it means
+            # inventing a washing-machine range, a brand called Euroline, and a
+            # price of twenty-five hundred dollars, out loud, to a customer.
+            # Two cases, and the branch has to be chosen before the rules are
+            # read. Leading with the refusal made every greeting a refusal —
+            # "ok bye" came back as "I'm afraid we don't carry those" — while
+            # burying it among the other prohibitions let the model claim we
+            # stocked washing machines 3 times in 5. The question goes first,
+            # each answer carries its own flat prohibitions, and (b) has to
+            # forbid refusing as explicitly as (a) forbids inventing.
+            "Nothing in the catalog matched what the visitor just said.\n\n"
+            "FIRST decide which of these it was.\n\n"
+            "(a) They asked for a product or a category. We do not sell it and it "
+            "does not exist in this showroom. Your entire reply is that we do not "
+            "have it — one short sentence, like \"I'm afraid we don't carry "
+            "those.\" Do not say that we carry it. Do not say we have a selection "
+            "or a range of it. Do not offer to show it, to check, to look it up "
+            "or to go and see. Do not name a brand, a model or a price for it. Do "
+            "not invent one.\n\n"
+            "(b) They said anything else — a greeting, a thank you, a goodbye, "
+            "small talk, a question about you or about the conversation. Reply "
+            "naturally in one short sentence. Do NOT tell them we do not carry "
+            "something: they did not ask for a product."
         )
 
     # What the visitor can actually see. Retrieval decides which products are
