@@ -17,6 +17,9 @@ let active = false
 /** Who this cabinet's avatar sounds like. Set once identity is known. */
 export const setVoiceProfile = tts.setVoiceProfile
 
+/** Whether this avatar speaks in a voice of its own, or the browser's. */
+export const loadVoiceProfile = tts.loadVoiceProfile
+
 export function initialize(): Promise<void> {
   // Both are boot-time questions with no answer worth blocking on: which voices
   // this browser has, and whether transcription is close enough to keep sending

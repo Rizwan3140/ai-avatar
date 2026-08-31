@@ -166,6 +166,34 @@ if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
     check("with no avatars at all it redirects", empty.status_code == 307)
     check("and it redirects to the studio", empty.headers.get("location") == "/studio")
 
+print(chr(10) + "voice")
+# A voice is a property of an avatar, cloned from a recording the customer
+# supplies. Until one exists the browser's own synthesiser speaks, and the
+# cabinet must be told that honestly rather than trying a voice that is absent.
+r = client.get(f"/api/voice?avatar={AVATAR}")
+check("a cabinet can ask whose voice it has", r.status_code == 200, r.text[:120])
+check("and is told there is none yet", r.json()["available"] is False)
+check("with the reason named", r.json()["has_reference"] is False)
+
+r = client.post("/api/speak", json={"text": "hello", "avatar_id": AVATAR})
+check("speaking without a recording is refused, not silent", r.status_code == 503, r.text[:160])
+check("and says what is missing", "no voice recording" in r.json()["detail"], r.text[:200])
+
+# The recording is read back by a model that will not explain itself if handed
+# something that is not audio. Checked by its own header, never by what the
+# request claims.
+r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=b"not audio at all")
+check("a non-WAV upload is refused", r.status_code == 400, r.text[:120])
+
+wav = b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + bytes(36)
+r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=wav)
+check("a WAV is accepted", r.status_code == 200, r.text[:160])
+check("and the avatar now has a voice", client.get(f"/api/voice?avatar={AVATAR}").json()["has_reference"])
+
+r = client.delete(f"/api/studio/avatars/{AVATAR}/voice", headers=north)
+check("removing the recording removes the voice", r.status_code == 200)
+check("back to the browser", client.get(f"/api/voice?avatar={AVATAR}").json()["has_reference"] is False)
+
 print("\nseasons")
 r = client.put(
     "/api/studio/seasons/diwali",

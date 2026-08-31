@@ -8,7 +8,7 @@ Keeping it local also means the conversation survives the network going down,
 which is the failure a showroom actually experiences.
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -32,6 +32,13 @@ class ChatRequest(BaseModel):
 
 class ResetRequest(BaseModel):
     session: str = "default"
+
+
+class SpeakRequest(BaseModel):
+    text: str
+    #: Whose voice. Never a path or a filename — the reference recording is
+    #: resolved from the avatar, so a request cannot name a file to read.
+    avatar_id: str
 
 
 def warm() -> None:
@@ -130,6 +137,49 @@ async def listen(request: Request):
     # Transcription is CPU-bound; keep it off the event loop.
     text = await run_in_threadpool(stt.transcribe, audio, partial)
     return {"text": text}
+
+
+@router.get("/voice")
+def voice_status(avatar: str = ""):
+    """Whether this cabinet speaks in its own voice or the browser's.
+
+    Asked once at boot, before a word is spoken, because the answer decides
+    which synthesiser the page uses for the whole session. Public for the same
+    reason `/api/tryon` is: the cabinet needs it and there is nothing to protect.
+    """
+    from backend import tts
+
+    return tts.status(avatar)
+
+
+@router.post("/speak")
+def speak(req: SpeakRequest):
+    """One sentence, as audio, in the avatar's cloned voice.
+
+    A sentence rather than a whole reply. The browser already speaks each
+    sentence as it arrives from the model — that is what puts the first word
+    under a second — and generating a whole answer before any of it is heard
+    would trade that away.
+    """
+    from backend import tts
+
+    try:
+        audio = tts.speak(req.text, req.avatar_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except tts.VoiceUnavailable as exc:
+        # 503, not 500: a voice that is not configured is a capability that is
+        # switched off, and the browser falls back to its own synthesiser rather
+        # than the cabinet going silent.
+        raise HTTPException(503, str(exc)) from exc
+
+    return Response(
+        content=audio,
+        media_type="audio/wav",
+        # Sentences repeat — a greeting, a refusal — and re-generating one the
+        # machine has already said is a second of silence for nothing.
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.post("/reset")

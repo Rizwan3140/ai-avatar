@@ -47,6 +47,10 @@ export async function boot(): Promise<void> {
       voice: avatar.voice,
       lang: avatar.language,
     })
+    // And whether this avatar has a voice of its own. Asked once, because the
+    // answer holds for the session: swapping synthesiser mid-conversation would
+    // be two people finishing each other's sentences.
+    void voice.loadVoiceProfile(avatar.id)
     // Whether this cabinet may offer a camera at all. Arrives with identity so
     // there is no second round trip and no moment where the button flickers in.
     if (tryon) setTryOn(tryon)

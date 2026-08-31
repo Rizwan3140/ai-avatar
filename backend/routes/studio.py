@@ -15,7 +15,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon
+from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon, tts
 from backend.accounts import AuthError, Principal
 
 router = APIRouter(prefix="/api", tags=["studio"])
@@ -302,6 +302,56 @@ async def upload_photo(
         source.unlink(missing_ok=True)
 
     return _with_status(_avatar_or_404(avatar_id, caller))
+
+
+@router.post("/studio/avatars/{avatar_id}/voice")
+async def upload_voice(
+    avatar_id: str, request: Request, caller: Principal = Depends(editor)
+):
+    """A recording in, a cloned voice out.
+
+    About thirty seconds of clear speech from whoever this avatar should sound
+    like. The model clones from it directly — there is no training step and no
+    per-voice setup, so the recording *is* the voice and replacing the file
+    replaces how he sounds.
+
+    Raw bytes on the body, the same choice `/photo` and `/clips` make.
+
+    Stored beside the footage because it is the same kind of thing: content
+    belonging to one avatar, travelling with it, and never ours to ship.
+    """
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    audio = await request.body()
+    if not audio:
+        raise HTTPException(400, "no audio on the request body")
+    # Generous. Thirty seconds of WAV is about 2.5MB; the cap exists so a kiosk
+    # cannot be used to push files through the platform, not to police length.
+    if len(audio) > 25 * 1024 * 1024:
+        raise HTTPException(400, "that recording is too large")
+    # A WAV, checked by its own header rather than by what the request claims.
+    # The file is read back by a model that will not explain itself if handed
+    # something else.
+    if audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
+        raise HTTPException(400, "that is not a WAV file — export as WAV and try again")
+
+    folder = store.AVATARS_DIR / avatar.id
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / tts.REFERENCE_NAME).write_bytes(audio)
+    return {"ok": True, "seconds": round(len(audio) / 32000, 1)}
+
+
+@router.delete("/studio/avatars/{avatar_id}/voice")
+def delete_voice(avatar_id: str, caller: Principal = Depends(editor)):
+    """Back to the browser's own synthesiser. Deleting the recording is how you
+    undo a voice, because the recording is the voice."""
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    reference = tts.reference_for(avatar.id)
+    if reference is None:
+        raise HTTPException(404, "this avatar has no voice recording")
+    reference.unlink()
+    return {"ok": True}
 
 
 @router.post("/studio/avatars/{avatar_id}/clips/{pose}")

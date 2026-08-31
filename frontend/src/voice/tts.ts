@@ -33,6 +33,9 @@ let announced = false
  * the filter needed was the one thing it no longer had.
  */
 let recent: { text: string; at: number }[] = []
+/** The generated sentence currently playing, so `cancel()` can stop it the
+ *  same way it stops the browser's synthesiser. */
+let current: HTMLAudioElement | null = null
 /** How far back an echo can plausibly arrive. Whisper is slower under load, and
  *  a stale entry only costs a rare ignored utterance. */
 const ECHO_MEMORY_MS = 20000
@@ -142,6 +145,14 @@ export function cancel(announce = true): void {
   speaking = false
   announced = false
   speechSynthesis.cancel()
+  // And the generated sentence, if that is what is playing. Stopping only the
+  // browser's synthesiser would leave a cloned voice finishing a sentence into
+  // a conversation that has already ended.
+  if (current) {
+    current.pause()
+    URL.revokeObjectURL(current.src)
+    current = null
+  }
   if (announce && wasActive) bus.emit('SPEECH_CANCELLED')
 }
 
@@ -160,11 +171,103 @@ export function isSpeaking(): boolean {
   return speaking
 }
 
+/**
+ * Whose voice this cabinet speaks in.
+ *
+ * Asked once at boot. With a recording uploaded for this avatar the sentences
+ * are generated on the machine in that person's voice; without one the browser's
+ * own synthesiser speaks, which is what every install did until now. The answer
+ * decides for the whole session — switching mid-conversation would be two people
+ * finishing each other's sentences.
+ */
+let cloned = false
+let clonedFor = ''
+
+export async function loadVoiceProfile(avatarId: string): Promise<void> {
+  clonedFor = avatarId
+  try {
+    const r = await fetch(`/api/voice?avatar=${encodeURIComponent(avatarId)}`)
+    cloned = r.ok ? Boolean((await r.json())?.available) : false
+  } catch {
+    // The browser's voice is the floor, and a failed check is not a reason to
+    // lose it.
+    cloned = false
+  }
+}
+
+/** Audio for one sentence, or null to let the browser say it.
+ *
+ *  Never throws. Every failure here — model missing, generation slow, request
+ *  refused — falls back to a synthesiser that is already loaded, because the one
+ *  outcome worth avoiding is a cabinet that says nothing at all. */
+async function generate(text: string): Promise<HTMLAudioElement | null> {
+  try {
+    const r = await fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, avatar_id: clonedFor }),
+    })
+    if (!r.ok) {
+      // 503 means no voice is configured after all. Stop asking for the rest of
+      // the session rather than paying a failed round trip per sentence.
+      if (r.status === 503) cloned = false
+      return null
+    }
+    const audio = new Audio(URL.createObjectURL(await r.blob()))
+    audio.volume = config.volume
+    return audio
+  } catch {
+    return null
+  }
+}
+
 function pump(): void {
   if (speaking) return
   const mine = epoch
   const text = queue.shift()
   if (!text) return
+
+  if (cloned) {
+    speaking = true
+    void generate(text).then((audio) => {
+      // Cancelled while the audio was being generated. Saying it now would be a
+      // sentence from a conversation that has already ended.
+      if (mine !== epoch) {
+        speaking = false
+        return
+      }
+      if (!audio) {
+        // Fell back mid-reply. Put the sentence back and let the browser say it.
+        speaking = false
+        queue.unshift(text)
+        return pump()
+      }
+      recent.unshift({ text, at: Date.now() })
+      bus.emit('SPEECH_SENTENCE', { text })
+      if (!announced) {
+        announced = true
+        bus.emit('SPEECH_STARTED')
+      }
+      const playing = audio
+      current = playing
+      const finished = () => {
+        if (mine !== epoch) return
+        // One object URL per sentence, and a cabinet runs for months.
+        URL.revokeObjectURL(playing.src)
+        current = null
+        speaking = false
+        if (queue.length) return pump()
+        if (!streamOpen) {
+          announced = false
+          bus.emit('SPEECH_ENDED')
+        }
+      }
+      playing.onended = finished
+      playing.onerror = finished
+      void playing.play().catch(finished)
+    })
+    return
+  }
 
   const utterance = new SpeechSynthesisUtterance(text)
   if (voice) utterance.voice = voice
