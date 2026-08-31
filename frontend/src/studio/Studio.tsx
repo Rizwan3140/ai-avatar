@@ -129,10 +129,13 @@ export default function Studio() {
     // cabinet's behaviour untouched.
     <div className="bg-canvas text-ink h-full overflow-y-auto">
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-8 py-10">
-        <header className="flex flex-col gap-5">
+        <header className="flex flex-col gap-7">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-semibold tracking-tight capitalize">{title}</h1>
+            <div className="flex flex-col gap-1.5">
+              {/* The same display serif the cabinet uses for a garment's name.
+                  The Studio and the panel are one product; a dashboard set
+                  entirely in the interface face looks like a different one. */}
+              <h1 className="font-display text-[42px] leading-none capitalize">{title}</h1>
               <p className="text-ink-soft text-sm">{current?.blurb}</p>
             </div>
             <div className="flex items-center gap-3 text-xs">
@@ -156,14 +159,19 @@ export default function Studio() {
             </div>
           </div>
 
-          <nav className="flex flex-wrap gap-1 rounded-full border border-line p-1">
+          {/* A rule with the current section sitting on it, rather than pills in
+              a capsule. The capsule was a container drawn around four words to
+              tell you they belonged together, which the row already said. */}
+          <nav className="border-line flex flex-wrap gap-8 border-b">
             {TABS.map(({ id }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setView(id)}
-                className={`rounded-full px-4 py-1.5 text-sm capitalize transition-colors ${
-                  view === id ? 'bg-ink text-white' : 'hover:bg-line/40'
+                className={`-mb-px border-b-2 pb-3 text-sm capitalize transition-colors ${
+                  view === id
+                    ? 'border-ink text-ink'
+                    : 'text-ink-soft hover:text-ink border-transparent'
                 }`}
               >
                 {id}
@@ -173,7 +181,7 @@ export default function Studio() {
         </header>
 
         {open && (
-          <p role="alert" className="rounded border border-line bg-white px-3 py-2 text-sm text-amber-700">
+          <p role="alert" className="border-l-2 border-amber-500 py-1 pl-4 text-sm text-amber-800">
             This machine has no accounts, so anyone who can reach it can change everything on it.
             Fine on a bench; not fine on a showroom network.{' '}
             <button
@@ -233,19 +241,27 @@ function Home({
 
   return (
     <div className="flex flex-col gap-9">
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded border border-line bg-line sm:grid-cols-4">
-        {counts.map(({ label, value, view }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => onView(view)}
-            className="flex flex-col gap-1 bg-white px-4 py-4 text-left transition-colors hover:bg-line/20"
-          >
-            <span className="text-2xl font-semibold tabular-nums">{value}</span>
-            <span className="text-ink-soft text-xs tracking-wide uppercase">{label}</span>
-          </button>
+      {/* What is on this machine, said in a sentence.
+          This was four bordered boxes each holding one big number over a small
+          caps label — the metric-tile template, which turns four facts into the
+          loudest thing on a page whose job is to start a task. None of them is a
+          decision; they are context. So they read as a line, and the number is
+          still the emphasis inside it. */}
+      <p className="text-ink-soft flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+        {counts.map(({ label, value, view }, i) => (
+          <span key={label} className="flex items-baseline gap-2">
+            {i > 0 && <span className="text-line select-none">·</span>}
+            <button
+              type="button"
+              onClick={() => onView(view)}
+              className="hover:text-ink decoration-line hover:decoration-ink underline-offset-4 transition-colors hover:underline"
+            >
+              <span className="text-ink font-medium tabular-nums">{value}</span>{' '}
+              {label.toLowerCase()}
+            </button>
+          </span>
         ))}
-      </div>
+      </p>
 
       {/* The one thing worth interrupting for. An avatar with missing footage
           does not change when spoken to, and that reads as broken rather than
@@ -259,39 +275,45 @@ function Home({
         </Note>
       ) : null}
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-tight">Start here</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { view: 'products' as View, title: 'Upload products', body: 'A CSV, a JSON export, or a Word document with a table in it.' },
-            { view: 'ads' as View, title: 'Add an advertisement', body: 'Images or clips that play while nobody is talking. Press Run to watch them.' },
-            { view: 'avatars' as View, title: 'Talk to an avatar', body: 'Open the showroom screen and hold a conversation with it.' },
-          ].map((card) => (
-            <button
-              key={card.view}
-              type="button"
-              onClick={() => onView(card.view)}
-              className="flex flex-col gap-1.5 rounded border border-line bg-white px-4 py-3.5 text-left transition-colors hover:border-line-strong hover:bg-line/10"
-            >
-              <span className="text-sm font-medium">{card.title}</span>
-              <span className="text-ink-soft text-xs">{card.body}</span>
-            </button>
-          ))}
-        </div>
+      {/* Three things to do, then everywhere else to go.
+          Both were grids of identically sized boxes holding a bold line over a
+          grey line — the same component twice, which told a reader the two
+          sections were equally important when one is the point of the page and
+          the other is a directory. The boxes are gone. What is left is a list
+          with hairlines between the rows, the titles in the display serif, and
+          the difference in weight between the two sections carried by type
+          size rather than by repeating a card at two widths. */}
+      <section className="flex flex-col">
+        <h2 className="text-ink-soft mb-1 text-xs tracking-[0.14em] uppercase">Start here</h2>
+        {[
+          { view: 'products' as View, title: 'Upload products', body: 'A CSV, a JSON export, or a Word document with a table in it.' },
+          { view: 'ads' as View, title: 'Add an advertisement', body: 'Images or clips that play while nobody is talking. Press Run to watch them.' },
+          { view: 'avatars' as View, title: 'Talk to an avatar', body: 'Open the showroom screen and hold a conversation with it.' },
+        ].map((row) => (
+          <button
+            key={row.view}
+            type="button"
+            onClick={() => onView(row.view)}
+            className="group border-line hover:bg-ink/[0.025] flex flex-col gap-1 border-b py-5 text-left transition-colors"
+          >
+            <span className="font-display text-[26px] leading-none">{row.title}</span>
+            <span className="text-ink-soft text-sm">{row.body}</span>
+          </button>
+        ))}
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-tight">Everything else</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section className="flex flex-col">
+        <h2 className="text-ink-soft mb-1 text-xs tracking-[0.14em] uppercase">Everything else</h2>
+        <div className="grid sm:grid-cols-2 sm:gap-x-10">
           {ELSEWHERE.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => onView(item.id)}
-              className="flex flex-col gap-1 rounded border border-line bg-white px-4 py-3 text-left transition-colors hover:border-line-strong hover:bg-line/10"
+              className="border-line hover:bg-ink/[0.025] flex items-baseline justify-between gap-4 border-b py-3.5 text-left transition-colors"
             >
               <span className="text-sm font-medium">{item.title}</span>
-              <span className="text-ink-soft text-xs">{item.blurb}</span>
+              <span className="text-ink-soft truncate text-xs">{item.blurb}</span>
             </button>
           ))}
         </div>

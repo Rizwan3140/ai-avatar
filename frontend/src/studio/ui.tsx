@@ -52,10 +52,14 @@ export function Button({
 export function Note({ children, tone }: { children: React.ReactNode; tone?: 'warn' }) {
   if (!children) return null
   return (
+    // A rule down the left edge rather than a box around the words. A full
+    // border makes every notice the same shape as every card on the page, so a
+    // warning and a link to Documents carry identical visual weight; the rule
+    // says "read this" without drawing another container to say it in.
     <p
       role={tone === 'warn' ? 'alert' : 'status'}
-      className={`rounded border border-line bg-white px-3 py-2 text-sm ${
-        tone === 'warn' ? 'text-amber-700' : 'text-ink-soft'
+      className={`border-l-2 py-1 pl-4 text-sm ${
+        tone === 'warn' ? 'border-amber-500 text-amber-800' : 'border-line text-ink-soft'
       }`}
     >
       {children}
