@@ -50,7 +50,15 @@ export function Subtitle() {
 
     return (
       // The greeting is two deliberate lines, so its newline is honoured.
-      <p className="text-ink-soft animate-[rise_var(--duration-calm)_var(--ease-human)] text-title leading-relaxed whitespace-pre-line">
+      //
+      // Set in the display serif rather than the interface grotesk. It is what a
+      // visitor reads before anyone has spoken — the shop's own voice at rest,
+      // not a status line — and it is the only other display-scale sentence on
+      // the panel, so it belongs to the same voice as the garment names.
+      // What he actually says stays in the grotesk: speech is transient and
+      // read at a glance, and a serif caption changing every few seconds is
+      // decoration on top of a person.
+      <p className="font-display text-ink animate-[rise_var(--duration-calm)_var(--ease-human)] text-display leading-[1.12] whitespace-pre-line">
         {greeting}
       </p>
     )

@@ -1,19 +1,35 @@
 @import '@fontsource-variable/inter';
+/* Self-hosted, like Inter. A cabinet that loses the network must not also lose
+   its typeface, so no font CDN reaches this build. */
+@import '@fontsource/instrument-serif';
 @import 'tailwindcss';
 
 /* Design tokens. Tailwind v4 is CSS-first, so @theme is the single source of
    truth that tailwind.config.ts would have been. Commandments live in the plan;
    these are only the settings. */
 @theme {
-  --color-canvas: #ffffff;
-  --color-ink: #111111;
-  --color-ink-soft: #666666;
-  --color-line: #e8e8e8;
+  /* Warm, not clinical.
+     Pure #ffffff against pure #111111 is the palette of a settings screen. A
+     showroom sells clothes, and the register that suits them is paper: a white
+     with a little warmth in it and an ink that is brown-black rather than
+     grey-black. The polarity is unchanged — the panel is still a light field
+     with a dark subject on it, which is panel physics and not a preference. */
+  --color-canvas: #fdfcfa;
+  --color-ink: #17130f;
+  --color-ink-soft: #6b625a;
+  --color-line: #e7e2db;
   /* Accent is 3.7:1 on white — fails WCAG AA for text. Glow, pulse and icon
      fills only. Never type. */
   --color-accent: #3b82f6;
 
+  /* Two voices, and the contrast between them is the design.
+     Everything here was Inter, which is a superb interface face and the reason
+     the panel read as a dashboard that happened to contain a person. A garment
+     is named, not labelled — so the name of the thing gets an editorial serif
+     cut for display sizes, and every working part of the interface stays in the
+     grotesk where it belongs. */
   --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
 
   /* Type, sized from viewing distance rather than from a laptop.
 

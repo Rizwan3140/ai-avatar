@@ -31,29 +31,30 @@ function Grid({ products }: { products: Product[] }) {
   return (
     <>
       <Heading count={products.length} />
-      {/* The garment is the card, not the thing inside one.
-          A picture with a heading and a price stacked beneath it, repeated in a
-          bordered box, is the lazy container — and at this scale it reads as a
-          spreadsheet of thumbnails rather than a rail of clothes. The words move
-          onto the image, over a scrim that only exists where they sit, so a row
-          of results reads as garments first and as an interface second. */}
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-[clamp(12px,1.2vh,44px)] overflow-y-auto">
+      {/* A contact sheet, not a row of cards.
+          The card was the problem — a bordered box with a small picture inside a
+          lot of padding, which at this scale reads as a spreadsheet of
+          thumbnails. Removing the box is the fix; captioning the photograph is
+          not, because a caption burnt over a garment is a thumbnail treatment.
+          So the image runs edge to edge and the name sits quietly beneath it,
+          the way a gallery labels what is on the wall. */}
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-[clamp(14px,1.4vh,52px)] gap-y-[clamp(18px,1.9vh,68px)] overflow-y-auto">
         {products.map((product) => (
           <button
             key={product.id}
             type="button"
             onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
-            className="group relative aspect-[3/4] overflow-hidden rounded-lg text-left transition-transform duration-300 ease-(--ease-human) hover:-translate-y-1"
+            className="group flex flex-col gap-[0.55em] text-left"
           >
-            <Image product={product} className="absolute inset-0 h-full" fit="cover" />
-            {/* Bottom third only. A scrim across the whole image would dull the
-                garment to make room for two lines of type. */}
-            <div className="absolute inset-x-0 bottom-0 flex flex-col gap-[0.35em] bg-linear-to-t from-black/75 via-black/45 to-transparent p-[clamp(10px,1.1vh,40px)] pt-[12%] text-white">
-              <span className="line-clamp-2 text-body leading-tight font-medium text-balance">
-                {product.name}
-              </span>
-              <span className="text-label tabular-nums opacity-90">{product.spoken_price}</span>
-            </div>
+            <Image
+              product={product}
+              className="aspect-[3/4] transition-[filter,transform] duration-500 ease-(--ease-human) group-hover:scale-[1.015]"
+              fit="cover"
+            />
+            <span className="font-display line-clamp-2 text-body leading-[1.15] text-balance">
+              {product.name}
+            </span>
+            <span className="text-ink-soft text-label tabular-nums">{product.spoken_price}</span>
           </button>
         ))}
       </div>
@@ -90,25 +91,28 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
         </button>
       </div>
 
-      {/* The garment, and its name written on it.
-          Stacked as a picture then a heading then a price then a row of facts,
-          this read as a form with a photograph at the top of it. A shop window
-          is not a form. The image takes the room, the words sit on its lower
-          edge where a lookbook would put them, and the two stop competing for
-          the same vertical space.
-
-          `contain`, not `cover` — a cropped hemline on the screen somebody is
+      {/* `contain`, not `cover` — a cropped hemline on the screen somebody is
           deciding from is the wrong economy, so the frame gives the garment its
           whole silhouette and lets the panel show through around it. */}
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg">
-        <Image product={product} className="absolute inset-0 h-full" fit="contain" />
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-[0.3em] bg-linear-to-t from-black/80 via-black/50 to-transparent p-[clamp(14px,1.5vh,56px)] pt-[10%] text-white">
-          <h2 className="text-display leading-[1.03] font-semibold tracking-[-0.02em] text-balance">
-            {product.name}
-          </h2>
-          <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
-          {facts.length > 0 && <p className="text-label opacity-80">{facts.join('  ·  ')}</p>}
-        </div>
+      <Image product={product} className="min-h-0 flex-1" fit="contain" />
+
+      {/* The name, set the way a lookbook sets one.
+          This was briefly laid over the photograph on a dark gradient, which is
+          how a streaming service captions a thumbnail, not how a garment is
+          presented. The words come back below the image and the typeface does
+          the work instead: an editorial serif at display size, no bold — the
+          face has one weight and does not need a second, because the contrast
+          against the grotesk beneath it is already the loudest thing here. */}
+      <div className="flex flex-col gap-[0.28em]">
+        <h2 className="font-display text-display leading-[1.02] tracking-[-0.015em] text-balance">
+          {product.name}
+        </h2>
+        <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
+        {facts.length > 0 && (
+          <p className="text-ink-soft mt-[0.3em] text-label tracking-[0.06em] uppercase">
+            {facts.join('   ·   ')}
+          </p>
+        )}
       </div>
 
       {/* Offered on the product being discussed, not on the grid — "see it on
