@@ -12,7 +12,25 @@ import { App } from './ui/App.tsx'
  */
 const Studio = lazy(() => import('./studio/Studio.tsx'))
 
-const isStudio = window.location.pathname.startsWith('/studio')
+/**
+ * Which surface this is.
+ *
+ * Only `pathname` was consulted, so `/?studio` and `/#studio` — both of which a
+ * person types, and one of which is what a browser leaves behind after a
+ * redirect — silently loaded the cabinet instead. That failure is invisible:
+ * you get a working showroom screen and a microphone prompt, with nothing
+ * saying the address was not understood. Accept the three spellings people
+ * actually use and put the URL right, so a bookmark made from here is correct.
+ */
+const url = new URL(window.location.href)
+const isStudio =
+  url.pathname.replace(/\/+$/, '').endsWith('/studio') ||
+  url.searchParams.has('studio') ||
+  url.hash === '#studio'
+
+if (isStudio && url.pathname !== '/studio') {
+  window.history.replaceState(null, '', '/studio')
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
