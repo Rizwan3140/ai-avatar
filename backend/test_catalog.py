@@ -46,10 +46,18 @@ def fixture() -> None:
     )
 
 
+#: Counted so this suite reports a number like the other three. "All checks
+#: passed" is indistinguishable from a suite that ran nothing, which is exactly
+#: how running these through unittest looks.
+passed = 0
+
+
 def check(label: str, actual, expected) -> None:
+    global passed
     if actual != expected:
         print(f"  FAIL  {label}\n        got      {actual!r}\n        expected {expected!r}")
         sys.exit(1)
+    passed += 1
     print(f"  ok    {label}")
 
 
@@ -215,7 +223,8 @@ def main() -> int:
     check("category: an apostrophe survives", category("Men's Kurta"), "Men's Kurtas")
     check("category: nothing stays nothing", category(""), "")
 
-    print("\nall checks passed")
+    print("")
+    print(str(passed) + " passed, 0 failed")
     return 0
 
 
