@@ -62,14 +62,23 @@ export async function boot(): Promise<void> {
     // sends them to check the network; and a platform with no avatars in it
     // sends them to the Studio to make one. Saying "offline" for the last of
     // those is how a fresh install looks broken instead of empty.
+    // Two audiences, and only one of them is standing in a mall.
+    //
+    // Whoever is setting this up needs to know which of three things went
+    // wrong; a shopper needs a sentence that does not mention avatars, URLs or
+    // the network. The panel gets the second and the console gets the first,
+    // the same split the conversation errors already use.
     const empty = (error as Error)?.message === 'EMPTY'
-    bus.emit('SYSTEM_ERROR', {
-      message: wanted
-        ? 'That avatar is no longer here.'
-        : empty
-          ? 'No avatar has been set up yet. Open /studio to create one.'
-          : 'The showroom is offline.',
-    })
+    console.error(
+      'boot: ' +
+        (wanted
+          ? `no avatar with id "${wanted}"`
+          : empty
+            ? 'the platform has no avatars yet — create one at /studio'
+            : 'could not reach the backend'),
+      error,
+    )
+    bus.emit('SYSTEM_ERROR', { message: 'Just a moment — setting up.' })
   }
 
   // Each of these is real work. A kiosk that looks ready before it is ready
@@ -81,7 +90,10 @@ export async function boot(): Promise<void> {
   bus.emit('SYSTEM_READY')
 
   if (!voice.supported()) {
-    bus.emit('SYSTEM_ERROR', { message: 'Voice needs Chrome to work here.' })
+    // "Voice needs Chrome" is an instruction a shopper cannot act on, in front
+    // of a cabinet they do not own. The person who can act on it reads consoles.
+    console.error('voice: this browser has no speechSynthesis or no getUserMedia')
+    bus.emit('SYSTEM_ERROR', { message: 'Please use the buttons — I cannot hear right now.' })
   }
 
   watchForSleep()
