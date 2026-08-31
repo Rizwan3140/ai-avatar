@@ -324,13 +324,13 @@ export function Avatars({ who }: { who: Principal }) {
                     belongs to this avatar and travels with it. */}
                 <Field
                   label="His own voice"
-                  hint="About thirty seconds of clear speech, as a WAV, from whoever this avatar should sound like. It is cloned directly — there is no training step, and replacing the file replaces the voice."
+                  hint="About thirty seconds of clear speech from whoever this avatar should sound like — an MP3 off a phone is fine. It is cloned directly: there is no training step, and replacing the file replaces the voice."
                 >
                   <div className="flex flex-wrap items-center gap-3">
                     {mayWrite && (
                       <FilePicker
                         label={busy === 'voice' ? 'Uploading…' : 'Upload a recording'}
-                        accept="audio/wav,.wav"
+                        accept="audio/*,.mp3,.wav,.m4a"
                         disabled={busy === 'voice'}
                         onPick={voiceClip}
                       />

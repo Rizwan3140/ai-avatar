@@ -18,6 +18,7 @@ wrote its test accounts into the real catalog, which is the reason `accounts.py`
 now reads `catalog.DB_PATH` on every call.
 """
 
+import io
 import json
 import os
 import shutil
@@ -55,6 +56,7 @@ store.KIOSKS_FILE = TMP / "kiosks.json"
 store.LEGACY_KIOSKS_FILE = TMP / "legacy-root-kiosks.json"
 store.AVATARS_DIR.mkdir(parents=True)
 
+import av  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.main import app  # noqa: E402
@@ -180,14 +182,32 @@ check("speaking without a recording is refused, not silent", r.status_code == 50
 check("and says what is missing", "no voice recording" in r.json()["detail"], r.text[:200])
 
 # The recording is read back by a model that will not explain itself if handed
-# something that is not audio. Checked by its own header, never by what the
-# request claims.
+# something that is not audio, so the route decodes the upload rather than
+# sniffing four bytes. A header-shaped file with no audio in it used to pass.
 r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=b"not audio at all")
-check("a non-WAV upload is refused", r.status_code == 400, r.text[:120])
+check("a file that is not audio is refused", r.status_code == 400, r.text[:120])
 
-wav = b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + bytes(36)
-r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=wav)
-check("a WAV is accepted", r.status_code == 200, r.text[:160])
+header_only = b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + bytes(36)
+r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=header_only)
+check("a WAV header with no audio is refused", r.status_code == 400, r.text[:120])
+
+# A real recording, encoded here. MP3 because that is what a customer has —
+# a phone recording, a voice note — and requiring a conversion first is how a
+# feature goes unused.
+buffer = io.BytesIO()
+with av.open(buffer, "w", format="mp3") as out:
+    stream = out.add_stream("mp3", rate=44100)
+    frame = av.AudioFrame(format="s16", layout="mono", samples=44100)
+    frame.rate = 44100
+    frame.planes[0].update(bytes([0, 1]) * 44100)
+    for packet in stream.encode(frame):
+        out.mux(packet)
+    for packet in stream.encode(None):
+        out.mux(packet)
+
+r = client.post(f"/api/studio/avatars/{AVATAR}/voice", headers=north, content=buffer.getvalue())
+check("an MP3 is accepted", r.status_code == 200, r.text[:160])
+check("and is stored as about a second of audio", 0.8 < r.json()["seconds"] < 1.3, r.text[:160])
 check("and the avatar now has a voice", client.get(f"/api/voice?avatar={AVATAR}").json()["has_reference"])
 
 r = client.delete(f"/api/studio/avatars/{AVATAR}/voice", headers=north)

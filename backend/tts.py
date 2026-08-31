@@ -23,7 +23,9 @@ the same rule `stt.py` follows for faster-whisper, and for the same reason: the
 cloud image must never carry a gigabyte of model runtime it will not execute.
 """
 
+import io
 import threading
+import wave
 
 from backend import config, store
 
@@ -31,6 +33,73 @@ from backend import config, store
 #: more is better and stops mattering fairly quickly. Recorded once, in a quiet
 #: room, by whoever the avatar should sound like.
 REFERENCE_NAME = "voice.wav"
+
+#: What the reference is stored as, whatever it arrived as. Chatterbox wants
+#: 24 kHz; anything else is resampled on every load for no reason.
+SAMPLE_RATE = 24000
+
+#: Longer references stop helping well before this. The cap is really about not
+#: turning a 25 MB upload into a 70 MB file on a cabinet's disk.
+MAX_REFERENCE_SECONDS = 60
+
+
+def to_reference_wav(audio: bytes) -> bytes:
+    """Whatever the customer exported, as the one format the model reads.
+
+    People have MP3s. They record on a phone, they are sent a voice note, they
+    download a clip — and telling them to go and convert it is how a feature
+    goes unused. PyAV is already here (faster-whisper brings it) and already
+    carries its own ffmpeg, so every common format decodes with no new
+    dependency and no shelling out.
+
+    This doubles as the validation. A header check only proves the first four
+    bytes look right; actually decoding the file is the only way to know the
+    model will not be handed something it cannot read, and it is the same work
+    either way.
+    """
+    import av
+    from av.audio.resampler import AudioResampler
+
+    limit = MAX_REFERENCE_SECONDS * SAMPLE_RATE
+    frames: list[bytes] = []
+    samples = 0
+    try:
+        with av.open(io.BytesIO(audio)) as container:
+            stream = next((s for s in container.streams if s.type == "audio"), None)
+            if stream is None:
+                raise ValueError("there is no audio in that file")
+            resampler = AudioResampler(format="s16", layout="mono", rate=SAMPLE_RATE)
+            for frame in container.decode(stream):
+                for out in resampler.resample(frame):
+                    chunk = out.to_ndarray().tobytes()
+                    frames.append(chunk)
+                    samples += len(chunk) // 2
+                if samples >= limit:
+                    break
+    except ValueError:
+        raise
+    except Exception as exc:  # av raises its own hierarchy; the caller wants one
+        raise ValueError("that file could not be read as audio") from exc
+
+    if not samples:
+        raise ValueError("that file could not be read as audio")
+
+    body = b"".join(frames)[: limit * 2]
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(SAMPLE_RATE)
+        wav.writeframes(body)
+    return out.getvalue()
+
+
+def reference_seconds(wav: bytes) -> float:
+    """How long the stored recording is, for telling somebody they recorded
+    four seconds when the model wanted thirty."""
+    with wave.open(io.BytesIO(wav), "rb") as f:
+        return round(f.getnframes() / f.getframerate(), 1)
+
 
 #: One model, one generation at a time — the same constraint `stt.py` documents.
 #: A second visitor's sentence must wait rather than corrupt the first.
@@ -208,6 +277,38 @@ def demo() -> None:
 
     assert reference_for("definitely-not-an-avatar") is None
     assert _device() in ("mps", "cuda", "cpu")
+
+    # A real MP3, encoded here rather than committed, because the whole point of
+    # this path is that a customer's phone recording works without conversion.
+    import av
+
+    raw = io.BytesIO()
+    with av.open(raw, "w", format="mp3") as out:
+        stream = out.add_stream("mp3", rate=44100)
+        source = av.AudioFrame(format="s16", layout="mono", samples=44100)
+        source.rate = 44100
+        source.planes[0].update(bytes([0, 1]) * 44100)
+        for packet in stream.encode(source):
+            out.mux(packet)
+        for packet in stream.encode(None):
+            out.mux(packet)
+    mp3 = raw.getvalue()
+
+    wav = to_reference_wav(mp3)
+    assert wav[:4] == b"RIFF" and wav[8:12] == b"WAVE", "mp3 did not become a wav"
+    assert 0.8 < reference_seconds(wav) < 1.3, reference_seconds(wav)
+
+    # And a WAV still works — converting one is the same code path.
+    assert to_reference_wav(wav)[:4] == b"RIFF"
+
+    # Anything unreadable is a 400 for the caller, not a traceback.
+    for junk in (b"", b"not audio at all", b"RIFF" + bytes(40)):
+        try:
+            to_reference_wav(junk)
+            raise AssertionError("should have refused " + repr(junk[:8]))
+        except ValueError:
+            pass
+
     print("tts: ok")
 
 
