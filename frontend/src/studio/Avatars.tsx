@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, upload, type Avatar, type Principal, POSES } from './api.ts'
 import { Button, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
 
@@ -31,6 +31,27 @@ export function Avatars({ who }: { who: Principal }) {
   const [busy, setBusy] = useState('')
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
+
+  // The voices this browser has. Read once — getVoices() returns [] on the first
+  // call in Chrome, which is why the event is waited for rather than assumed.
+  const [installedVoices, setInstalledVoices] = useState<{ name: string }[]>([])
+  useEffect(() => {
+    const read = () => setInstalledVoices(speechSynthesis.getVoices().map((v) => ({ name: v.name })))
+    read()
+    speechSynthesis.addEventListener('voiceschanged', read)
+    return () => speechSynthesis.removeEventListener('voiceschanged', read)
+  }, [])
+
+  // Whether the selected avatar has a recording of its own, which overrides the
+  // stock voice entirely.
+  const [voiceState, setVoiceState] = useState<{ has_reference: boolean; model_installed: boolean } | null>(null)
+  useEffect(() => {
+    if (!selected) return setVoiceState(null)
+    fetch(`/api/voice?avatar=${encodeURIComponent(selected)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setVoiceState)
+      .catch(() => setVoiceState(null))
+  }, [selected, note])
 
   const mayWrite = who.role !== 'viewer'
   const avatar = avatars?.find((a) => a.id === selected) ?? avatars?.[0]
@@ -88,6 +109,20 @@ export function Avatars({ who }: { who: Principal }) {
       if (!avatar) return
       replace(await upload<Avatar>(`/api/studio/avatars/${avatar.id}/photo`, file))
       setNote('Poster rebuilt. He still needs clips before he moves.')
+    })
+
+  const voiceClip = (file: File) =>
+    act('voice', async () => {
+      if (!avatar) return
+      await upload(`/api/studio/avatars/${avatar.id}/voice`, file)
+      setNote(`${avatar.name} now speaks in that voice.`)
+    })
+
+  const clearVoice = () =>
+    act('voice', async () => {
+      if (!avatar) return
+      await api(`/api/studio/avatars/${avatar.id}/voice`, { method: 'DELETE' })
+      setNote(`${avatar.name} is back to a stock voice.`)
     })
 
   const clip = (pose: string, file: File) =>
@@ -207,8 +242,8 @@ export function Avatars({ who }: { who: Principal }) {
                   />
                 </Field>
                 <Field
-                  label="Voice"
-                  hint="Pick a gender and the browser chooses a matching voice. Type an exact voice name only to override that."
+                  label="Stock voice"
+                  hint="Used until a recording is uploaded below. The list is the voices installed on the machine you are looking at — a cabinet may have different ones."
                 >
                   <div className="flex gap-2">
                     <select
@@ -221,13 +256,23 @@ export function Avatars({ who }: { who: Principal }) {
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                     </select>
-                    <input
+                    {/* A picker, not a blind text field. The exact-name box was
+                        the only way to choose a specific voice, and a name typed
+                        from memory that does not exist falls silently through to
+                        whatever sorts first. */}
+                    <select
                       className="input"
                       disabled={!mayWrite}
-                      placeholder="or an exact voice name"
                       value={value('voice') ?? ''}
                       onChange={(e) => setDraft((d) => ({ ...d, voice: e.target.value }))}
-                    />
+                    >
+                      <option value="">Choose by gender</option>
+                      {installedVoices.map((v) => (
+                        <option key={v.name} value={v.name}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </Field>
               </div>
@@ -273,6 +318,37 @@ export function Avatars({ who }: { who: Principal }) {
                     </span>
                   </div>
                 </div>
+
+                {/* A voice of his own, cloned from a recording. Beside the
+                    footage because it is the same kind of thing: content that
+                    belongs to this avatar and travels with it. */}
+                <Field
+                  label="His own voice"
+                  hint="About thirty seconds of clear speech, as a WAV, from whoever this avatar should sound like. It is cloned directly — there is no training step, and replacing the file replaces the voice."
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    {mayWrite && (
+                      <FilePicker
+                        label={busy === 'voice' ? 'Uploading…' : 'Upload a recording'}
+                        accept="audio/wav,.wav"
+                        disabled={busy === 'voice'}
+                        onPick={voiceClip}
+                      />
+                    )}
+                    {voiceState?.has_reference && mayWrite && (
+                      <Button tone="quiet" onClick={clearVoice} disabled={busy === 'voice'}>
+                        Remove
+                      </Button>
+                    )}
+                    <span className="text-ink-soft text-xs">
+                      {voiceState?.has_reference
+                        ? 'Speaking in his own voice.'
+                        : voiceState?.model_installed === false
+                          ? 'This machine has no voice model — the stock voice above is used.'
+                          : 'No recording yet, so the stock voice above is used.'}
+                    </span>
+                  </div>
+                </Field>
               </Field>
 
               <Field
