@@ -21,6 +21,8 @@ const ALLOWED = new Set([
   '--color-accent',
   '--color-ink-soft',
   '--color-line',
+  '--backdrop-from',
+  '--backdrop-to',
   '--font-display',
 ])
 

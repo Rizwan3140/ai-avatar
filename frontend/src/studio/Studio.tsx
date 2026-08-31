@@ -10,6 +10,7 @@ import { Documents } from './Documents.tsx'
 import { Products } from './Products.tsx'
 import { Team } from './Team.tsx'
 import { Note } from './ui.tsx'
+import { applySeason } from '../session/season.ts'
 
 /**
  * Avatar Studio — the shell.
@@ -98,6 +99,16 @@ export default function Studio() {
     api<Summary>('/api/studio/summary')
       .then(setSummary)
       .catch(() => setSummary(null))
+
+    // And what the showroom is wearing, which the Studio was not asking for.
+    //
+    // `applySeason` is called from the kiosk's boot, and `main.tsx` deliberately
+    // never boots that here — so a season repainted the cabinet and left the
+    // dashboard in last year's colours. The Studio is where seasons are edited;
+    // it is the one screen that must show what it is doing.
+    api<{ active: Record<string, string> }>('/api/studio/seasons')
+      .then((r) => applySeason(r.active))
+      .catch(() => {})
   }, [who])
 
   if (open === null) return null
@@ -136,8 +147,18 @@ export default function Studio() {
     // is a place rather than the absence of one, faint enough that it never
     // competes with the work below it, and it re-tints with the season because
     // it is drawn from the same token.
-    <div className="bg-canvas text-ink relative h-full overflow-y-auto">
-      <div className="from-accent/[0.055] pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-linear-to-b to-transparent" />
+    <div
+      className="text-ink relative h-full overflow-y-auto"
+      // The ground, from the season rather than from this file. Fixed, so it
+      // stays put while the page scrolls over it instead of sliding away and
+      // leaving the white underneath — which is what makes a background feel
+      // like a room rather than a very tall coloured rectangle.
+      style={{
+        background:
+          'linear-gradient(165deg, var(--backdrop-from) 0%, var(--backdrop-to) 55%, var(--backdrop-to) 100%)',
+        backgroundAttachment: 'fixed',
+      }}
+    >
       <div className="relative mx-auto flex max-w-5xl flex-col gap-8 px-8 py-10">
         <header className="flex flex-col gap-7">
           <div className="flex flex-wrap items-end justify-between gap-4">

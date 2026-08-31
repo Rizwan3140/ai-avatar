@@ -43,6 +43,13 @@ THEMEABLE = {
     "--color-accent": "color",
     "--color-ink-soft": "color",
     "--color-line": "color",
+    # The ground the page stands on, as two colours the stylesheet composes into
+    # a gradient. Two hex values rather than one gradient string: two colour
+    # pickers is an interface a person can use, and two hex values are something
+    # this file can actually validate. A `linear-gradient(...)` arriving over the
+    # network would be a string we could only pattern-match at and hope.
+    "--backdrop-from": "color",
+    "--backdrop-to": "color",
     "--font-display": "font",
 }
 

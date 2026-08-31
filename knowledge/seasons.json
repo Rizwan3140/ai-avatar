@@ -6,8 +6,8 @@
     "ends": "",
     "tokens": {
       "--color-accent": "#3b82f6",
-      "--color-line": "#e7e2db",
-      "--font-display": "'Instrument Serif', serif"
+      "--backdrop-from": "#f2efe9",
+      "--backdrop-to": "#fdfcfa"
     },
     "org_id": "default"
   },
@@ -19,17 +19,11 @@
     "tokens": {
       "--color-accent": "#9d174d",
       "--color-ink-soft": "#6b4a55",
-      "--color-line": "#ecd9df"
+      "--color-line": "#ecd9df",
+      "--backdrop-from": "#f7e4ea",
+      "--backdrop-to": "#fdfafb"
     },
     "org_id": "default"
-  },
-  {
-    "id": "x",
-    "name": "X",
-    "starts": "",
-    "ends": "",
-    "tokens": {},
-    "org_id": "northwind"
   },
   {
     "id": "diwali",

@@ -18,6 +18,15 @@
   --color-ink: #17130f;
   --color-ink-soft: #6b625a;
   --color-line: #e7e2db;
+
+  /* The ground the whole page stands on.
+     Two colours rather than one gradient string, because a season sets these
+     from the Studio: two colour pickers is an interface a person can use, and
+     two hex values are something the server can actually validate. The gradient
+     itself is authored below, where it cannot be edited into something strange.
+     Defaults are a hair off the canvas — the everyday look is still paper. */
+  --backdrop-from: #f6f2ec;
+  --backdrop-to: #fdfcfa;
   /* Accent is 3.7:1 on white — fails WCAG AA for text. Glow, pulse and icon
      fills only. Never type. */
   --color-accent: #3b82f6;
