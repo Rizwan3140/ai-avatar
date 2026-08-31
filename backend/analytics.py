@@ -18,8 +18,10 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend import config
+
 ROOT = Path(__file__).resolve().parent.parent
-EVENTS_DIR = ROOT / "knowledge" / "events"
+EVENTS_DIR = config.DATA / "knowledge" / "events"
 
 _lock = threading.Lock()
 

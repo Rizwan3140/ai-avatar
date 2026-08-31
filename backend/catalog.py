@@ -27,8 +27,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from backend import config
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "knowledge" / "catalog.db"
+DB_PATH = config.DATA / "knowledge" / "catalog.db"
 
 # Columns every vertical genuinely shares. A dress, a laptop and a hotel room all
 # have a name, a category, a price and a picture. None of them share "RAM".

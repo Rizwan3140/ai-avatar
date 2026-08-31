@@ -23,8 +23,10 @@ import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from backend import config
+
 ROOT = Path(__file__).resolve().parent.parent
-AVATARS_DIR = ROOT / "frontend" / "public" / "avatars"
+AVATARS_DIR = config.DATA / "frontend" / "public" / "avatars"
 
 #: Which cabinet shows whom. In `knowledge/` because that is the folder a
 #: deployment keeps.
@@ -36,10 +38,10 @@ AVATARS_DIR = ROOT / "frontend" / "public" / "avatars"
 #: registered cabinet vanished on the next `docker compose up --build` — and it
 #: would have looked like a bug in kiosk registration rather than a missing
 #: mount, because the products and the avatars all came back.
-KIOSKS_FILE = ROOT / "knowledge" / "kiosks.json"
+KIOSKS_FILE = config.DATA / "knowledge" / "kiosks.json"
 #: Where it used to live. Read when the new path does not exist yet, so an
 #: install that already has cabinets keeps them; the next write moves it.
-LEGACY_KIOSKS_FILE = ROOT / "kiosks.json"
+LEGACY_KIOSKS_FILE = config.DATA / "kiosks.json"
 
 POSES = ("idle", "listen", "think", "speak")
 

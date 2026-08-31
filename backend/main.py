@@ -122,7 +122,9 @@ print(f"\nLuxora — services\n{config.report()}\n")
 #
 # Mounted before the catch-all below so it wins, and pointed at `public/` so an
 # upload is live the moment it is written.
-RUNTIME_MEDIA = ROOT / "frontend" / "public" / "avatars"
+# Uploads, so the data root — inside a packaged app the bundle itself is
+# read-only and this is the one of the two that a customer writes to.
+RUNTIME_MEDIA = config.DATA / "frontend" / "public" / "avatars"
 if RUNTIME_MEDIA.is_dir():
     app.mount("/avatars", StaticFiles(directory=RUNTIME_MEDIA), name="avatars")
 

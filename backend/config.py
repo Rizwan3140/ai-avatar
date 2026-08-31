@@ -12,7 +12,21 @@ import os
 import re
 from pathlib import Path
 
+#: Where the code is. Read-only once this is packaged: a macOS .app in
+#: /Applications is signed, and writing inside it breaks the signature.
 ROOT = Path(__file__).resolve().parent.parent
+
+#: Where the customer's things go — catalog, avatars, uploads, logs, .env.
+#:
+#: The same folder as the code during development and inside the container,
+#: which is why nothing changes for either. A packaged app sets LUXORA_DATA to
+#: ~/Library/Application Support/Luxora and gets a writable home without the
+#: bundle needing to be writable.
+#:
+#: Read from the real environment, never from .env — .env itself lives in here,
+#: so a setting that chose this location would have to be found before it could
+#: be read.
+DATA = Path(os.getenv("LUXORA_DATA", "").strip() or ROOT)
 
 
 def _load_dotenv() -> None:
@@ -26,7 +40,7 @@ def _load_dotenv() -> None:
     starting for no visible reason. One unreadable setting is not worth a server
     that will not boot.
     """
-    env = ROOT / ".env"
+    env = DATA / ".env"
     if not env.exists():
         return
     # `replace` rather than strict: a mis-encoded line should arrive as nonsense

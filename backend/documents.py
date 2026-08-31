@@ -20,8 +20,10 @@ import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from backend import config
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "knowledge" / "catalog.db"
+DB_PATH = config.DATA / "knowledge" / "catalog.db"
 
 DEFAULT_ORG = "default"
 

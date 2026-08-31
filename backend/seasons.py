@@ -26,8 +26,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
 
+from backend import config
+
 ROOT = Path(__file__).resolve().parent.parent
-SEASONS_FILE = ROOT / "knowledge" / "seasons.json"
+SEASONS_FILE = config.DATA / "knowledge" / "seasons.json"
 
 DEFAULT_ORG = "default"
 

@@ -41,7 +41,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements-cloud.txt
 
 COPY --chown=user backend/ ./backend/
-COPY --chown=user knowledge/ ./knowledge/
+
+# No `knowledge/` copy. It held sample CSVs that no longer ship and, through the
+# build context, this machine's event log. The directory is created empty and
+# filled at runtime — by the volume in a deployment, by the customer everywhere
+# else.
+RUN mkdir -p knowledge
 
 # The built interface. main.py serves frontend/dist whenever it exists, in any
 # role, so this is what turns a JSON API into something a reviewer can click.

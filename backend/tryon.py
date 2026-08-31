@@ -106,8 +106,8 @@ def garment_source(image: str) -> str:
     # Served from frontend/public in dev and frontend/dist once built; the built
     # copy wins because that is what the running kiosk is serving.
     roots = [
-        ROOT / "frontend" / "dist",
-        ROOT / "frontend" / "public",
+        ROOT / "frontend" / "dist",          # shipped with the code
+        config.DATA / "frontend" / "public", # uploaded by the customer
     ]
     relative = image.lstrip("/")
     for root in roots:

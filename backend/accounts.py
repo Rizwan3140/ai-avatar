@@ -30,10 +30,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend import catalog
+from backend import config, catalog
 
 ROOT = Path(__file__).resolve().parent.parent
-SECRET_FILE = ROOT / "knowledge" / ".secret"
+SECRET_FILE = config.DATA / "knowledge" / ".secret"
 
 #: Long enough that a showroom manager is not logged out mid-edit, short enough
 #: that a stolen laptop is not a permanent grant.

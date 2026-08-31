@@ -24,10 +24,16 @@ raw/
 frontend/public/avatars/*/Krish.png
 frontend/public/avatars/*/source-photo
 
-# Secrets and local state. The volume supplies these at runtime.
+# A customer's things, and a developer's. The volume supplies these at runtime.
+#
+# `.gitignore` stopped these reaching a clone; the build context is the other
+# doorway into a shipped artefact and it was still open. The image was carrying
+# this machine's event log — real visitor questions from the cabinet — plus
+# Dhiyona's sample CSVs, a seasons file, and a `.seeded` marker that suppressed
+# first-run setup on every install built from it.
 .env
-knowledge/.secret
-knowledge/catalog.db
+knowledge/
+frontend/public/avatars/
 
 # Not part of the build.
 .git/
