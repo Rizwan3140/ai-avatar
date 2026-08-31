@@ -88,6 +88,10 @@ def _transcribe_groq(audio: bytes) -> str:
         headers={
             "Content-Type": content_type,
             "Authorization": f"Bearer {config.GROQ_API_KEY}",
+            # Cloudflare fronts this API and bans the default urllib
+            # signature with its own 1010, which reads exactly like a
+            # rejected key. Any real name gets through.
+            "User-Agent": "Luxora/1.0",
         },
     )
     try:

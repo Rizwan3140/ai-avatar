@@ -299,7 +299,17 @@ def _stream_groq(messages: list[dict]) -> Iterator[str]:
         "messages": messages,
         "stream": True,
         "temperature": 0.2,
-        "max_tokens": 170,
+        # Not the 170 the local model gets. The gpt-oss models think before they
+        # answer, on a separate `reasoning` channel the visitor never hears, and
+        # that thinking is charged against the same budget — so a 170-token cap
+        # was spent reasoning and the reply arrived empty. Measured: 20b returned
+        # nothing at all through this path while 120b happened to fit.
+        #
+        # This is a runaway stop, not a length control. The prompt does the
+        # shortening, as the note on the local cap says.
+        "max_tokens": 900,
+        # And ask for less of it. Low is plenty for "what does this cost".
+        "reasoning_effort": "low",
     }
     request = urllib.request.Request(
         f"{config.GROQ_BASE_URL}/chat/completions",
@@ -307,6 +317,10 @@ def _stream_groq(messages: list[dict]) -> Iterator[str]:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {config.GROQ_API_KEY}",
+            # Cloudflare fronts this API and bans the default urllib
+            # signature with its own 1010, which reads exactly like a
+            # rejected key. Any real name gets through.
+            "User-Agent": "Luxora/1.0",
         },
     )
 
@@ -385,7 +399,14 @@ def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
     try:
         first = next(stream)
     except StopIteration:
-        return  # A hosted reply that was empty is still a hosted reply.
+        # An empty hosted reply is a failure, not an answer. It used to return
+        # here and the visitor got silence — no error, no fallback, a cabinet
+        # that simply did not respond. It happens for real: a reasoning model
+        # that spends its whole budget thinking emits no content at all.
+        print("  llm: hosted reply was empty -- falling back to", MODEL)
+        analytics.record("provider_fallback", module="llm", reason="empty hosted reply")
+        yield from _stream_ollama(messages)
+        return
     except config.ProviderUnreachable as error:
         print(f"  llm: {error} -- falling back to {MODEL}")
         analytics.record("provider_fallback", module="llm", reason=str(error)[:200])

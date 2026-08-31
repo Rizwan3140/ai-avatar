@@ -100,7 +100,16 @@ STT_PROVIDER = _get("STT_PROVIDER", "auto")   # auto | whisper | groq
 # one hosted option that can be demonstrated without a purchase order. It has no
 # SLA, so it belongs in a cloud demo rather than on a showroom floor — a cabinet
 # should keep its models local and survive the network.
-GROQ_MODEL = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Chosen by asking the API what it has and then measuring, not from the docs
+# page — which still lists llama-3.3-70b-versatile, while this account's
+# /v1/models returns 404 for it. The Llama models are simply gone.
+#
+# Of what is actually offered, gpt-oss-120b answered the price correctly 4 times
+# in 4 and refused a product we do not stock 4 times in 4, at about 0.6s to first
+# token. gpt-oss-20b is twice as fast, gets the price right, and answered "yes,
+# we have washing machines available" — the exact fabrication the grounding guard
+# exists to catch. Speed is not worth that.
+GROQ_MODEL = _get("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_STT_MODEL = _get("GROQ_STT_MODEL", "whisper-large-v3-turbo")
 GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 

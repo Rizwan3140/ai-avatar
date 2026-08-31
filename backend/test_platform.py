@@ -601,8 +601,16 @@ except config.ProviderUnreachable:
     check("a mid-stream failure is not silently restarted", True)
 
 # Partials are a local-only luxury: hosted, each one uploads the whole turn so
-# far for a caption no visitor ever sees.
+# far for a caption no visitor ever sees. Assert the rule, not this machine —
+# the previous version compared against `stt_provider()` and started failing the
+# day a real GROQ_API_KEY appeared in .env, with the code unchanged. Same trap
+# the try-on checks above were in.
+_was = config.STT_PROVIDER
+config.STT_PROVIDER = "whisper"
 check("partials are on for a local model", config.stt_provider() == "whisper")
+config.STT_PROVIDER = "groq"
+check("and off for a hosted one", config.stt_provider() != "whisper")
+config.STT_PROVIDER = _was
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
