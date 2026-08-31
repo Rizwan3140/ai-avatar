@@ -9,22 +9,41 @@ Copy .env.example to .env and fill in what you have.
 """
 
 import os
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def _load_dotenv() -> None:
-    """Read .env without a dependency. Real environment variables always win."""
+    """Read .env without a dependency. Real environment variables always win.
+
+    A bad line is skipped, never raised on. This file is edited by hand, often
+    over SSH, sometimes by a shell that writes UTF-16 — `Add-Content` on Windows
+    does, which appends a line of null-separated bytes onto a UTF-8 file. That
+    took the whole backend down with `ValueError: embedded null character`, from
+    a traceback that never mentions `.env`, so the machine simply stopped
+    starting for no visible reason. One unreadable setting is not worth a server
+    that will not boot.
+    """
     env = ROOT / ".env"
     if not env.exists():
         return
-    for line in env.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    # `replace` rather than strict: a mis-encoded line should arrive as nonsense
+    # and be skipped below, not abort the read for every setting after it.
+    text = env.read_text(encoding="utf-8", errors="replace").replace(chr(0), "")
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.strip().lstrip(chr(0xFEFF))
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+        key = key.strip()
+        # Anything that is not a plain setting name is a line that got mangled
+        # in transit, not a variable somebody meant.
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            print(f"  .env line {number}: ignoring unreadable setting name")
+            continue
+        os.environ.setdefault(key, value.strip().strip("\"'"))
 
 
 _load_dotenv()
