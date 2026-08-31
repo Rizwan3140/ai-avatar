@@ -15,10 +15,24 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # --- prerequisites -----------------------------------------------------------
 say "Checking prerequisites"
 
+# Two of the four this used to demand were never needed at runtime.
+#
+#   ffmpeg  PyAV ships its own — 48 binaries, libav 18, inside the wheel. The
+#           only thing that wants a system ffmpeg is conform_footage.py, which
+#           prepares footage on a workstation and never runs on a cabinet.
+#   node    builds the interface. `frontend/dist` is what actually gets served,
+#           so a machine that runs Luxora needs no JavaScript toolchain at all.
+#
+# Demanding all four meant an install refused on a machine that could have run
+# it perfectly, and installed two things it would never execute.
 missing=()
-for cmd in python3 node ffmpeg ollama; do
+for cmd in python3; do
   have "$cmd" || missing+=("$cmd")
 done
+
+# Needed only to build the interface from source. A packaged install ships it
+# already built, so this is a developer's requirement, not a customer's.
+[ -d frontend/dist ] || have node || missing+=("node")
 
 if [ ${#missing[@]} -gt 0 ]; then
   echo "  missing: ${missing[*]}"
@@ -26,12 +40,15 @@ if [ ${#missing[@]} -gt 0 ]; then
     echo "  installing with Homebrew..."
     brew install "${missing[@]}"
   else
-    echo "  install them first. On macOS:"
-    echo "    brew install python node ffmpeg ollama"
+    echo "  install them first. On macOS:  brew install ${missing[*]}"
     exit 1
   fi
 fi
 echo "  all present"
+
+# ffmpeg is optional and only for preparing footage. Say so once rather than
+# failing an install over it.
+have ffmpeg || echo "  (no ffmpeg — conform_footage.py needs it, nothing else does)"
 
 # --- pick a model that fits --------------------------------------------------
 # A 3B model exists in this project only because the first machine had 4 GB of
@@ -50,6 +67,10 @@ else
   MODEL="llama3.2:3b"
 fi
 
+# The MLX equivalent, for the Apple Silicon path below. Apache 2.0, so shipping
+# it inside a bundle is fine.
+MLX_MODEL="${MLX_MODEL:-mlx-community/Qwen2.5-7B-Instruct-4bit}"
+
 say "Model: $MODEL"
 
 # --- python ------------------------------------------------------------------
@@ -60,17 +81,43 @@ say "Python environment"
 echo "  done"
 
 # --- node --------------------------------------------------------------------
-say "Frontend"
-# Never copy node_modules or .venv between machines — both contain compiled,
-# platform-specific binaries. Install fresh on each.
-(cd frontend && npm install --silent)
-echo "  done"
+# Only when the interface has not already been built. A packaged install ships
+# `frontend/dist` and never needs a JavaScript toolchain.
+if [ ! -d frontend/dist ]; then
+  say "Frontend"
+  # Never copy node_modules or .venv between machines — both contain compiled,
+  # platform-specific binaries. Install fresh on each.
+  (cd frontend && npm install --silent && npm run build)
+  echo "  done"
+fi
 
-# --- models ------------------------------------------------------------------
-say "Pulling $MODEL (this is the slow part)"
-ollama serve >/dev/null 2>&1 &
-sleep 2
-ollama pull "$MODEL"
+# --- the local model ---------------------------------------------------------
+# The fallback, not the default. Hosted answers first when GROQ_API_KEY is set,
+# so every cabinet sounds alike; this is what keeps one talking when the network
+# does not.
+#
+# MLX on Apple Silicon, by pip, into the virtualenv we just made. Ollama
+# installs a system service and asks for an administrator, which is a poor thing
+# to require of somebody installing a shop fitting — and MLX is Apple's own
+# framework, so it is faster here besides.
+if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
+  say "Local model (MLX, no administrator needed)"
+  ./.venv/bin/python -m pip install --quiet mlx-lm
+  ./.venv/bin/python -c "
+from huggingface_hub import snapshot_download
+snapshot_download('$MLX_MODEL')
+print('  $MLX_MODEL ready')
+"
+elif have ollama; then
+  say "Local model (Ollama, already installed here)"
+  ollama serve >/dev/null 2>&1 &
+  sleep 2
+  ollama pull "$MODEL"
+else
+  say "No local model"
+  echo "  Hosted answers will work. Without one, a network outage means silence."
+  echo "  Install Ollama, or run this on Apple Silicon for the MLX path."
+fi
 
 say "Warming the speech model"
 ./.venv/bin/python -c "from backend import stt; stt._get_model(); print('  whisper ready')"
@@ -90,7 +137,12 @@ export OLLAMA_MODEL="$MODEL"
 case "\${1:-dev}" in
   kiosk)
     export LUXORA_ROLE=edge
-    (cd frontend && npm run build)
+    # Build only if there is nothing to serve and a toolchain to build with.
+    # Rebuilding unconditionally put node back on a cabinet's requirements, and
+    # a packaged install ships the interface already built.
+    if [ ! -d frontend/dist ] && command -v npm >/dev/null 2>&1; then
+      (cd frontend && npm run build)
+    fi
     exec ./.venv/bin/python -m uvicorn backend.main:app --port 8000
     ;;
   cloud)
