@@ -146,6 +146,34 @@ if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
     check("with no avatars at all it redirects", empty.status_code == 307)
     check("and it redirects to the studio", empty.headers.get("location") == "/studio")
 
+print("\nseasons")
+r = client.put(
+    "/api/studio/seasons/diwali",
+    headers=north,
+    json={
+        "id": "diwali", "name": "Diwali",
+        "starts": "2026-11-06", "ends": "2026-11-12",
+        "tokens": {
+            "--color-accent": "#c2410c",
+            "--color-canvas": "#000000",                 # not themeable
+            "--color-line": "not-a-colour",              # will not parse
+            "--font-display": "x; } html { display:none",  # injection attempt
+        },
+    },
+)
+check("a season saves", r.status_code == 200, r.text[:160])
+check(
+    "and keeps only what may be themed, and only if it parses",
+    r.json()["tokens"] == {"--color-accent": "#c2410c"},
+    r.text[:200],
+)
+# A season repaints a screen the public looks at. Whose screen is not the
+# caller's to name.
+check("the org comes from the token", r.json()["org_id"] == NORTH)
+check(
+    "the cabinet is told what to wear",
+    "season" in client.get("/api/kiosk/mumbai-1").json(),
+)
 r = client.get(f"/api/products?q=laptop for video editing&avatar={AVATAR}")
 names = [p["name"] for p in r.json()]
 # Both are laptops, so both match; what matters is that the one whose
@@ -207,6 +235,12 @@ print("\nroles")
 viewer = accounts.add_member(NORTH, "viewer@northwind.com", "another-long-one", "viewer")
 eyes = {"Authorization": f"Bearer {accounts.issue_token(viewer)}"}
 check("a viewer can read", client.get("/api/studio/avatars", headers=eyes).status_code == 200)
+check(
+    "a viewer cannot dress the showroom",
+    client.put(
+        "/api/studio/seasons/spring", headers=eyes, json={"id": "spring", "name": "Spring"}
+    ).status_code == 403,
+)
 check(
     "a viewer cannot write",
     client.patch(f"/api/studio/avatars/{AVATAR}", headers=eyes, json={"name": "No"}).status_code == 403,

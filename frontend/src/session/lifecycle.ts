@@ -5,6 +5,7 @@ import { setAvatarMedia } from '../renderer/renderer.avatar.ts'
 import type { Pose } from '../renderer/renderer.types.ts'
 import { fetchAvatar, fetchKiosk, resetConversation } from '../provider/http.ts'
 import { setIdentity, setTryOn, useStore } from '../state/store.ts'
+import { applySeason } from './season.ts'
 import * as voice from '../voice/voice.ts'
 import { sessionId } from './session.ts'
 
@@ -31,9 +32,13 @@ export async function boot(): Promise<void> {
   const wanted = new URLSearchParams(window.location.search).get('avatar')?.trim() || ''
 
   try {
-    const { avatar, tryon } = await step('identity', () =>
+    const { avatar, tryon, season } = await step('identity', () =>
       wanted ? fetchAvatar(wanted) : fetchKiosk(KIOSK_ID),
     )
+    // Before anything paints. What the showroom is wearing this month arrives
+    // with its identity, so the panel never flashes the everyday look and then
+    // repaints itself into Diwali a moment later.
+    applySeason(season)
     setIdentity(avatar.id, avatar.name, avatar.greeting)
     // Who is speaking. Without this the synthesiser takes the first name on a
     // fixed list, which is how a male avatar ended up with a woman's voice.

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "everyday",
+    "name": "Everyday",
+    "starts": "",
+    "ends": "",
+    "tokens": {
+      "--color-accent": "#3b82f6",
+      "--color-line": "#e7e2db",
+      "--font-display": "'Instrument Serif', serif"
+    },
+    "org_id": "default"
+  },
+  {
+    "id": "wedding-season",
+    "name": "Wedding season",
+    "starts": "2026-11-13",
+    "ends": "2027-02-15",
+    "tokens": {
+      "--color-accent": "#9d174d",
+      "--color-ink-soft": "#6b4a55",
+      "--color-line": "#ecd9df"
+    },
+    "org_id": "default"
+  },
+  {
+    "id": "x",
+    "name": "X",
+    "starts": "",
+    "ends": "",
+    "tokens": {},
+    "org_id": "northwind"
+  },
+  {
+    "id": "diwali",
+    "name": "Diwali",
+    "starts": "2026-11-06",
+    "ends": "2026-11-12",
+    "tokens": {
+      "--color-accent": "#c2410c"
+    },
+    "org_id": "northwind"
+  }
+]

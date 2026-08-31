@@ -19,7 +19,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from backend import analytics, avatar_provider, campaigns, catalog, config, store, tryon
+from backend import analytics, avatar_provider, campaigns, catalog, config, seasons, store, tryon
 
 router = APIRouter(prefix="/api", tags=["platform"])
 
@@ -60,6 +60,11 @@ def kiosk(kiosk_id: str):
         # The cabinet decides whether to offer a camera at all, and it should not
         # have to make a second call to find out.
         "tryon": tryon.status(),
+        # And what the showroom is wearing today. Arrives with identity so a
+        # cabinet is never briefly dressed for the wrong month while a second
+        # request is in flight, and so it survives on last-known-good config
+        # when there is no network to ask.
+        "season": seasons.active(k.org_id),
     }
 
 

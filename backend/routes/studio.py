@@ -15,7 +15,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from backend import accounts, analytics, campaigns, catalog, config, documents, store, tryon
+from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon
 from backend.accounts import AuthError, Principal
 
 router = APIRouter(prefix="/api", tags=["studio"])
@@ -620,6 +620,57 @@ async def upload_campaign_media(
 @router.get("/studio/tryon")
 def tryon_status(caller: Principal = Depends(principal)):
     return tryon.status()
+
+
+# --- seasons -----------------------------------------------------------------
+
+
+class SeasonRequest(BaseModel):
+    id: str
+    name: str
+    starts: str = ""
+    ends: str = ""
+    tokens: dict[str, str] = {}
+
+
+@router.get("/studio/seasons")
+def list_seasons(caller: Principal = Depends(principal)):
+    """What this showroom wears, and when. Includes the palette a season may
+    set, so the editor never has to hardcode a list the server owns."""
+    return {
+        "seasons": [asdict(s) for s in seasons.list_seasons(caller.org_id)],
+        "themeable": seasons.THEMEABLE,
+        "active": seasons.active(caller.org_id),
+    }
+
+
+@router.put("/studio/seasons/{season_id}")
+def save_season(season_id: str, req: SeasonRequest, caller: Principal = Depends(editor)):
+    _mirrored()
+    try:
+        saved = seasons.save(
+            seasons.Season(
+                id=season_id,
+                name=req.name,
+                starts=req.starts,
+                ends=req.ends,
+                tokens=req.tokens,
+                # From the token, never from the body. A season repaints a public
+                # screen, and whose screen is not the caller's to choose.
+                org_id=caller.org_id,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return asdict(saved)
+
+
+@router.delete("/studio/seasons/{season_id}")
+def delete_season(season_id: str, caller: Principal = Depends(editor)):
+    _mirrored()
+    if not seasons.delete(season_id, caller.org_id):
+        raise HTTPException(404, "no such season")
+    return {"ok": True}
 
 
 # --- analytics ---------------------------------------------------------------

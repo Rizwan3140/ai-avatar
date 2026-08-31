@@ -125,6 +125,9 @@ export type KioskConfig = {
   }
   /** Whether to offer a camera at all, and whether the photo leaves the room. */
   tryon: { available: boolean; provider: string; on_device: boolean }
+  /** Token overrides for the season in force today. Absent means the everyday
+   *  look, which is the tokens already compiled into the stylesheet. */
+  season?: Record<string, string>
 }
 
 /**

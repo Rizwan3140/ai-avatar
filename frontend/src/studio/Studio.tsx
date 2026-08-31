@@ -3,6 +3,7 @@ import { api, setToken, token, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
 import { Campaigns } from './Campaigns.tsx'
+import { Seasons } from './Seasons.tsx'
 import { Insights } from './Insights.tsx'
 import { Kiosks } from './Kiosks.tsx'
 import { Documents } from './Documents.tsx'
@@ -33,6 +34,7 @@ type View =
   | 'kiosks'
   | 'team'
   | 'insights'
+  | 'seasons'
 
 const TABS: { id: View; blurb: string }[] = [
   { id: 'home', blurb: 'What is on this machine, and what to do next' },
@@ -47,6 +49,7 @@ const ELSEWHERE: { id: View; title: string; blurb: string }[] = [
   { id: 'kiosks', title: 'Cabinets', blurb: 'Which screen shows whom' },
   { id: 'team', title: 'Team', blurb: 'Who else can change this' },
   { id: 'insights', title: 'Insights', blurb: 'What visitors asked for, and could not find' },
+  { id: 'seasons', title: 'Seasons', blurb: 'How the showroom looks this month' },
 ]
 
 type Summary = {
@@ -210,6 +213,7 @@ export default function Studio() {
         {view === 'kiosks' && <Kiosks who={who} />}
         {view === 'team' && <Team who={who} org={org} />}
         {view === 'insights' && <Insights />}
+        {view === 'seasons' && <Seasons who={who} />}
       </div>
     </div>
   )
