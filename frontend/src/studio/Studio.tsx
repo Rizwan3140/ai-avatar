@@ -130,8 +130,15 @@ export default function Studio() {
     // are both taller than a laptop screen, and the bottom of each was simply
     // unreachable. Scrolling here rather than relaxing the body rule keeps the
     // cabinet's behaviour untouched.
-    <div className="bg-canvas text-ink h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-8 py-10">
+    // A page needs a top. This one began at a bare white edge with a heading
+    // sitting on it, which is why it read as a settings screen however the type
+    // was set. The band is the accent at two percent — enough that the header
+    // is a place rather than the absence of one, faint enough that it never
+    // competes with the work below it, and it re-tints with the season because
+    // it is drawn from the same token.
+    <div className="bg-canvas text-ink relative h-full overflow-y-auto">
+      <div className="from-accent/[0.055] pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-linear-to-b to-transparent" />
+      <div className="relative mx-auto flex max-w-5xl flex-col gap-8 px-8 py-10">
         <header className="flex flex-col gap-7">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-1.5">
@@ -245,25 +252,28 @@ function Home({
 
   return (
     <div className="flex flex-col gap-9">
-      {/* What is on this machine, said in a sentence.
-          This was four bordered boxes each holding one big number over a small
-          caps label — the metric-tile template, which turns four facts into the
-          loudest thing on a page whose job is to start a task. None of them is a
-          decision; they are context. So they read as a line, and the number is
-          still the emphasis inside it. */}
-      <p className="text-ink-soft flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+      {/* What is on this machine, said out loud.
+          It was four metric tiles, then a quiet grey line — a correction that
+          overshot, because the line was so restrained it read as a footnote on
+          a page with nothing else at the top of it. Type at this scale is the
+          page: the numbers are the headline, the words around them recede, and
+          each number is still the link it always was. */}
+      <p className="font-display flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[clamp(30px,4.2vw,52px)] leading-[1.15]">
         {counts.map(({ label, value, view }, i) => (
-          <span key={label} className="flex items-baseline gap-2">
-            {i > 0 && <span className="text-line select-none">·</span>}
-            <button
-              type="button"
-              onClick={() => onView(view)}
-              className="hover:text-ink decoration-line hover:decoration-ink underline-offset-4 transition-colors hover:underline"
-            >
-              <span className="text-ink font-medium tabular-nums">{value}</span>{' '}
+          <button
+            key={label}
+            type="button"
+            onClick={() => onView(view)}
+            className="group inline-flex items-baseline gap-2"
+          >
+            <span className="text-accent decoration-accent/30 group-hover:decoration-accent tabular-nums underline decoration-2 underline-offset-[0.14em] transition-colors">
+              {value}
+            </span>
+            <span className="text-ink-soft group-hover:text-ink transition-colors">
               {label.toLowerCase()}
-            </button>
-          </span>
+              {i < counts.length - 1 && ','}
+            </span>
+          </button>
         ))}
       </p>
 
@@ -298,10 +308,27 @@ function Home({
             key={row.view}
             type="button"
             onClick={() => onView(row.view)}
-            className="group border-line hover:bg-ink/[0.025] flex flex-col gap-1 border-b py-5 text-left transition-colors"
+            className="group border-line flex items-center gap-5 border-b py-6 text-left"
           >
-            <span className="font-display text-[26px] leading-none">{row.title}</span>
-            <span className="text-ink-soft text-sm">{row.body}</span>
+            <div className="flex min-w-0 flex-col gap-1">
+              {/* The title moves rather than the row lighting up. A background
+                  tint on hover is the same weight as every other hover on the
+                  page; a title that steps toward you says which one is under
+                  the cursor without adding another colour to the palette. */}
+              <span className="font-display text-[clamp(22px,2.6vw,34px)] leading-none transition-transform duration-300 ease-(--ease-human) group-hover:translate-x-1">
+                {row.title}
+              </span>
+              <span className="text-ink-soft text-sm">{row.body}</span>
+            </div>
+            {/* The affordance the row was missing. A list of headings with no
+                mark reads as prose; one arrow says every line here goes
+                somewhere. */}
+            <span
+              aria-hidden
+              className="text-line group-hover:text-accent ml-auto shrink-0 text-2xl transition-[color,transform] duration-300 ease-(--ease-human) group-hover:translate-x-1"
+            >
+              &rarr;
+            </span>
           </button>
         ))}
       </section>

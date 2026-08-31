@@ -80,71 +80,69 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
   const toResults = siblings > 1
 
   return (
-    <>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
-          className="text-ink-soft shrink-0 rounded-full border border-line px-3 py-1.5 text-xs transition-colors hover:bg-line/40"
-        >
-          {toResults ? `Back to ${siblings} results` : 'Back'}
-        </button>
-      </div>
+    // The garment fills the frame and everything else floats on it.
+    //
+    // This screen has now been three things: a stacked form, then a photograph
+    // with a caption burnt into a heavy gradient, then a picture with the words
+    // beneath it. The references settle it — a full-bleed image carrying large,
+    // well-spaced type is what an expensive shop window looks like, and the
+    // reason the middle attempt read as a streaming thumbnail was the small
+    // caption on the heavy scrim, not the technique.
+    //
+    // `cover` anchored to the top, not `contain`. A garment photograph is shot
+    // head-first and the crop lands on hem and floor, so the frame keeps the
+    // face, the neckline and the fabric — the parts somebody decides on — and
+    // gives up the part they do not.
+    <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-line/20">
+      <Image product={product} className="absolute inset-0 h-full" fit="cover" />
 
-      {/* `contain`, not `cover` — a cropped hemline on the screen somebody is
-          deciding from is the wrong economy, so the frame gives the garment its
-          whole silhouette and lets the panel show through around it. */}
-      <Image product={product} className="min-h-0 flex-1" fit="contain" />
+      <button
+        type="button"
+        onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
+        className="absolute top-[clamp(12px,1.4vh,50px)] left-[clamp(12px,1.4vh,50px)] rounded-full bg-black/35 px-[1em] py-[0.5em] text-label text-white backdrop-blur-md transition-colors hover:bg-black/50"
+      >
+        {toResults ? `Back to ${siblings} results` : 'Back'}
+      </button>
 
-      {/* The name, set the way a lookbook sets one.
-          This was briefly laid over the photograph on a dark gradient, which is
-          how a streaming service captions a thumbnail, not how a garment is
-          presented. The words come back below the image and the typeface does
-          the work instead: an editorial serif at display size, no bold — the
-          face has one weight and does not need a second, because the contrast
-          against the grotesk beneath it is already the loudest thing here. */}
-      <div className="flex flex-col gap-[0.28em]">
-        <h2 className="font-display text-display leading-[1.02] tracking-[-0.015em] text-balance">
-          {product.name}
-        </h2>
-        <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
-        {facts.length > 0 && (
-          <p className="text-ink-soft mt-[0.3em] text-label tracking-[0.06em] uppercase">
-            {facts.join('   ·   ')}
-          </p>
+      {/* One scrim, from the foot of the frame, doing nothing above the words
+          it exists for. The garment keeps its light. */}
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-[2em] bg-linear-to-t from-black/85 via-black/45 to-transparent p-[clamp(16px,1.8vh,64px)] pt-[22%] text-white">
+        <div className="flex min-w-0 flex-col gap-[0.3em]">
+          <h2 className="font-display text-display leading-[1.02] tracking-[-0.015em] text-balance">
+            {product.name}
+          </h2>
+          <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
+          {facts.length > 0 && (
+            <p className="text-label tracking-[0.08em] uppercase opacity-75">
+              {facts.join('   ·   ')}
+            </p>
+          )}
+        </div>
+
+        {product.url && scope() !== null && (
+          // The card the whole screen is for, floated on the photograph rather
+          // than filed in a footer under it.
+          <div className="flex shrink-0 flex-col items-center gap-[0.5em] rounded-lg bg-white/95 p-[clamp(8px,0.9vh,32px)] text-ink shadow-float backdrop-blur-md">
+            {/* Ours, not a QR web service — otherwise this is the one element on
+                screen that goes blank when the network drops. An SVG, so it
+                scales to the panel without losing a module. */}
+            <img
+              src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
+              alt={`QR code linking to ${product.name}`}
+              className="aspect-square w-[clamp(84px,6vh,232px)]"
+            />
+            <span className="text-label font-medium">Scan to buy</span>
+          </div>
         )}
       </div>
 
       {/* Offered on the product being discussed, not on the grid — "see it on
           you" only means anything once there is a single "it". Renders nothing
           when no provider is configured or the product has no image. */}
-      <TryOn product={product} />
-
-      {product.url && scope() !== null && (
-        // The point of the whole screen. It was 76px in a footer under a spec
-        // table; nobody crossing a concourse takes their phone out for that.
-        <div className="mt-auto flex items-center gap-5 border-t border-line pt-5">
-          {/* Rendered by our own API, not a QR web service — otherwise this is
-              the one element on screen that goes blank when the network drops. */}
-          {/* Scales with the panel like everything else. It is an SVG, so there
-              is no resolution to lose, and this is the one element a visitor
-              points a phone camera at from half a metre away, through glass,
-              at an angle — 132px was about forty millimetres of code. */}
-          <img
-            src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
-            alt={`QR code linking to ${product.name}`}
-            className="aspect-square w-[clamp(104px,7vh,272px)] shrink-0 rounded bg-white"
-          />
-          <p className="text-body leading-snug font-medium">
-            Scan to buy this
-            <br />
-            <span className="text-ink-soft text-label font-normal">
-              Opens on your phone. Keep asking — he is still listening.
-            </span>
-          </p>
-        </div>
-      )}
-    </>
+      <div className="absolute top-[clamp(12px,1.4vh,50px)] right-[clamp(12px,1.4vh,50px)]">
+        <TryOn product={product} />
+      </div>
+    </div>
   )
 }
 
@@ -183,7 +181,7 @@ function Image({
     <img
       src={product.image}
       alt=""
-      className={`w-full rounded ${fit === 'cover' ? 'object-cover' : 'object-contain'} ${className}`}
+      className={`w-full rounded ${fit === 'cover' ? 'object-cover object-top' : 'object-contain'} ${className}`}
       loading="lazy"
     />
   )
