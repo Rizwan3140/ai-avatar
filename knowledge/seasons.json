@@ -12,20 +12,6 @@
     "org_id": "default"
   },
   {
-    "id": "diwali",
-    "name": "Diwali",
-    "starts": "2026-08-25",
-    "ends": "2026-09-08",
-    "tokens": {
-      "--color-accent": "#b45309",
-      "--color-ink-soft": "#7c5a3a",
-      "--color-line": "#e8d7bd",
-      "--backdrop-from": "#e9b25a",
-      "--backdrop-to": "#f6dfae"
-    },
-    "org_id": "default"
-  },
-  {
     "id": "wedding-season",
     "name": "Wedding season",
     "starts": "2026-11-13",
@@ -34,9 +20,19 @@
       "--color-accent": "#9d174d",
       "--color-ink-soft": "#6b4a55",
       "--color-line": "#ecd9df",
-      "--backdrop-from": "#e8a8bd",
-      "--backdrop-to": "#f8dce4"
+      "--backdrop-from": "#f7e4ea",
+      "--backdrop-to": "#fdfafb"
     },
     "org_id": "default"
+  },
+  {
+    "id": "diwali",
+    "name": "Diwali",
+    "starts": "2026-11-06",
+    "ends": "2026-11-12",
+    "tokens": {
+      "--color-accent": "#c2410c"
+    },
+    "org_id": "northwind"
   }
 ]

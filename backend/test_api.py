@@ -35,7 +35,7 @@ os.environ["LUXORA_SECRET"] = "test-only-secret"
 # hides until something depends on it.
 os.environ["LUXORA_SEED"] = "0"
 
-from backend import accounts, catalog, documents, seasons, store, tryon  # noqa: E402
+from backend import accounts, catalog, documents, store, tryon  # noqa: E402
 
 # Pin the try-on providers to the one that refuses, for the same reason the
 # database is redirected two lines below: this suite asserts what the routes do,
@@ -51,11 +51,6 @@ catalog.DB_PATH = TMP / "test.db"
 documents.DB_PATH = catalog.DB_PATH
 store.AVATARS_DIR = TMP / "avatars"
 store.KIOSKS_FILE = TMP / "kiosks.json"
-# Redirected for the same reason as the database above, and it was not: running
-# this suite wrote its fixture season into the real knowledge/seasons.json,
-# reassigning it to the test's org and silently undressing the showroom. The
-# exact mistake this file's own docstring records having made with the catalog.
-seasons.SEASONS_FILE = TMP / "seasons.json"
 store.AVATARS_DIR.mkdir(parents=True)
 
 from fastapi.testclient import TestClient  # noqa: E402

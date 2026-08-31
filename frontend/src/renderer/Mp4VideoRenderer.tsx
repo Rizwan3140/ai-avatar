@@ -122,21 +122,6 @@ export function Mp4VideoRenderer() {
         transformOrigin: 'bottom center',
       }}
     >
-      {/* The ground he stands on, inside this element rather than behind it.
-          `mix-blend-mode` only blends against the backdrop of its own stacking
-          context, and both `opacity` and this `animation` create one — so the
-          keyed footage was multiplying against nothing while the page's real
-          background sat two contexts above, untouched. Putting the ground in
-          here gives the blend something to find. */}
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(170deg, var(--backdrop-from) 0%, var(--backdrop-to) 62%, var(--backdrop-to) 100%)',
-        }}
-      />
-
       {/* Poster sits under every clip: no black flash before decode, and the
           only thing visible until the footage exists. */}
       <img
@@ -144,7 +129,7 @@ export function Mp4VideoRenderer() {
         alt=""
         aria-hidden
         className="absolute inset-0 size-full object-bottom"
-        style={{ objectFit: config.fit, mixBlendMode: 'multiply' }}
+        style={{ objectFit: config.fit }}
         onError={(e) => {
           // No footage for this avatar yet — fall back to the placeholder rather
           // than showing a broken image.
@@ -172,14 +157,6 @@ export function Mp4VideoRenderer() {
           className="absolute inset-0 size-full object-bottom transition-opacity"
           style={{
             objectFit: config.fit,
-            // The footage has no alpha — it is a dark subject filmed against
-            // white — so anything placed behind it was simply hidden by a white
-            // rectangle. Multiply keys that white out: where the frame is white
-            // the backdrop passes through unchanged, and where the subject is
-            // dark it darkens the backdrop. He stands *on* the background
-            // instead of in a box on top of it, with no re-encode and no green
-            // screen. The same trick the contact shadow below already uses.
-            mixBlendMode: 'multiply',
             // Every clip keeps playing regardless; only visibility changes. Out
             // of a conversation they all fade out and the poster shows through.
             opacity: live && shown === name ? 1 : 0,

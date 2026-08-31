@@ -70,15 +70,7 @@ def kiosk(kiosk_id: str):
 
 @router.get("/avatar")
 def get_avatar(id: str = ""):
-    """One named avatar, for the Studio's "talk to this avatar" link.
-
-    Carries the season for the same reason `/kiosk/{id}` does. It did not, so a
-    cabinet opened by id was dressed for the month and the same cabinet opened
-    by `?avatar=` was not — one screen, two appearances, decided by which URL
-    somebody happened to use.
-    """
-    avatar = avatar_or_404(id)
-    return {**asdict(avatar), "season": seasons.active(avatar.org_id)}
+    return asdict(avatar_or_404(id))
 
 
 @router.get("/campaigns/{avatar_id}")
