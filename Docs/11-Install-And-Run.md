@@ -24,10 +24,15 @@ server and no CORS.
 | Tool | Version | Why |
 |---|---|---|
 | **Python** | 3.11+ | Backend. 3.13 is what this was verified on |
-| **Node.js** | 20+ | Frontend build |
 | **Git** | any | Getting the repository |
-| **ffmpeg** | any | Audio decoding for speech recognition |
-| **Ollama** | latest | The local language model |
+| **Node.js** | 20+ | *Only to build the interface.* A packaged install ships `frontend/dist` already built and needs no JavaScript toolchain |
+| ~~ffmpeg~~ | — | **Not needed.** PyAV carries its own — 48 binaries, libav 18, inside the wheel. Only `conform_footage.py` wants a system ffmpeg, and that prepares footage on a workstation |
+| ~~Ollama~~ | — | **Not needed.** On Apple Silicon the local model is `mlx-lm`, installed by pip into the virtualenv — no system service and no administrator. Ollama is used only if it happens to be present |
+
+The local model is the *fallback*. With `GROQ_API_KEY` set, hosted answers come
+first so every cabinet sounds alike; the local one is what keeps a cabinet
+talking when the network drops. With neither, `setup.sh` still succeeds and says
+what that costs.
 
 ### Windows
 
@@ -42,7 +47,7 @@ winget install Ollama.Ollama
 ### macOS
 
 ```bash
-brew install python node git ffmpeg ollama
+brew install python git        # node too, only if building the interface from source
 ```
 
 See `Docs/12-Mac-Setup.md` for the full Mac path, including Apple Silicon notes.

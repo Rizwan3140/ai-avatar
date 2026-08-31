@@ -1,6 +1,6 @@
 """Turn whatever a company hands over into something the avatar can answer from.
 
-    python -m backend.ingest knowledge/products.csv
+    python -m backend.ingest path/to/your-catalog.csv
     python -m backend.ingest returns-policy.pdf brochure.docx
 
 A company will hand over whatever their system exports, with whatever column
