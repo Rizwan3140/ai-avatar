@@ -250,35 +250,6 @@ function Home({
     { label: 'Cabinets', value: summary?.kiosks ?? '—', view: 'kiosks' },
   ]
 
-  // The showroom, rather than a description of it.
-  //
-  // This page listed counts and section names and nothing else, and it read as
-  // a text document because that is what it was — while the machine it
-  // describes holds two portraits and five thousand photographs. A person who
-  // opens this wants to recognise their own showroom in it, which no number
-  // does. Both calls are cheap and neither blocks the page: the sections render
-  // regardless, and the strip simply fills in.
-  const [faces, setFaces] = useState<{ id: string; name: string; poster: string }[]>([])
-  const [shots, setShots] = useState<{ id: string; name: string; image: string }[]>([])
-
-  useEffect(() => {
-    api<{ id: string; name: string; poster: string }[]>('/api/studio/avatars')
-      .then((all) => setFaces(all.filter((a) => a.poster)))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!faces.length) return
-    // Scoped to an avatar because every catalog read is: the org is resolved
-    // from who is being shown, never from a parameter the caller picks.
-    fetch(`/api/products?limit=12&avatar=${encodeURIComponent(faces[0].id)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((all: { id: string; name: string; image: string }[]) =>
-        setShots(all.filter((p) => p.image).slice(0, 8)),
-      )
-      .catch(() => {})
-  }, [faces])
-
   return (
     <div className="flex flex-col gap-9">
       {/* What is on this machine, said out loud.
@@ -305,57 +276,6 @@ function Home({
           </button>
         ))}
       </p>
-
-      {/* Who is standing in the cabinets, and what they are selling. The page
-          stopped a third of the way down and had nothing on it that belonged to
-          this particular showroom; these are the two things that do. */}
-      {(faces.length > 0 || shots.length > 0) && (
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-5">
-          {faces.map((face) => (
-            <button
-              key={face.id}
-              type="button"
-              onClick={() => onView('avatars')}
-              className="group flex flex-col gap-2"
-              title={face.name}
-            >
-              <img
-                src={face.poster}
-                alt={face.name}
-                className="border-line bg-line/20 h-28 w-24 rounded-lg border object-cover object-top transition-transform duration-500 ease-(--ease-human) group-hover:-translate-y-1"
-              />
-              <span className="text-ink-soft group-hover:text-ink text-xs transition-colors">
-                {face.name}
-              </span>
-            </button>
-          ))}
-
-          {shots.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onView('products')}
-              className="group flex min-w-0 flex-1 flex-col gap-2"
-            >
-              {/* Overlapped rather than spaced, so eight garments read as a rail
-                  of clothes instead of eight more boxes in a row of boxes. */}
-              <div className="flex">
-                {shots.map((shot, i) => (
-                  <img
-                    key={shot.id}
-                    src={shot.image}
-                    alt=""
-                    style={{ zIndex: shots.length - i }}
-                    className="border-canvas bg-line/20 -ml-3 h-28 w-20 rounded-lg border-2 object-cover object-top transition-transform duration-500 ease-(--ease-human) first:ml-0 group-hover:-translate-y-1"
-                  />
-                ))}
-              </div>
-              <span className="text-ink-soft group-hover:text-ink text-left text-xs transition-colors">
-                in the catalog
-              </span>
-            </button>
-          )}
-        </div>
-      )}
 
       {/* The one thing worth interrupting for. An avatar with missing footage
           does not change when spoken to, and that reads as broken rather than
@@ -405,7 +325,7 @@ function Home({
                 somewhere. */}
             <span
               aria-hidden
-              className="text-ink-soft/50 group-hover:text-accent ml-auto shrink-0 text-3xl transition-[color,transform] duration-300 ease-(--ease-human) group-hover:translate-x-1"
+              className="text-line group-hover:text-accent ml-auto shrink-0 text-2xl transition-[color,transform] duration-300 ease-(--ease-human) group-hover:translate-x-1"
             >
               &rarr;
             </span>
