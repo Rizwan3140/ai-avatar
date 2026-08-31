@@ -25,7 +25,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 AVATARS_DIR = ROOT / "frontend" / "public" / "avatars"
-KIOSKS_FILE = ROOT / "kiosks.json"
+
+#: Which cabinet shows whom. In `knowledge/` because that is the folder a
+#: deployment keeps.
+#:
+#: It used to sit at the repo root, which is on no volume: `catalog.db`,
+#: `.secret`, `seasons.json` and the event log are all under `knowledge/`, and
+#: every avatar is under `frontend/public/avatars/`, so those two are what
+#: `deploy/compose.yml` mounts. A kiosks file outside both meant every
+#: registered cabinet vanished on the next `docker compose up --build` — and it
+#: would have looked like a bug in kiosk registration rather than a missing
+#: mount, because the products and the avatars all came back.
+KIOSKS_FILE = ROOT / "knowledge" / "kiosks.json"
+#: Where it used to live. Read when the new path does not exist yet, so an
+#: install that already has cabinets keeps them; the next write moves it.
+LEGACY_KIOSKS_FILE = ROOT / "kiosks.json"
 
 POSES = ("idle", "listen", "think", "speak")
 
@@ -206,15 +220,23 @@ def default_avatar(org_id: str | None = None) -> Avatar | None:
 
 
 def list_kiosks(org_id: str | None = None) -> dict[str, dict]:
-    if not KIOSKS_FILE.exists():
+    # New path first, old one only while the new one is absent. An install that
+    # already has cabinets keeps them, and the next write puts the file where it
+    # will survive a redeploy.
+    source = KIOSKS_FILE if KIOSKS_FILE.exists() else LEGACY_KIOSKS_FILE
+    if not source.exists():
         return {}
-    kiosks = json.loads(KIOSKS_FILE.read_text(encoding="utf-8"))
+    try:
+        kiosks = json.loads(source.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}
     if org_id is None:
         return kiosks
     return {k: v for k, v in kiosks.items() if v.get("org_id", DEFAULT_ORG) == org_id}
 
 
 def _write_kiosks(kiosks: dict[str, dict]) -> None:
+    KIOSKS_FILE.parent.mkdir(parents=True, exist_ok=True)
     KIOSKS_FILE.write_text(
         json.dumps(kiosks, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )

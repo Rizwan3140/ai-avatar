@@ -53,5 +53,11 @@ RUN mkdir -p frontend/public/avatars
 
 EXPOSE 8080
 
-# Shell form, so $PORT expands at runtime rather than being taken literally.
-CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}
+# Shell form, so $PORT expands at runtime rather than being taken literally —
+# and `exec`, so uvicorn replaces the shell instead of running as its child.
+#
+# Without it the shell is PID 1, `docker stop` sends SIGTERM to the shell, the
+# shell does not pass it on, and every redeploy waits out the ten-second grace
+# period and then SIGKILLs a process holding SQLite open. The build warns about
+# the shell form for exactly this; `exec` is the answer that keeps $PORT.
+CMD exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}

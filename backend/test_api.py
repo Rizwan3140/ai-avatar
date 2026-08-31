@@ -51,6 +51,8 @@ catalog.DB_PATH = TMP / "test.db"
 documents.DB_PATH = catalog.DB_PATH
 store.AVATARS_DIR = TMP / "avatars"
 store.KIOSKS_FILE = TMP / "kiosks.json"
+# Both paths, or the legacy fallback reads the developer's real one.
+store.LEGACY_KIOSKS_FILE = TMP / "legacy-root-kiosks.json"
 store.AVATARS_DIR.mkdir(parents=True)
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -122,6 +124,24 @@ r = client.put(
     json={"id": "mumbai-1", "avatar_id": AVATAR, "label": "Ground floor"},
 )
 check("a cabinet registers", r.status_code == 200, r.text[:160])
+
+# Where it registers *to* is the deploy-critical part. `kiosks.json` used to sit
+# at the repo root, which no volume mounts, so every cabinet disappeared on the
+# next `docker compose up --build` — and it read as broken registration rather
+# than a missing mount, because the products and avatars all came back.
+check("it is written where a deployment keeps state", store.KIOSKS_FILE.exists())
+check("and not at the old root path", not store.LEGACY_KIOSKS_FILE.exists())
+
+# An install that already has cabinets must not be orphaned by the move.
+_legacy = TMP / "legacy-kiosks.json"
+_legacy.write_text(
+    json.dumps({"old-1": {"avatar_id": AVATAR, "label": "Before", "org_id": NORTH}}),
+    encoding="utf-8",
+)
+_new, store.KIOSKS_FILE = store.KIOSKS_FILE, TMP / "absent.json"
+_old, store.LEGACY_KIOSKS_FILE = store.LEGACY_KIOSKS_FILE, _legacy
+check("an existing install's cabinets still load", "old-1" in store.list_kiosks())
+store.KIOSKS_FILE, store.LEGACY_KIOSKS_FILE = _new, _old
 
 print("\nthe cabinet boots")
 r = client.get("/api/kiosk/mumbai-1")
