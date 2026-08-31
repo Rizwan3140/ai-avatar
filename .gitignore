@@ -48,3 +48,19 @@ test-*.log
 # Written the first time the sample catalog is loaded, so clearing it and
 # restarting does not put it back.
 knowledge/.seeded
+
+# --- a customer's own content, never ours ------------------------------------
+# Avatars, footage, catalogs and seasons belong to whoever installed this. They
+# stayed in the repo while it was one showroom and two demo avatars; shipping
+# them to a second customer would put Dhiyona's products and our test footage on
+# somebody else's panel. A fresh install starts empty and is filled from the
+# Studio.
+#
+# Kept on disk locally — untracked, not deleted — so development still has
+# something to talk to.
+frontend/public/avatars/
+knowledge/products.csv
+knowledge/apparel.csv
+knowledge/seasons.json
+knowledge/kiosks.json
+knowledge/events/

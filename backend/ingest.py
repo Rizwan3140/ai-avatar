@@ -299,50 +299,35 @@ def absorb(data: bytes, filename: str, org_id: str = DEFAULT_ORG) -> dict:
 
 
 def seed_if_empty(org_id: str = DEFAULT_ORG) -> int:
-    """Load the sample catalog on first boot, and only then.
+    """Give a fresh install somebody to show, and nothing to sell.
 
-    A container's filesystem is usually ephemeral: `catalog.db` is deliberately
-    not baked into the image (it holds password hashes), so a fresh deploy starts
-    with nothing and the first thing a reviewer sees is an empty showroom.
+    This used to load two sample CSVs that shipped in the repo. They no longer
+    ship, and neither does any footage: a catalog and an avatar belong to
+    whoever installed this, and putting one customer's products on another
+    customer's panel is the whole reason tenancy exists.
 
-    The CSVs beside this do ship, so the shortest honest fix is to read them when
-    — and only when — the catalog is empty. An install that already has products,
-    or one whose products were all deliberately deleted and then re-seeded, is a
-    worse outcome than an empty demo, so this checks rather than upserts.
+    So the only thing seeded now is a single unnamed avatar with no clips. It
+    renders as the silhouette in `poster.svg` — deliberately mute, deliberately
+    unfinished-looking — which answers the question a blank white panel does not:
+    this is working, and it is waiting for you.
+
+    Products stay at zero. An empty catalog is the truth on a new install, and
+    the Studio's Home page already says what to do about it.
     """
-    from backend.catalog import all_products
+    from backend import store
 
-    # Once per install, not whenever the catalog happens to be empty. Someone who
-    # cleared the samples in order to upload their own has said what they want,
-    # and having twelve laptops reappear on the next restart would be the app
-    # arguing with them.
+    # Once per install, not whenever the machine happens to be empty. Someone who
+    # deleted the placeholder in order to upload their own has said what they
+    # want, and having it reappear on the next restart would be the app arguing
+    # with them.
     marker = ROOT / "knowledge" / ".seeded"
-    if marker.exists() or all_products(org_id):
+    if marker.exists() or store.list_avatars():
         return 0
 
-    total = 0
-    for name in ("products.csv", "apparel.csv"):
-        path = ROOT / "knowledge" / name
-        if not path.exists():
-            continue
-        try:
-            products, _ = from_bytes(path.read_bytes(), path.name)
-        except Exception:
-            # Seed data is a convenience. A malformed sample must never stop the
-            # server coming up.
-            continue
-        if products:
-            upsert(products, org_id)
-            total += len(products)
-
-    # Written even when nothing loaded, so a missing sample file is not retried
-    # on every single boot.
-    try:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text("sample catalog loaded once", encoding="utf-8")
-    except OSError:
-        pass  # A read-only disk is not a reason to fail startup.
-    return total
+    store.create_avatar("Your avatar", org_id, greeting="Welcome.")
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("placeholder avatar created" + chr(10), encoding="utf-8")
+    return 0
 
 
 def from_file(path: Path) -> list[Product]:

@@ -1,5 +1,0 @@
-product_id,name,category,price,description,image,url,size,colour,fabric
-A001,Linen Shirt,Shirts,2499.00,"Relaxed-fit ivory linen shirt, breathable and unlined, cut for warm weather.",/products/linen-shirt.png,https://example.com/p/linen-shirt,"S,M,L,XL",Ivory,100% linen
-A002,Charcoal Tee,T-Shirts,1199.00,"Heavyweight combed-cotton tee in charcoal, straight cut with a ribbed crew neck.",/products/charcoal-tee.png,https://example.com/p/charcoal-tee,"XS,S,M,L,XL",Charcoal,Combed cotton
-A003,Indigo Dress,Dresses,4299.00,"A-line midi dress in indigo, with a soft drape and no lining.",/products/indigo-dress.png,https://example.com/p/indigo-dress,"XS,S,M,L",Indigo,Viscose blend
-A004,Olive Field Jacket,Jackets,6899.00,"Cotton-twill field jacket in olive with four front pockets and a button placket.",/products/olive-jacket.png,https://example.com/p/olive-jacket,"S,M,L,XL",Olive,Cotton twill
