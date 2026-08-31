@@ -18,7 +18,19 @@ export function App() {
   const showcase = useStore((s) => s.products.length > 0)
 
   return (
-    <main className="relative h-full overflow-hidden bg-canvas">
+    // The room he is standing in, drawn from the season.
+    //
+    // This was a flat white field because the footage is an opaque rectangle
+    // filmed on white and anything behind it was hidden. The clips are keyed
+    // with multiply now, so the ground shows through around him and he stands
+    // on it. A festival changes the room, not just the accents in it.
+    <main
+      className="relative h-full overflow-hidden"
+      style={{
+        background:
+          'linear-gradient(170deg, var(--backdrop-from) 0%, var(--backdrop-to) 62%, var(--backdrop-to) 100%)',
+      }}
+    >
       {/* He shrinks aside rather than leaving. The visitor is still being helped
           by someone, not left browsing a website. */}
       <div

@@ -144,7 +144,9 @@ export async function fetchAvatar(avatarId: string): Promise<Omit<KioskConfig, '
     fetch('/api/tryon'),
   ])
   if (!avatar.ok) throw new Error('That avatar is no longer here.')
-  return { avatar: await avatar.json(), tryon: await tryon.json() }
+  // The season rides on the avatar here, the kiosk row there. Same screen.
+  const { season, ...rest } = await avatar.json()
+  return { avatar: rest, tryon: await tryon.json(), season }
 }
 
 /** Who this cabinet is. Replaces the avatar name the app used to be built with. */
