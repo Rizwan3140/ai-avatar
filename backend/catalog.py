@@ -295,6 +295,7 @@ def search(
     max_price: float | None = None,
     limit: int = 8,
     org_id: str = DEFAULT_ORG,
+    per_category: bool = True,
 ) -> list[Product]:
     """Find products. Everything is optional — an empty query with a category is
     "show me your laptops", and an empty everything is "show me what you have".
@@ -330,13 +331,54 @@ def search(
         clauses.append("p.price IS NOT NULL AND p.price <= ?")
         params.append(max_price)
 
+    # Thinning is for the browse case. Somebody who named a category has already
+    # narrowed it themselves, and answering "show me the sarees" with exactly one
+    # saree is a worse showroom than the wall it was meant to prevent.
+    thin = per_category and not category
+
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT p.* FROM {joined} {where} ORDER BY {order} LIMIT ?"
-    params.append(limit)
+    # Over-fetch, then thin. The thinning below keeps one row per category, so
+    # asking the database for `limit` rows would return one category's worth of
+    # near-duplicates and thin them to a single product.
+    params.append(limit * FAN_OUT if thin else limit)
 
     with _connect() as conn:
         rows = conn.execute(sql, params).fetchall()
-    return [_row_to_product(r) for r in rows]
+    found = [_row_to_product(r) for r in rows]
+    return _one_per_category(found, limit) if thin else found[:limit]
+
+
+#: How much wider to cast the net before thinning to one product per category.
+#: A catalog of five thousand shirts is mostly shirts, so the first handful of
+#: matches are usually the same category over and over.
+FAN_OUT = 12
+
+
+def _one_per_category(products: list[Product], limit: int) -> list[Product]:
+    """The best match from each category, in the order they were ranked.
+
+    A wall of thirty sarees is not a showroom, it is a search results page, and
+    it puts the visitor back in the job the avatar exists to do for them. One of
+    each says what the shop sells; the conversation narrows from there, which is
+    the thing a person standing in front of you is for.
+
+    Products with no category each stand alone rather than collapsing into one
+    anonymous group — an uncategorised catalog would otherwise show exactly one
+    product for every possible question.
+    """
+    seen: set[str] = set()
+    picked: list[Product] = []
+    for product in products:
+        key = (product.category or "").strip().lower()
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        picked.append(product)
+        if len(picked) >= limit:
+            break
+    return picked
 
 
 #: "under 50000", "below ₹2,000", "less than 300", "cheaper than 99.99"

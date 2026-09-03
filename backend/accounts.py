@@ -122,7 +122,7 @@ def init() -> None:
         """)
         conn.execute(
             "INSERT OR IGNORE INTO orgs (id, name, vertical, created_at) VALUES (?,?,?,?)",
-            (DEFAULT_ORG, "Luxora", "", _now()),
+            (DEFAULT_ORG, "Dhiyona", "", _now()),
         )
 
 

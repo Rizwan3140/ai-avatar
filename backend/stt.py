@@ -130,8 +130,46 @@ def ready() -> bool:
     return _model is not None
 
 
+#: What Whisper says when nobody said anything.
+#:
+#: It was trained on captioned video, so quiet audio comes back as the caption
+#: that usually ends one. These are real lines from this cabinet's own logs,
+#: each delivered to the model as a visitor's question and answered out loud to
+#: an empty room.
+#:
+#: The local path already dropped these by `no_speech_prob`. The hosted one had
+#: no such filter and is the provider actually in use, so the guard belonged
+#: where every provider's answer passes rather than inside one of them.
+_NOT_SPEECH = {
+    "thank you", "thanks", "thank you.", "thanks for watching",
+    "thanks for watching!", "thank you for watching", "bye", "bye bye",
+    "bye.", "goodbye", "you", "so", "uh", "um", ".", "..", "...",
+    "i'll see you in the next video", "see you in the next video",
+    "please subscribe", "subscribe", "okay", "ok", "oh", "hmm", "mm",
+    "[music]", "[silence]", "[blank_audio]", "(music)", "music",
+}
+
+
+def is_speech(text: str) -> bool:
+    """Whether a transcript is worth waking the model for.
+
+    A cabinet that answers its own silence is worse than one that mishears: it
+    talks to nobody, in a shop, at volume, and every passer-by learns the screen
+    is broken before they have said a word to it.
+    """
+    cleaned = text.strip().strip("!?.,\"'").lower()
+    if len(cleaned) < 2:
+        return False
+    return cleaned not in _NOT_SPEECH
+
+
 def transcribe(audio: bytes, partial: bool = False) -> str:
     """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included."""
+    heard = _transcribe(audio, partial)
+    return heard if is_speech(heard) else ""
+
+
+def _transcribe(audio: bytes, partial: bool = False) -> str:
     import io
 
     # Hosted first, local underneath — the same arrangement `llm.py` uses, and

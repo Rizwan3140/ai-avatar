@@ -74,6 +74,8 @@ export function Campaigns({ who }: { who: Principal }) {
           invitation: '',
           starts: '',
           ends: '',
+          // A still holds for a fixed spell; a clip plays to its end. Kept on
+          // the record because saved playlists carry it and stills still use it.
           seconds: 8,
         },
       ])
@@ -109,7 +111,7 @@ export function Campaigns({ who }: { who: Principal }) {
 
       <Section
         title="Idle campaigns"
-        hint="Leave both times blank to play all day. A window like 21:00 to 06:00 crosses midnight and is handled."
+        hint="They play in order, on a loop, whenever nobody is talking. A clip runs to its end; a still holds for a few seconds."
         action={
           <div className="flex gap-2">
             {/* Previews the draft, not the saved list — showing saved content
@@ -145,44 +147,13 @@ export function Campaigns({ who }: { who: Principal }) {
                 <Preview item={item} />
 
                 <div className="flex flex-col gap-3">
-                  <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_0.7fr]">
+                  <div className="grid gap-3">
                     <Small label="Name">
                       <input
                         className="input"
                         disabled={!mayWrite}
                         value={item.id}
                         onChange={(event) => edit(index, { id: event.target.value })}
-                      />
-                    </Small>
-                    <Small label="From">
-                      <input
-                        className="input"
-                        type="time"
-                        disabled={!mayWrite}
-                        value={item.starts}
-                        onChange={(event) => edit(index, { starts: event.target.value })}
-                      />
-                    </Small>
-                    <Small label="Until">
-                      <input
-                        className="input"
-                        type="time"
-                        disabled={!mayWrite}
-                        value={item.ends}
-                        onChange={(event) => edit(index, { ends: event.target.value })}
-                      />
-                    </Small>
-                    <Small label="Seconds">
-                      <input
-                        className="input"
-                        type="number"
-                        min={2}
-                        max={120}
-                        disabled={!mayWrite}
-                        value={item.seconds}
-                        onChange={(event) =>
-                          edit(index, { seconds: Number(event.target.value) || 8 })
-                        }
                       />
                     </Small>
                   </div>

@@ -25,7 +25,7 @@ export function Masthead({ name }: { name?: string }) {
     >
       <div className="flex flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)]">
         <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
-          {name ?? 'Luxora'}
+          {name ?? 'Dhiyona'}
         </span>
         <span className="text-ink-soft text-label tracking-[0.24em] uppercase opacity-70">
           Showroom assistant

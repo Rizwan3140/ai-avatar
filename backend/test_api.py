@@ -244,10 +244,11 @@ check(
 )
 r = client.get(f"/api/products?q=laptop for video editing&avatar={AVATAR}")
 names = [p["name"] for p in r.json()]
-# Both are laptops, so both match; what matters is that the one whose
-# description says "video editing" is ranked first.
+# Both are laptops, so both match — and only the best-ranked one comes back,
+# because a plain query is a browse and browses show one per category. What
+# matters is that the one whose description says "video editing" is the one kept.
 check("it searches the catalog", names[:1] == ["Titan Pro 16"], str(names))
-check("and both laptops come back", len(names) == 2, str(names))
+check("and thins same-category matches to the best one", len(names) == 1, str(names))
 
 r = client.get(f"/api/products/titan-pro-16?avatar={AVATAR}")
 check("and opens one", r.json()["spoken_price"] == "\u20b9189,900")

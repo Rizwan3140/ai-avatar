@@ -101,15 +101,24 @@ def main() -> int:
     # and a showroom cannot afford a nonsense first result.
     # Sorted, because the order here is bm25 relevance and asserting it would
     # make this brittle. What matters is that nothing else gets in.
-    check("filler words match nothing", sorted(names(catalog.search("show me laptops"))),
-          ["Aria 14 Laptop", "Titan Pro 16"])
-    check("polite phrasing still works", len(catalog.search("do you have any dresses")), 2)
+    # One per category. "show me laptops" is a browse, and a browse says what the
+    # shop sells rather than listing a shelf — naming the category outright still
+    # returns every one of them, which the check below this proves.
+    check("filler words match nothing", names(catalog.search("show me laptops")),
+          ["Titan Pro 16"])
+    check("naming a category still returns the shelf",
+          len(catalog.search(category="Laptops")), 2)
+    check("polite phrasing still works", len(catalog.search("do you have any dresses")), 1)
     check("only the question matters", names(catalog.search("I am looking for silk")),
           ["Midnight Wrap Dress"])
 
     # Punctuation is a syntax error in FTS5; a spoken sentence is full of it.
     check("survives spoken punctuation", len(catalog.search("what's the best laptop?")) > 0, True)
-    check("empty query is not an error", len(catalog.search("")), 4)
+    # Four products across two categories, thinned to one of each. This is the
+    # "show me what you have" case, and it is the whole point of the thinning:
+    # a wall of a catalog is a search results page, not a showroom.
+    check("empty query is not an error", len(catalog.search("")), 2)
+    check("and shows one of each category", len(catalog.search("", per_category=False)), 4)
     check("nonsense returns nothing", names(catalog.search("zzzz")), [])
 
     print("\ncrawler")

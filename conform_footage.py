@@ -63,7 +63,16 @@ def conform(sources: list[Path], name: str, out_dir: Path, pingpong: bool = True
         *[arg for source in sources for arg in ("-i", str(source))],
         "-filter_complex", graph, "-map", "[v]",
         "-an",                       # no audio track
-        "-c:v", "libx264", "-crf", "18", "-preset", "slow",
+        # `veryfast`, not `slow`. At a fixed CRF the preset trades encoding time
+        # against file size, not against quality — and measured on this
+        # project's own footage at 2160x3840 it was 15s versus 4s for six
+        # seconds of video, with the faster preset producing the *smaller*
+        # file. There was no trade to make.
+        #
+        # It matters because this runs inside the upload request: the browser
+        # says "uploading" while ffmpeg re-encodes 4K, and a person watching a
+        # spinner for two minutes concludes the upload is broken.
+        "-c:v", "libx264", "-crf", "18", "-preset", "veryfast",
         "-pix_fmt", "yuv420p",
         "-color_range", "pc",        # full range, or white lands at ~235
         "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
