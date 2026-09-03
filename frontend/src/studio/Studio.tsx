@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { type View, pathForView, viewFromPath } from './routes.ts'
 import { api, setToken, token, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
@@ -26,16 +27,6 @@ import { applySeason } from '../session/season.ts'
  * reports — a missing clip, an unwired provider, a cabinet nobody registered —
  * are gaps in the product rather than in the page.
  */
-type View =
-  | 'home'
-  | 'products'
-  | 'ads'
-  | 'avatars'
-  | 'documents'
-  | 'kiosks'
-  | 'team'
-  | 'insights'
-  | 'seasons'
 
 const TABS: { id: View; blurb: string }[] = [
   { id: 'home', blurb: 'What is on this machine, and what to do next' },
@@ -66,8 +57,26 @@ export default function Studio() {
   const [who, setWho] = useState<Principal | null>(null)
   const [org, setOrg] = useState<Org | null>(null)
   const [open, setOpen] = useState<boolean | null>(null)
-  const [view, setView] = useState<View>('home')
+  // The URL is the tab, so a bookmark reopens what you bookmarked and Back
+  // steps between tabs instead of leaving the studio.
+  const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname))
   const [summary, setSummary] = useState<Summary | null>(null)
+
+  /** Change tab and say so in the address bar. */
+  const go = (next: View) => {
+    setView(next)
+    const path = pathForView(next)
+    if (window.location.pathname !== path) window.history.pushState(null, '', path)
+  }
+
+  // Back and Forward move between tabs. Without this the browser changes the
+  // address and the screen stays where it was, which is worse than not having
+  // the URLs at all.
+  useEffect(() => {
+    const pop = () => setView(viewFromPath(window.location.pathname))
+    window.addEventListener('popstate', pop)
+    return () => window.removeEventListener('popstate', pop)
+  }, [])
 
   // Resolve the session before drawing anything. Rendering the studio and then
   // snapping to a login is worse than a moment of nothing.
@@ -198,7 +207,7 @@ export default function Studio() {
               <button
                 key={id}
                 type="button"
-                onClick={() => setView(id)}
+                onClick={() => go(id)}
                 className={`-mb-px border-b-2 pb-3 text-sm capitalize transition-colors ${
                   view === id
                     ? 'border-ink text-ink'
@@ -233,11 +242,11 @@ export default function Studio() {
           </Note>
         )}
 
-        {view === 'home' && <Home summary={summary} onView={setView} />}
-        {view === 'products' && <Products who={who} onView={setView} />}
+        {view === 'home' && <Home summary={summary} onView={go} />}
+        {view === 'products' && <Products who={who} onView={go} />}
         {view === 'ads' && <Campaigns who={who} />}
         {view === 'avatars' && <Avatars who={who} />}
-        {view === 'documents' && <Documents who={who} onView={setView} />}
+        {view === 'documents' && <Documents who={who} onView={go} />}
         {view === 'kiosks' && <Kiosks who={who} />}
         {view === 'team' && <Team who={who} org={org} />}
         {view === 'insights' && <Insights />}

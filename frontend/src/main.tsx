@@ -23,12 +23,17 @@ const Studio = lazy(() => import('./studio/Studio.tsx'))
  * actually use and put the URL right, so a bookmark made from here is correct.
  */
 const url = new URL(window.location.href)
+const path = url.pathname.replace(/\/+$/, '')
 const isStudio =
-  url.pathname.replace(/\/+$/, '').endsWith('/studio') ||
+  path === '/studio' ||
+  path.startsWith('/studio/') ||
   url.searchParams.has('studio') ||
   url.hash === '#studio'
 
-if (isStudio && url.pathname !== '/studio') {
+// Normalise the shorthands people type, but never flatten a deep link.
+// `/studio/avatars` is already correct, and rewriting it to `/studio` here
+// would throw away the tab before the studio has even mounted.
+if (isStudio && !path.startsWith('/studio')) {
   window.history.replaceState(null, '', '/studio')
 }
 
