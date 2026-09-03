@@ -38,13 +38,22 @@ export function Subtitle() {
     if (status === 'thinking') return <Dots />
 
     if (status === 'speaking') {
+      // A card rather than text lying on the floor of the panel.
+      //
+      // The words used to sit directly on the background, which is fine on a
+      // monitor and poor on a transparent panel: whatever is physically behind
+      // the cabinet shows through mid-sentence, and a passing shopper or a
+      // shelf edge lands in the middle of a line. An opaque card is the one
+      // place the design deliberately blocks the see-through effect, because
+      // legibility of what he is saying outranks it.
       return (
-        <p
+        <div
           key={subtitle}
-          className="text-ink animate-[rise_var(--duration-calm)_var(--ease-human)] text-title leading-relaxed font-normal text-balance"
+          className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 mx-auto flex max-w-[80%] items-start gap-[0.8em] rounded-[1.1em] px-[1.3em] py-[1.05em] text-left shadow-float backdrop-blur-md"
         >
-          {subtitle}
-        </p>
+          <Spark />
+          <p className="text-ink text-title leading-relaxed font-normal text-balance">{subtitle}</p>
+        </div>
       )
     }
 
@@ -76,5 +85,27 @@ function Dots() {
         />
       ))}
     </div>
+  )
+}
+
+
+/**
+ * A small mark beside what he is saying, so a card of text reads as speech
+ * rather than as a notice taped to the glass.
+ *
+ * Drawn, not an emoji. The reference used one, and an emoji here would render
+ * as a different artist's work on every machine and at a weight nothing else
+ * on the panel shares.
+ */
+function Spark() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className="text-accent mt-[0.25em] size-[1.1em] shrink-0"
+      fill="currentColor"
+    >
+      <path d="M12 2c.4 4.6 2.4 6.6 7 7-4.6.4-6.6 2.4-7 7-.4-4.6-2.4-6.6-7-7 4.6-.4 6.6-2.4 7-7Z" />
+    </svg>
   )
 }

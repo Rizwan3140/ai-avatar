@@ -170,7 +170,7 @@ export function Shell({
             >
               L
             </span>
-            <span className="text-[15px] font-semibold tracking-[-0.01em]">Luxora</span>
+            <span className="font-display text-[19px] tracking-[0.1em] uppercase">Luxora</span>
           </a>
 
           <div className="flex items-center gap-3 text-[13px]" style={{ color: 'var(--s-muted)' }}>

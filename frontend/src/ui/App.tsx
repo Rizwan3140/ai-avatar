@@ -1,4 +1,6 @@
 import { Mp4VideoRenderer } from '../renderer/Mp4VideoRenderer.tsx'
+import { Masthead } from './Masthead.tsx'
+import { Prompts } from './Prompts.tsx'
 import { useStore } from '../state/store.ts'
 import { Controls } from './Controls.tsx'
 import { Showcase } from './Showcase.tsx'
@@ -28,9 +30,11 @@ export function App() {
         <Mp4VideoRenderer />
       </div>
 
+      <Masthead />
       <Signage />
       <Showcase />
       <Subtitle />
+      <Prompts />
       <Controls />
       <Transcript />
 

@@ -158,7 +158,7 @@ export default function Studio() {
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h1 className="text-[26px] font-semibold tracking-[-0.02em]">{LABELS[view]}</h1>
+            <h1 className="font-display text-[34px] leading-none tracking-[-0.01em]">{LABELS[view]}</h1>
             <p className="text-[13.5px]" style={{ color: 'var(--s-muted)' }}>
               {BLURBS[view]}
             </p>
@@ -259,7 +259,7 @@ function Home({
             onClick={() => onView(view)}
             className="s-card group flex flex-col gap-1 p-4 text-left transition-shadow hover:shadow-lg"
           >
-            <span className="nums text-[30px] leading-none font-semibold tracking-[-0.02em]">
+            <span className="font-display nums text-[34px] leading-none tracking-[-0.01em]">
               {value}
             </span>
             <span className="text-[13px] font-medium">{label}</span>
@@ -284,7 +284,7 @@ function Home({
 
       <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
         <section className="s-card flex flex-col p-5">
-          <h2 className="text-[15px] font-semibold">Start here</h2>
+          <h2 className="font-display text-[20px] leading-none">Start here</h2>
           <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
             The three things a new cabinet needs, in the order it needs them.
           </p>
@@ -320,7 +320,7 @@ function Home({
         </section>
 
         <section className="s-card flex flex-col p-5">
-          <h2 className="text-[15px] font-semibold">Everything else</h2>
+          <h2 className="font-display text-[20px] leading-none">Everything else</h2>
           <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
             Also in the rail on the left.
           </p>

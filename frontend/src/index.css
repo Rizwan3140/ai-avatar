@@ -29,7 +29,7 @@
   --backdrop-to: #fdfcfa;
   /* Accent is 3.7:1 on white — fails WCAG AA for text. Glow, pulse and icon
      fills only. Never type. */
-  --color-accent: #3b82f6;
+  --color-accent: #6b3df5;
 
   /* Two voices, and the contrast between them is the design.
      Everything here was Inter, which is a superb interface face and the reason
@@ -181,29 +181,31 @@ body {
    front of them. A dark dashboard beside a white panel is a strobe.
 --------------------------------------------------------------------------- */
 .studio {
-  --s-ground: #f4f4f7;
-  --s-card: #ffffff;
-  --s-ink: #15151d;
-  --s-muted: #63637a;
-  --s-faint: #9494a8;
-  --s-line: #e8e8f0;
-  --s-line-firm: #d6d6e2;
-  --s-accent: #6b3df5;
-  --s-accent-ink: #5326d9;
-  --s-accent-wash: #f1ecff;
-  --s-ok: #15803d;
-  --s-ok-wash: #e8f6ed;
-  --s-warn: #a45a06;
-  --s-warn-wash: #fdf3e3;
+  /* Derived, not chosen again. The panel's tokens are the product's palette,
+     so the studio reads them rather than carrying its own greys — which is
+     what made it look like a different application sitting next to the
+     cabinet. It also means a season re-tints the dashboard along with the
+     showroom, for free, because these are the same variables. */
+  --s-ground: var(--backdrop-from);
+  --s-card: var(--color-canvas);
+  --s-ink: var(--color-ink);
+  --s-muted: var(--color-ink-soft);
+  --s-faint: color-mix(in oklab, var(--color-ink-soft) 62%, var(--color-canvas));
+  --s-line: var(--color-line);
+  --s-line-firm: color-mix(in oklab, var(--color-line) 70%, var(--color-ink-soft));
+  --s-accent: var(--color-accent);
+  --s-accent-ink: color-mix(in oklab, var(--color-accent) 78%, var(--color-ink));
+  --s-accent-wash: color-mix(in oklab, var(--color-accent) 10%, var(--color-canvas));
   --s-radius: 14px;
-  /* Offset and blur, so the card sits above the ground rather than glowing. */
-  --s-shadow: 0 1px 2px rgb(21 21 45 / 0.04), 0 10px 28px -14px rgb(21 21 45 / 0.14);
+  /* Offset and blur, so a card sits above the ground rather than glowing. */
+  --s-shadow: 0 1px 2px rgb(23 19 15 / 0.04), 0 10px 28px -14px rgb(23 19 15 / 0.16);
 
   background: var(--s-ground);
   color: var(--s-ink);
   font-family: var(--font-sans);
   min-height: 100vh;
 }
+
 
 /* The surfaces a browser ships with its own opinion about. Left alone they
    announce that nobody drew this screen. */
