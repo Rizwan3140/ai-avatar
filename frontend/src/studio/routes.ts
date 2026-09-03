@@ -16,6 +16,10 @@
  *   `/avatars` is already the media mount that serves the footage. A tab there
  *   would shadow the files the cabinet plays.
  *
+ * Cabinets and Seasons were removed from the rail, not from the product: the
+ * modules, the API and the screens are untouched, and restoring them is adding
+ * two strings back to VIEWS.
+ *
  * Kept as plain functions over `pathname` rather than a router. Nine tabs and
  * no nested routes do not need one, and a dependency here would ship to a
  * cabinet that never opens the studio at all.
@@ -27,10 +31,8 @@ export type View =
   | 'ads'
   | 'avatars'
   | 'documents'
-  | 'kiosks'
   | 'team'
   | 'insights'
-  | 'seasons'
 
 export const VIEWS: View[] = [
   'home',
@@ -38,10 +40,8 @@ export const VIEWS: View[] = [
   'ads',
   'avatars',
   'documents',
-  'kiosks',
   'team',
   'insights',
-  'seasons',
 ]
 
 /**

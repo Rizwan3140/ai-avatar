@@ -19,7 +19,7 @@ export function Field({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium tracking-wide uppercase">{label}</span>
+      <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>{label}</span>
       {hint && <span className="text-ink-soft text-xs">{hint}</span>}
       {children}
     </label>
@@ -32,16 +32,23 @@ export function Button({
   ...rest
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'primary' | 'quiet' | 'danger' }) {
   const style = {
-    primary: 'bg-ink text-white',
-    quiet: 'border border-line hover:bg-line/40',
-    danger: 'border border-amber-300 text-amber-800 hover:bg-amber-50',
+    primary: 'text-white shadow-sm hover:brightness-110',
+    quiet: 'hover:bg-[var(--s-accent-wash)]',
+    danger: 'hover:bg-amber-50',
+  }[tone]
+
+  const paint = {
+    primary: { background: 'var(--s-accent)' },
+    quiet: { border: '1px solid var(--s-line-firm)', color: 'var(--s-ink)' },
+    danger: { border: '1px solid #e7c48f', color: 'var(--s-warn, #a45a06)' },
   }[tone]
 
   return (
     <button
       type="button"
       {...rest}
-      className={`rounded px-3.5 py-2 text-sm font-medium transition-opacity disabled:opacity-30 ${style} ${rest.className ?? ''}`}
+      style={{ ...paint, ...rest.style }}
+      className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium transition-[filter,background-color,opacity] disabled:opacity-40 ${style} ${rest.className ?? ''}`}
     >
       {children}
     </button>

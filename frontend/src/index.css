@@ -14,10 +14,10 @@
      with a little warmth in it and an ink that is brown-black rather than
      grey-black. The polarity is unchanged — the panel is still a light field
      with a dark subject on it, which is panel physics and not a preference. */
-  --color-canvas: #fdfcfa;
-  --color-ink: #17130f;
-  --color-ink-soft: #6b625a;
-  --color-line: #e7e2db;
+  --color-canvas: #fcfcfd;
+  --color-ink: #16161c;
+  --color-ink-soft: #63636f;
+  --color-line: #e7e7ee;
 
   /* The ground the whole page stands on.
      Two colours rather than one gradient string, because a season sets these
@@ -25,8 +25,8 @@
      two hex values are something the server can actually validate. The gradient
      itself is authored below, where it cannot be edited into something strange.
      Defaults are a hair off the canvas — the everyday look is still paper. */
-  --backdrop-from: #f6f2ec;
-  --backdrop-to: #fdfcfa;
+  --backdrop-from: #f3f3f7;
+  --backdrop-to: #fcfcfd;
   /* Accent is 3.7:1 on white — fails WCAG AA for text. Glow, pulse and icon
      fills only. Never type. */
   --color-accent: #6b3df5;
@@ -95,12 +95,14 @@ body {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--color-line);
-  border-radius: 3px;
-  background: #fff;
+  border-radius: 8px;
+  background: var(--color-canvas);
   color: var(--color-ink);
   font: inherit;
   font-size: 14px;
+  transition: border-color 150ms ease;
 }
+.input:hover { border-color: color-mix(in oklab, var(--color-line) 60%, var(--color-ink-soft)); }
 .input:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: -1px;
@@ -198,7 +200,7 @@ body {
   --s-accent-wash: color-mix(in oklab, var(--color-accent) 10%, var(--color-canvas));
   --s-radius: 14px;
   /* Offset and blur, so a card sits above the ground rather than glowing. */
-  --s-shadow: 0 1px 2px rgb(23 19 15 / 0.04), 0 10px 28px -14px rgb(23 19 15 / 0.16);
+  --s-shadow: 0 1px 2px rgb(22 22 40 / 0.04), 0 10px 28px -14px rgb(22 22 40 / 0.16);
 
   background: var(--s-ground);
   color: var(--s-ink);

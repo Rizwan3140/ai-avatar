@@ -50,7 +50,7 @@ export function Auth({ open, onSignedIn }: { open: boolean; onSignedIn: (who: Pr
 
         {open && (
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium tracking-wide uppercase">Company</span>
+            <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>Company</span>
             <input
               className="input"
               value={org}
@@ -62,7 +62,7 @@ export function Auth({ open, onSignedIn }: { open: boolean; onSignedIn: (who: Pr
         )}
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium tracking-wide uppercase">Email</span>
+          <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>Email</span>
           <input
             className="input"
             type="email"
@@ -74,7 +74,7 @@ export function Auth({ open, onSignedIn }: { open: boolean; onSignedIn: (who: Pr
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium tracking-wide uppercase">Password</span>
+          <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>Password</span>
           <input
             className="input"
             type="password"

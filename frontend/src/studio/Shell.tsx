@@ -55,12 +55,6 @@ const ICONS: Record<View, React.ReactNode> = {
       <path d="M14 3v5h5M9 13h6M9 17h4" />
     </>
   ),
-  kiosks: (
-    <>
-      <rect x="4" y="3" width="16" height="14" rx="2" />
-      <path d="M9 21h6M12 17v4" />
-    </>
-  ),
   team: (
     <>
       <circle cx="9" cy="8" r="3.2" />
@@ -73,12 +67,6 @@ const ICONS: Record<View, React.ReactNode> = {
       <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
     </>
   ),
-  seasons: (
-    <>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" />
-    </>
-  ),
 }
 
 /** What each screen is called to the person using it, not in the code. */
@@ -88,10 +76,8 @@ export const LABELS: Record<View, string> = {
   ads: 'Ads',
   avatars: 'Avatars',
   documents: 'Documents',
-  kiosks: 'Cabinets',
   team: 'Team',
   insights: 'Insights',
-  seasons: 'Seasons',
 }
 
 function Icon({ view }: { view: View }) {

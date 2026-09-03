@@ -5,9 +5,7 @@ import { api, setToken, token, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
 import { Campaigns } from './Campaigns.tsx'
-import { Seasons } from './Seasons.tsx'
 import { Insights } from './Insights.tsx'
-import { Kiosks } from './Kiosks.tsx'
 import { Documents } from './Documents.tsx'
 import { Products } from './Products.tsx'
 import { Team } from './Team.tsx'
@@ -38,10 +36,8 @@ const BLURBS: Record<View, string> = {
   ads: 'What plays while nobody is talking',
   avatars: 'Who stands in the cabinet',
   documents: 'Policies and brochures he can quote',
-  kiosks: 'Which screen shows whom',
   team: 'Who else can change this',
   insights: 'What visitors asked for, and could not find',
-  seasons: 'How the showroom looks this month',
 }
 
 
@@ -49,10 +45,8 @@ const BLURBS: Record<View, string> = {
  *  each one is for. */
 const ELSEWHERE: { id: View; title: string; blurb: string }[] = [
   { id: 'documents', title: 'Documents', blurb: 'Policies and brochures he can quote' },
-  { id: 'kiosks', title: 'Cabinets', blurb: 'Which screen shows whom' },
   { id: 'team', title: 'Team', blurb: 'Who else can change this' },
   { id: 'insights', title: 'Insights', blurb: 'What visitors asked for, and could not find' },
-  { id: 'seasons', title: 'Seasons', blurb: 'How the showroom looks this month' },
 ]
 
 type Summary = {
@@ -205,10 +199,8 @@ export default function Studio() {
         {view === 'ads' && <Campaigns who={who} />}
         {view === 'avatars' && <Avatars who={who} />}
         {view === 'documents' && <Documents who={who} onView={go} />}
-        {view === 'kiosks' && <Kiosks who={who} />}
         {view === 'team' && <Team who={who} org={org} />}
         {view === 'insights' && <Insights />}
-        {view === 'seasons' && <Seasons who={who} />}
       </div>
     </Shell>
   )
@@ -235,7 +227,6 @@ function Home({
     { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'he may recommend' },
     { label: 'Avatars', value: summary?.avatars ?? '-', view: 'avatars', note: 'stand in a cabinet' },
     { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'he can quote' },
-    { label: 'Cabinets', value: summary?.kiosks ?? '-', view: 'kiosks', note: 'registered' },
   ]
 
   const start: { view: View; title: string; body: string }[] = [
@@ -251,7 +242,7 @@ function Home({
           showed brightness, temperature and uptime; none of those are measured
           here, and drawing a dial for a number nobody reads is the interface
           telling a comfortable lie about how much it knows. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {counts.map(({ label, value, view, note }) => (
           <button
             key={label}

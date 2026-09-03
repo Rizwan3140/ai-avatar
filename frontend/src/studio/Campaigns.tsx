@@ -90,7 +90,7 @@ export function Campaigns({ who }: { who: Principal }) {
       {note && <Note>{note}</Note>}
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium tracking-wide uppercase">Avatar</span>
+        <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>Avatar</span>
         <select
           className="input max-w-xs"
           value={avatarId}
@@ -140,12 +140,12 @@ export function Campaigns({ who }: { who: Principal }) {
             {items.map((item, index) => (
               <li
                 key={`${item.id}-${index}`}
-                className="grid gap-3 rounded border border-line bg-white p-3 sm:grid-cols-[96px_1fr]"
+                className="s-card grid gap-4 p-4 sm:grid-cols-[132px_1fr]"
               >
                 <Preview item={item} />
 
                 <div className="flex flex-col gap-3">
-                  <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-[1.6fr_1fr_1fr_0.7fr]">
                     <Small label="Name">
                       <input
                         className="input"
@@ -201,7 +201,7 @@ export function Campaigns({ who }: { who: Principal }) {
                     <button
                       type="button"
                       onClick={() => setDraft(items.filter((_, i) => i !== index))}
-                      className="text-ink-soft self-start text-xs underline underline-offset-2 hover:text-amber-700"
+                      className="self-start text-[12.5px] underline underline-offset-2 hover:opacity-70" style={{ color: 'var(--s-muted)' }}
                     >
                       remove
                     </button>
@@ -239,17 +239,17 @@ function Preview({ item }: { item: Campaign }) {
         muted
         loop
         playsInline
-        className="h-24 w-full rounded bg-line/30 object-cover"
+        className="aspect-[3/4] w-full rounded-[10px] object-cover" style={{ background: 'var(--s-accent-wash)' }}
       />
     )
   }
-  return <img src={item.src} alt="" className="h-24 w-full rounded bg-line/30 object-cover" />
+  return <img src={item.src} alt="" className="aspect-[3/4] w-full rounded-[10px] object-cover" style={{ background: 'var(--s-accent-wash)' }} />
 }
 
 function Small({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-ink-soft text-[11px] tracking-wide uppercase">{label}</span>
+      <span className="text-[12px] font-medium" style={{ color: 'var(--s-muted)' }}>{label}</span>
       {children}
     </label>
   )
