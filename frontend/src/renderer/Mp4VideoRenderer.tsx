@@ -50,8 +50,11 @@ export const mp4Renderer: DigitalHumanRenderer = {
   async initialize() {
     await preloadClips(Object.values(avatarMedia().clips))
   },
-  // idle() means "no conversation", so it drops back to the still poster.
-  // The other three only ever happen inside one.
+  // idle() means "no conversation" — but he keeps moving. `live: false` here is
+  // what kept idle.mp4 from ever playing: it zeroes every clip and shows the
+  // poster, so an avatar with all four clips never showed its idle footage and
+  // one with only idle showed it exclusively while speaking. A still photograph
+  // on a transparent panel reads as a mannequin. `live` is false only in sleep.
   idle: () => set({ pose: 'idle', present: true, live: true }),
   listen: () => set({ pose: 'listen', present: true, live: true }),
   think: () => set({ pose: 'think', present: true, live: true }),

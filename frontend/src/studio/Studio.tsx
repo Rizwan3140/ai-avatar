@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { type View, pathForView, viewFromPath } from './routes.ts'
+import { LABELS, Shell } from './Shell.tsx'
 import { api, setToken, token, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
@@ -28,14 +29,24 @@ import { applySeason } from '../session/season.ts'
  * are gaps in the product rather than in the page.
  */
 
-const TABS: { id: View; blurb: string }[] = [
-  { id: 'home', blurb: 'What is on this machine, and what to do next' },
-  { id: 'products', blurb: 'What the avatar may recommend' },
-  { id: 'ads', blurb: 'What plays while nobody is talking' },
-  { id: 'avatars', blurb: 'Who stands in the cabinet' },
-]
+/** What each screen is for, in one line. All nine — the tab bar only ever
+ *  described the four it showed, so the other five arrived with a bare
+ *  heading the moment the rail made them reachable. */
+const BLURBS: Record<View, string> = {
+  home: 'What is on this machine, and what to do next',
+  products: 'What the avatar may recommend',
+  ads: 'What plays while nobody is talking',
+  avatars: 'Who stands in the cabinet',
+  documents: 'Policies and brochures he can quote',
+  kiosks: 'Which screen shows whom',
+  team: 'Who else can change this',
+  insights: 'What visitors asked for, and could not find',
+  seasons: 'How the showroom looks this month',
+}
 
-/** Reached from Home rather than from the tab bar. */
+
+/** Listed on the dashboard as well as in the rail, with a line saying what
+ *  each one is for. */
 const ELSEWHERE: { id: View; title: string; blurb: string }[] = [
   { id: 'documents', title: 'Documents', blurb: 'Policies and brochures he can quote' },
   { id: 'kiosks', title: 'Cabinets', blurb: 'Which screen shows whom' },
@@ -136,89 +147,36 @@ export default function Studio() {
     )
   }
 
-  // No `!`. Four of the eight views are reached from Home and are deliberately
-  // absent from TABS, so this is undefined for them — and the title below has to
-  // come from the view itself rather than from the tab that does not exist.
-  const current = [...TABS, ...ELSEWHERE].find((t) => t.id === view)
-  // "kiosks" is the route and the type; "Cabinets" is what a person calls it.
-  const title = ELSEWHERE.find((e) => e.id === view)?.title ?? view
-
   return (
     // `h-full overflow-y-auto`, not `min-h-full`: index.css sets
     // `body { overflow: hidden }` so a kiosk cannot rubber-band, which also meant
     // the Studio could not scroll at all — a persona editor and a product table
-    // are both taller than a laptop screen, and the bottom of each was simply
-    // unreachable. Scrolling here rather than relaxing the body rule keeps the
-    // cabinet's behaviour untouched.
-    // A page needs a top. This one began at a bare white edge with a heading
-    // sitting on it, which is why it read as a settings screen however the type
-    // was set. The band is the accent at two percent — enough that the header
-    // is a place rather than the absence of one, faint enough that it never
-    // competes with the work below it, and it re-tints with the season because
-    // it is drawn from the same token.
-    <div
-      className="text-ink relative h-full overflow-y-auto"
-      // The ground, from the season rather than from this file. Fixed, so it
-      // stays put while the page scrolls over it instead of sliding away and
-      // leaving the white underneath — which is what makes a background feel
-      // like a room rather than a very tall coloured rectangle.
-      style={{
-        background:
-          'linear-gradient(165deg, var(--backdrop-from) 0%, var(--backdrop-to) 55%, var(--backdrop-to) 100%)',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      <div className="relative mx-auto flex max-w-5xl flex-col gap-8 px-8 py-10">
-        <header className="flex flex-col gap-7">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-              {/* The same display serif the cabinet uses for a garment's name.
-                  The Studio and the panel are one product; a dashboard set
-                  entirely in the interface face looks like a different one. */}
-              <h1 className="font-display text-[42px] leading-none capitalize">{title}</h1>
-              <p className="text-ink-soft text-sm">{current?.blurb}</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-ink-soft">
-                {org?.name ?? 'this machine'}
-                {who.email && ` · ${who.email}`}
-                {` · ${who.role}`}
-              </span>
-              {!open && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToken('')
-                    setWho(null)
-                  }}
-                  className="text-ink-soft underline underline-offset-2 hover:text-ink"
-                >
-                  sign out
-                </button>
-              )}
-            </div>
+    // The rail replaced a row of four tabs with five more screens buried behind
+    // cards on Home — over half the product was reachable only by going Home
+    // first and knowing which card to look under.
+    <Shell view={view} onView={go} org={org?.name ?? 'This machine'} who={who.email || who.role}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-[26px] font-semibold tracking-[-0.02em]">{LABELS[view]}</h1>
+            <p className="text-[13.5px]" style={{ color: 'var(--s-muted)' }}>
+              {BLURBS[view]}
+            </p>
           </div>
-
-          {/* A rule with the current section sitting on it, rather than pills in
-              a capsule. The capsule was a container drawn around four words to
-              tell you they belonged together, which the row already said. */}
-          <nav className="border-line flex flex-wrap gap-8 border-b">
-            {TABS.map(({ id }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => go(id)}
-                className={`-mb-px border-b-2 pb-3 text-sm capitalize transition-colors ${
-                  view === id
-                    ? 'border-ink text-ink'
-                    : 'text-ink-soft hover:text-ink border-transparent'
-                }`}
-              >
-                {id}
-              </button>
-            ))}
-          </nav>
-        </header>
+          {!open && (
+            <button
+              type="button"
+              onClick={() => {
+                setToken('')
+                setWho(null)
+              }}
+              className="text-[13px] underline underline-offset-2"
+              style={{ color: 'var(--s-muted)' }}
+            >
+              Sign out
+            </button>
+          )}
+        </div>
 
         {open && (
           <p role="alert" className="border-l-2 border-amber-500 py-1 pl-4 text-sm text-amber-800">
@@ -252,7 +210,7 @@ export default function Studio() {
         {view === 'insights' && <Insights />}
         {view === 'seasons' && <Seasons who={who} />}
       </div>
-    </div>
+    </Shell>
   )
 }
 
@@ -273,112 +231,115 @@ function Home({
   summary: Summary | null
   onView: (view: View) => void
 }) {
-  const counts: { label: string; value: number | string; view: View }[] = [
-    { label: 'Products', value: summary?.products ?? '—', view: 'products' },
-    { label: 'Avatars', value: summary?.avatars ?? '—', view: 'avatars' },
-    { label: 'Documents', value: summary?.documents?.length ?? '—', view: 'documents' },
-    { label: 'Cabinets', value: summary?.kiosks ?? '—', view: 'kiosks' },
+  const counts: { label: string; value: number | string; view: View; note: string }[] = [
+    { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'he may recommend' },
+    { label: 'Avatars', value: summary?.avatars ?? '-', view: 'avatars', note: 'stand in a cabinet' },
+    { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'he can quote' },
+    { label: 'Cabinets', value: summary?.kiosks ?? '-', view: 'kiosks', note: 'registered' },
+  ]
+
+  const start: { view: View; title: string; body: string }[] = [
+    { view: 'products', title: 'Upload products', body: 'A CSV, a JSON export, or a Word document with a table in it.' },
+    { view: 'ads', title: 'Add an advertisement', body: 'Images or clips that play while nobody is talking.' },
+    { view: 'avatars', title: 'Talk to an avatar', body: 'Open the showroom screen and hold a conversation with it.' },
   ]
 
   return (
-    <div className="flex flex-col gap-9">
-      {/* What is on this machine, said out loud.
-          It was four metric tiles, then a quiet grey line — a correction that
-          overshot, because the line was so restrained it read as a footnote on
-          a page with nothing else at the top of it. Type at this scale is the
-          page: the numbers are the headline, the words around them recede, and
-          each number is still the link it always was. */}
-      <p className="font-display flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[clamp(30px,4.2vw,52px)] leading-[1.15]">
-        {counts.map(({ label, value, view }, i) => (
+    <div className="flex flex-col gap-6">
+      {/* What is on this machine. Four counts, each a way in — and only counts
+          this machine can actually answer for. The reference this follows also
+          showed brightness, temperature and uptime; none of those are measured
+          here, and drawing a dial for a number nobody reads is the interface
+          telling a comfortable lie about how much it knows. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {counts.map(({ label, value, view, note }) => (
           <button
             key={label}
             type="button"
             onClick={() => onView(view)}
-            className="group inline-flex items-baseline gap-2"
+            className="s-card group flex flex-col gap-1 p-4 text-left transition-shadow hover:shadow-lg"
           >
-            <span className="text-accent decoration-accent/30 group-hover:decoration-accent tabular-nums underline decoration-2 underline-offset-[0.14em] transition-colors">
+            <span className="nums text-[30px] leading-none font-semibold tracking-[-0.02em]">
               {value}
             </span>
-            <span className="text-ink-soft group-hover:text-ink transition-colors">
-              {label.toLowerCase()}
-              {i < counts.length - 1 && ','}
+            <span className="text-[13px] font-medium">{label}</span>
+            <span className="text-[12px]" style={{ color: 'var(--s-faint)' }}>
+              {note}
             </span>
           </button>
         ))}
-      </p>
+      </div>
 
       {/* The one thing worth interrupting for. An avatar with missing footage
-          does not change when spoken to, and that reads as broken rather than
-          as unfinished. */}
+          does not change when spoken to, which reads as broken rather than as
+          unfinished. */}
       {summary?.incomplete?.length ? (
         <Note tone="warn">
           {summary.incomplete.length === 1
             ? `${summary.incomplete[0]} is missing footage`
             : `${summary.incomplete.length} avatars are missing footage`}{' '}
-          — they fall back to the idle clip, so they do not change when spoken to.
+          - they fall back to the idle clip, so they do not change when spoken to.
         </Note>
       ) : null}
 
-      {/* Three things to do, then everywhere else to go.
-          Both were grids of identically sized boxes holding a bold line over a
-          grey line — the same component twice, which told a reader the two
-          sections were equally important when one is the point of the page and
-          the other is a directory. The boxes are gone. What is left is a list
-          with hairlines between the rows, the titles in the display serif, and
-          the difference in weight between the two sections carried by type
-          size rather than by repeating a card at two widths. */}
-      <section className="flex flex-col">
-        <h2 className="text-ink-soft mb-1 text-xs tracking-[0.14em] uppercase">Start here</h2>
-        {[
-          { view: 'products' as View, title: 'Upload products', body: 'A CSV, a JSON export, or a Word document with a table in it.' },
-          { view: 'ads' as View, title: 'Add an advertisement', body: 'Images or clips that play while nobody is talking. Press Run to watch them.' },
-          { view: 'avatars' as View, title: 'Talk to an avatar', body: 'Open the showroom screen and hold a conversation with it.' },
-        ].map((row) => (
-          <button
-            key={row.view}
-            type="button"
-            onClick={() => onView(row.view)}
-            className="group border-line flex items-center gap-5 border-b py-6 text-left"
-          >
-            <div className="flex min-w-0 flex-col gap-1">
-              {/* The title moves rather than the row lighting up. A background
-                  tint on hover is the same weight as every other hover on the
-                  page; a title that steps toward you says which one is under
-                  the cursor without adding another colour to the palette. */}
-              <span className="font-display text-[clamp(22px,2.6vw,34px)] leading-none transition-transform duration-300 ease-(--ease-human) group-hover:translate-x-1">
-                {row.title}
-              </span>
-              <span className="text-ink-soft text-sm">{row.body}</span>
-            </div>
-            {/* The affordance the row was missing. A list of headings with no
-                mark reads as prose; one arrow says every line here goes
-                somewhere. */}
-            <span
-              aria-hidden
-              className="text-line group-hover:text-accent ml-auto shrink-0 text-2xl transition-[color,transform] duration-300 ease-(--ease-human) group-hover:translate-x-1"
-            >
-              &rarr;
-            </span>
-          </button>
-        ))}
-      </section>
-
-      <section className="flex flex-col">
-        <h2 className="text-ink-soft mb-1 text-xs tracking-[0.14em] uppercase">Everything else</h2>
-        <div className="grid sm:grid-cols-2 sm:gap-x-10">
-          {ELSEWHERE.map((item) => (
+      <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+        <section className="s-card flex flex-col p-5">
+          <h2 className="text-[15px] font-semibold">Start here</h2>
+          <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
+            The three things a new cabinet needs, in the order it needs them.
+          </p>
+          {start.map((row) => (
             <button
-              key={item.id}
+              key={row.view}
               type="button"
-              onClick={() => onView(item.id)}
-              className="border-line hover:bg-ink/[0.025] flex items-baseline justify-between gap-4 border-b py-3.5 text-left transition-colors"
+              onClick={() => onView(row.view)}
+              className="group flex items-center gap-4 border-t py-3.5 text-left first:border-t-0"
+              style={{ borderColor: 'var(--s-line)' }}
             >
-              <span className="text-sm font-medium">{item.title}</span>
-              <span className="text-ink-soft truncate text-xs">{item.blurb}</span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[14.5px] font-medium">{row.title}</span>
+                <span className="text-[13px]" style={{ color: 'var(--s-muted)' }}>
+                  {row.body}
+                </span>
+              </span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                className="ml-auto size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+                style={{ color: 'var(--s-faint)' }}
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </button>
           ))}
-        </div>
-      </section>
+        </section>
+
+        <section className="s-card flex flex-col p-5">
+          <h2 className="text-[15px] font-semibold">Everything else</h2>
+          <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
+            Also in the rail on the left.
+          </p>
+          {ELSEWHERE.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => onView(row.id)}
+              className="group flex items-baseline gap-3 border-t py-2.5 text-left first:border-t-0"
+              style={{ borderColor: 'var(--s-line)' }}
+            >
+              <span className="text-[14px] font-medium">{row.title}</span>
+              <span className="ml-auto text-right text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+                {row.blurb}
+              </span>
+            </button>
+          ))}
+        </section>
+      </div>
     </div>
   )
 }
