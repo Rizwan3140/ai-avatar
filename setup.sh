@@ -63,8 +63,25 @@ elif [ "$(uname)" = "Darwin" ]; then
   else                        MODEL="llama3.2:3b"
   fi
   echo "  ${GB} GB unified memory"
+elif VRAM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)      && [ -n "$VRAM" ]; then
+  # On a PC the ceiling is VRAM, not system memory. A box with 64 GB of RAM and
+  # a 6 GB card cannot hold a 14B model on the GPU, and a model that spills into
+  # system memory answers too slowly to hold a conversation — so sizing this by
+  # RAM picks a model that is technically loaded and practically unusable.
+  # Rounded, not floored. Cards report a little under their advertised size —
+  # a 6 GB card saying 6141 MiB would floor to 5 and drop a whole model class
+  # over three megabytes.
+  GB=$(( (VRAM + 512) / 1024 ))
+  if   [ "$GB" -ge 16 ]; then MODEL="qwen2.5:14b"
+  elif [ "$GB" -ge 6 ];  then MODEL="llama3.1:8b"
+  else                        MODEL="llama3.2:3b"
+  fi
+  echo "  ${GB} GB VRAM"
 else
+  # No Metal and no NVIDIA card: whatever runs here runs on the CPU, and only
+  # the smallest model does that at conversational speed.
   MODEL="llama3.2:3b"
+  echo "  no GPU detected — CPU inference"
 fi
 
 # The MLX equivalent, for the Apple Silicon path below. Apache 2.0, so shipping
