@@ -586,14 +586,14 @@ def _dead_halfway():
     raise config.ProviderUnreachable("dropped mid-stream")
 
 
-llm._stream_groq = lambda messages: _unreachable()
-llm._stream_ollama = lambda messages: iter(_local_said)
+llm._stream_groq = lambda messages, temperature=0.2: _unreachable()
+llm._stream_ollama = lambda messages, temperature=0.2: iter(_local_said)
 check(
     "an unreachable host is answered locally",
     list(llm._hosted_then_local([])) == _local_said,
 )
 
-llm._stream_groq = lambda messages: _dead_halfway()
+llm._stream_groq = lambda messages, temperature=0.2: _dead_halfway()
 try:
     list(llm._hosted_then_local([]))
     check("a mid-stream failure is not silently restarted", False)

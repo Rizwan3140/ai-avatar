@@ -282,7 +282,25 @@ def warm() -> None:
     threading.Thread(target=load, daemon=True).start()
 
 
-def _stream_groq(messages: list[dict]) -> Iterator[str]:
+#: Sampling temperature when the prompt carries facts — a product, a price, a
+#: passage from a policy document.
+#:
+#: At 0.7 the model quoted a price that was not in its prompt two times in five,
+#: with a single correct product in front of it. That was never a retrieval
+#: problem. A price is the one place variation is a lie.
+GROUNDED_TEMPERATURE = 0.2
+
+#: And when it carries none.
+#:
+#: The low setting was applied to every turn, including the ones with nothing to
+#: get wrong — so "hi" came back as the same three syllables for every visitor,
+#: every time, which is what a recording sounds like. Temperature only endangers
+#: facts when there are facts in the prompt to endanger; a greeting has no price
+#: in it to fabricate. Grounded turns keep the low setting, unchanged.
+CHAT_TEMPERATURE = 0.8
+
+
+def _stream_groq(messages: list[dict], temperature: float = GROUNDED_TEMPERATURE) -> Iterator[str]:
     """The same contract, answered in the cloud.
 
     Groq is OpenAI-compatible, so this is server-sent events carrying
@@ -298,7 +316,7 @@ def _stream_groq(messages: list[dict]) -> Iterator[str]:
         "model": config.GROQ_MODEL,
         "messages": messages,
         "stream": True,
-        "temperature": 0.2,
+        "temperature": temperature,
         # Not the 170 the local model gets. The gpt-oss models think before they
         # answer, on a separate `reasoning` channel the visitor never hears, and
         # that thinking is charged against the same budget — so a 170-token cap
@@ -358,6 +376,8 @@ def stream_reply(
     on_screen: str = "",
     knowledge: str = "",
 ) -> Iterator[str]:
+    # Warm when there is nothing to get wrong, cold the moment there is.
+    temperature = GROUNDED_TEMPERATURE if (products or knowledge) else CHAT_TEMPERATURE
     # Two system messages, not one, and the order is the point.
     #
     # The first is byte-identical every turn, so the model's prefix cache holds
@@ -380,13 +400,13 @@ def stream_reply(
     # person talking to a mute panel. Neither is a fallback for a bad key: see
     # `ProviderUnreachable`.
     if config.llm_provider() == "groq":
-        yield from _hosted_then_local(messages)
+        yield from _hosted_then_local(messages, temperature)
         return
 
-    yield from _stream_ollama(messages)
+    yield from _stream_ollama(messages, temperature)
 
 
-def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
+def _hosted_then_local(messages: list[dict], temperature: float = GROUNDED_TEMPERATURE) -> Iterator[str]:
     """Groq, or Ollama if Groq cannot be reached.
 
     The switch has to happen before the first token leaves this function. A
@@ -395,7 +415,7 @@ def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
     was trying to hide. So the first chunk is pulled here, where nothing has been
     committed yet, and a failure after that point is honestly an error.
     """
-    stream = _stream_groq(messages)
+    stream = _stream_groq(messages, temperature)
     try:
         first = next(stream)
     except StopIteration:
@@ -405,19 +425,19 @@ def _hosted_then_local(messages: list[dict]) -> Iterator[str]:
         # that spends its whole budget thinking emits no content at all.
         print("  llm: hosted reply was empty -- falling back to", MODEL)
         analytics.record("provider_fallback", module="llm", reason="empty hosted reply")
-        yield from _stream_ollama(messages)
+        yield from _stream_ollama(messages, temperature)
         return
     except config.ProviderUnreachable as error:
         print(f"  llm: {error} -- falling back to {MODEL}")
         analytics.record("provider_fallback", module="llm", reason=str(error)[:200])
-        yield from _stream_ollama(messages)
+        yield from _stream_ollama(messages, temperature)
         return
 
     yield first
     yield from stream
 
 
-def _stream_ollama(messages: list[dict]) -> Iterator[str]:
+def _stream_ollama(messages: list[dict], temperature: float = GROUNDED_TEMPERATURE) -> Iterator[str]:
     payload = {
         "model": MODEL,
         "messages": messages,
@@ -429,7 +449,7 @@ def _stream_ollama(messages: list[dict]) -> Iterator[str]:
             # in front of it, so this was never a retrieval problem. Warmth here
             # comes from the persona; sampling temperature only buys variation in
             # the one place variation is a lie.
-            "temperature": 0.2,
+            "temperature": temperature,
             # A ceiling, not a target — two sentences fit comfortably. It exists
             # so a model that ignores the brevity rule cannot generate for a
             # minute into a room where nobody is listening any more. Lowered from
