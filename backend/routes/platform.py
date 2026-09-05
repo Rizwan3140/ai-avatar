@@ -93,15 +93,23 @@ def products(
     max_price: float | None = None,
     limit: int = 8,
     avatar: str = "",
+    color: str = "",
+    style: str = "",
 ):
     """Search. Everything optional — no arguments is "show me what you have"."""
     query, parsed_limit = catalog.parse_query(q)
+    # An explicit colour or style always wins over one found in the text: the
+    # caller ticking a filter has said what they mean, and re-reading the words
+    # would let "red" typed in the box quietly override the box beside it.
+    query, said_color, said_style = catalog.parse_facets(query)
     found = catalog.search(
         query,
         category,
         max_price if max_price is not None else parsed_limit,
         limit,
         org_id=org_for(avatar),
+        color=color or said_color,
+        style=style or said_style,
     )
     return [catalog.to_dict(p) for p in found]
 
@@ -109,6 +117,18 @@ def products(
 @router.get("/products/categories")
 def product_categories(avatar: str = ""):
     return catalog.categories(org_for(avatar))
+
+
+@router.get("/products/colors")
+def product_colors(avatar: str = ""):
+    """The colours this catalog actually stocks, for a filter that never comes
+    back empty."""
+    return catalog.colors(org_for(avatar))
+
+
+@router.get("/products/styles")
+def product_styles(avatar: str = ""):
+    return catalog.styles(org_for(avatar))
 
 
 @router.get("/products/{product_id}")

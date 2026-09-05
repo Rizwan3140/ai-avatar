@@ -59,7 +59,13 @@ def chat(req: ChatRequest):
     # Catalog first, model second. Retrieval happens here rather than inside
     # llm.py so the provider seam stays a pure "messages in, text out" contract.
     query, max_price = catalog.parse_query(req.message)
-    products = catalog.search(query, max_price=max_price, org_id=org_id)
+    # "Have you got this in red" and "something for a wedding" are filters the
+    # catalog can apply exactly, so they are lifted out of the text rather than
+    # left for keyword search to approximate.
+    query, color, style = catalog.parse_facets(query)
+    products = catalog.search(
+        query, max_price=max_price, org_id=org_id, color=color, style=style
+    )
 
     # And the company's own documents, for the half of showroom questions no
     # product row can answer — delivery, returns, warranty, opening hours.

@@ -11,7 +11,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from backend import catalog
+from backend import catalog, prune
 from backend.ingest import from_rows
 
 
@@ -231,6 +231,83 @@ def main() -> int:
     # a shop window.
     check("category: an apostrophe survives", category("Men's Kurta"), "Men's Kurtas")
     check("category: nothing stays nothing", category(""), "")
+
+    print("\nfacets")
+
+    # The shop's own tags beat a guess, and longest-first is the whole trick:
+    # tested before "Gold", "Rose Gold" survives as its own colour.
+    check("colour from tags", catalog.facets_of("Bangle", "", {"tags": "Jewellery, Gold"})[0], "Gold")
+    check(
+        "rose gold is not gold",
+        catalog.facets_of("Bangle", "", {"tags": "Jewellery, Rose Gold"})[0],
+        "Rose Gold",
+    )
+    check(
+        "sea green is not green",
+        catalog.facets_of("Saree", "", {"tags": "Sea Green"})[0],
+        "Sea Green",
+    )
+
+    # Nine of five thousand rows carry no tags at all, which is what the text
+    # fallback is for — and why it matches whole words, so "Red" is not found
+    # inside "Shredded".
+    check("falls back to the name", catalog.facets_of("Midnight Blue Saree", "", {})[0], "Blue")
+    check("word boundaries hold", catalog.facets_of("Shredded Linen Top", "", {})[0], "")
+    check("unknown colour stays empty", catalog.facets_of("Kurta", "", {"tags": "New"})[0], "")
+
+    check("style from tags", catalog.facets_of("Lehenga", "", {"tags": "Festive"})[1], "Festive")
+    check("no occasion stays empty", catalog.facets_of("Rakhi", "", {"tags": "New"})[1], "")
+
+    # A colour in a sentence is a filter, not a search term — the same argument
+    # as the price ceiling above.
+    text, colour, _ = catalog.parse_facets("do you have a red saree")
+    check("lifts the colour out", (text, colour), ("do you have a saree", "Red"))
+    text, colour, _ = catalog.parse_facets("something in rose gold")
+    check("longest colour wins in a sentence", (text, colour), ("something in", "Rose Gold"))
+    check("lifts the occasion out", catalog.parse_facets("something for a wedding")[2], "Wedding")
+    check("plain text is left alone", catalog.parse_facets("show me sarees")[1], "")
+
+    # The filters reach the database, not only the parser. A feature that parses
+    # perfectly and never reaches a query is the shape this project has been
+    # caught by before.
+    catalog.upsert(
+        from_rows(
+            [
+                {"sku": "S1", "title": "Ruby Silk Saree", "type": "Sarees", "mrp": "3000",
+                 "details": "Woven silk", "tags": "Sarees, Red, Festive"},
+                {"sku": "S2", "title": "Ivory Silk Saree", "type": "Sarees", "mrp": "3200",
+                 "details": "Woven silk", "tags": "Sarees, White"},
+            ]
+        )
+    )
+    check("filters by colour", names(catalog.search(category="Sarees", color="Red")),
+          ["Ruby Silk Saree"])
+    check("filters by style", names(catalog.search(style="Festive")), ["Ruby Silk Saree"])
+    check("colour and category together", len(catalog.search(category="Sarees", color="White")), 1)
+
+    # Offered from the rows, so a shop that stocks nothing turquoise is never
+    # shown a turquoise filter that comes back empty.
+    check("lists only stocked colours", "Red" in catalog.colors(), True)
+    check("does not offer absent colours", "Turquoise Blue" in catalog.colors(), False)
+
+    # One per (category, colour), and a colourless row is its own bucket rather
+    # than a row that vanishes — otherwise a category whose products are all
+    # untagged disappears from the shop entirely.
+    rows = [
+        {"id": "a", "category": "Sarees", "color": "Red", "price": 90.0,
+         "image": "x", "availability": "in_stock"},
+        {"id": "b", "category": "Sarees", "color": "Red", "price": 10.0,
+         "image": "x", "availability": "in_stock"},
+        {"id": "c", "category": "Sarees", "color": "Blue", "price": 50.0,
+         "image": "x", "availability": "in_stock"},
+        {"id": "d", "category": "Sarees", "color": "", "price": 50.0,
+         "image": "x", "availability": "in_stock"},
+        {"id": "e", "category": "Sarees", "color": "Red", "price": 1.0,
+         "image": "", "availability": "in_stock"},
+    ]
+    kept = sorted(r["id"] for r in prune.choose(rows))
+    check("one per category and colour", kept, ["b", "c", "d"])
+    check("a photograph beats a lower price", "e" in kept, False)
 
     print("")
     print(str(passed) + " passed, 0 failed")

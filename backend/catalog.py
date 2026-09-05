@@ -40,6 +40,91 @@ CORE = ("id", "name", "category", "price", "currency", "description", "url", "im
 #: the first upgrade orphans the catalog already on disk.
 DEFAULT_ORG = "default"
 
+#: The colours this catalog actually uses, longest first.
+#:
+#: Order is the whole trick. "Rose Gold" has to be tested before "Gold" and
+#: "Sea Green" before "Green", or every rose gold bangle is filed as gold and
+#: the distinction the customer can see on the shelf is gone from the data.
+#:
+#: Read from the catalog rather than invented: these are the colour words that
+#: appear in the supplier's own tags, which is why "Multi" is here — it is a
+#: real answer to "what colour is it", and the alternative is 417 products with
+#: no colour at all.
+COLORS = (
+    "Turquoise Blue",
+    "Rose Gold",
+    "Sea Green",
+    "Maroon",
+    "Orange",
+    "Purple",
+    "Silver",
+    "Yellow",
+    "Beige",
+    "Black",
+    "Brown",
+    "Cream",
+    "Green",
+    "Multi",
+    "Peach",
+    "White",
+    "Blue",
+    "Gold",
+    "Grey",
+    "Pink",
+    "Red",
+)
+
+#: Occasion, as the shop itself labels it. Keyed by what we call it, valued by
+#: what the supplier's tags say — "Wedding Lehengas" and "Party Wear Lehengas"
+#: are the same two facts wearing a category name, and a visitor asking for
+#: something for a wedding does not care which product type it came attached to.
+STYLES: dict[str, tuple[str, ...]] = {
+    "Wedding": ("wedding",),
+    "Party Wear": ("party wear",),
+    "Festive": ("festive",),
+    "Valentine": ("valentine",),
+    "Exclusive": ("exclusive",),
+}
+
+
+def _tags_of(attributes: dict[str, Any]) -> list[str]:
+    raw = attributes.get("tags") or ""
+    return [t.strip() for t in str(raw).split(",") if t.strip()]
+
+
+def facets_of(name: str, description: str, attributes: dict[str, Any]) -> tuple[str, str]:
+    """The colour and occasion of one product, as ("Red", "Festive").
+
+    Tags first, because the shop labelled these itself and a label beats a
+    guess. Only when the tags are silent does this read the name and the
+    description, where "Midnight Blue Silk Saree" still says blue perfectly
+    clearly — 4,991 of 5,000 rows here have tags, and the remaining nine are
+    exactly the ones a text scan is for.
+
+    Either half may come back empty. A product with no colour word anywhere is
+    a product whose colour we do not know, and writing "Multi" over that would
+    put a fact in the database that nobody established.
+    """
+    tags = _tags_of(attributes)
+    lowered = [t.lower() for t in tags]
+
+    color = next((c for c in COLORS if c.lower() in lowered), "")
+    if not color:
+        # Word-boundary matched: "Red" must not be found inside "Shredded", and
+        # a substring scan is how a catalog quietly fills up with wrong colours.
+        haystack = f"{name} {description}".lower()
+        color = next(
+            (c for c in COLORS if re.search(rf"\b{re.escape(c.lower())}\b", haystack)),
+            "",
+        )
+
+    blob = " ".join(lowered)
+    style = next(
+        (label for label, needles in STYLES.items() if any(n in blob for n in needles)),
+        "",
+    )
+    return color, style
+
 
 @dataclass
 class Product:
@@ -97,6 +182,12 @@ _SCHEMA = """
         image TEXT,
         availability TEXT,
         attributes TEXT,
+        -- Derived at write time from the tags, not asked of the caller. They are
+        -- columns rather than a lookup into `attributes` because "show me the
+        -- red ones" is a filter, and filtering on JSON means reading every row
+        -- to answer it.
+        color TEXT,
+        style TEXT,
         -- Composite, not `id` alone. Two customers exporting a product called
         -- "Titan Pro 16" both slug to `titan-pro-16`, and with a single-column
         -- key the second ingest silently overwrites the first company's row.
@@ -153,10 +244,43 @@ def _migrate(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE products_pre_tenancy")
 
 
+def _add_facet_columns(conn: sqlite3.Connection) -> None:
+    """Give an existing catalog its colour and style columns.
+
+    A plain `ALTER TABLE ... ADD COLUMN`, because unlike the tenancy migration
+    above there is no key to change — and the rows already on disk are a real
+    customer's catalog, so they are backfilled from their own tags rather than
+    left blank until somebody re-ingests a CSV nobody kept.
+    """
+    tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "products" not in tables:
+        return
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(products)")}
+    missing = [c for c in ("color", "style") if c not in columns]
+    for column in missing:
+        conn.execute(f"ALTER TABLE products ADD COLUMN {column} TEXT")
+    if not missing:
+        return
+
+    rows = conn.execute("SELECT org_id, id, name, description, attributes FROM products").fetchall()
+    updates = []
+    for row in rows:
+        try:
+            attributes = json.loads(row["attributes"] or "{}")
+        except (TypeError, ValueError):
+            attributes = {}
+        color, style = facets_of(row["name"] or "", row["description"] or "", attributes)
+        updates.append((color, style, row["org_id"], row["id"]))
+    conn.executemany(
+        "UPDATE products SET color = ?, style = ? WHERE org_id = ? AND id = ?", updates
+    )
+
+
 def init() -> None:
     with _connect() as conn:
         _migrate(conn)
         conn.executescript(_SCHEMA)
+        _add_facet_columns(conn)
 
 
 def _row_to_product(row: sqlite3.Row) -> Product:
@@ -171,14 +295,15 @@ def upsert(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
         conn.executemany(
             """
             INSERT INTO products (org_id, id, name, category, price, currency, description,
-                                  url, image, availability, attributes)
+                                  url, image, availability, attributes, color, style)
             VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
-                    :url, :image, :availability, :attributes)
+                    :url, :image, :availability, :attributes, :color, :style)
             ON CONFLICT(org_id, id) DO UPDATE SET
                 name=excluded.name, category=excluded.category, price=excluded.price,
                 currency=excluded.currency, description=excluded.description,
                 url=excluded.url, image=excluded.image,
-                availability=excluded.availability, attributes=excluded.attributes
+                availability=excluded.availability, attributes=excluded.attributes,
+                color=excluded.color, style=excluded.style
             """,
             [
                 {
@@ -187,6 +312,14 @@ def upsert(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
                     # Attribute values are indexed as text so "cotton" or "16GB"
                     # are searchable without the caller knowing the key.
                     "attributes": json.dumps(p.attributes, ensure_ascii=False),
+                    # Derived here, once, rather than at every read. An ingest
+                    # is rare and a search is not.
+                    **dict(
+                        zip(
+                            ("color", "style"),
+                            facets_of(p.name, p.description, p.attributes),
+                        )
+                    ),
                 }
                 for p in products
             ],
@@ -263,6 +396,32 @@ def categories(org_id: str = DEFAULT_ORG) -> list[str]:
     return [r["category"] for r in rows]
 
 
+def _facet_values(column: str, org_id: str) -> list[str]:
+    """The values one facet actually takes in this catalog.
+
+    Read from the rows rather than returned from the vocabulary above, so a
+    shop that sells nothing green is never offered a green filter that comes
+    back empty. `column` is never caller-supplied — the two callers below pass
+    a literal, which is what keeps this interpolation safe.
+    """
+    init()
+    with _connect() as conn:
+        rows = conn.execute(
+            f"SELECT DISTINCT {column} AS v FROM products "
+            f"WHERE {column} IS NOT NULL AND {column} != '' AND org_id = ? ORDER BY v",
+            (org_id,),
+        ).fetchall()
+    return [r["v"] for r in rows]
+
+
+def colors(org_id: str = DEFAULT_ORG) -> list[str]:
+    return _facet_values("color", org_id)
+
+
+def styles(org_id: str = DEFAULT_ORG) -> list[str]:
+    return _facet_values("style", org_id)
+
+
 # Words that carry no product meaning. Without this list a visitor saying
 # "show me laptops" matches a keyboard, because the prefix "me*" hits
 # "mechanical" — the kind of result that looks broken in a showroom.
@@ -296,6 +455,8 @@ def search(
     limit: int = 8,
     org_id: str = DEFAULT_ORG,
     per_category: bool = True,
+    color: str = "",
+    style: str = "",
 ) -> list[Product]:
     """Find products. Everything is optional — an empty query with a category is
     "show me your laptops", and an empty everything is "show me what you have".
@@ -327,6 +488,14 @@ def search(
         clauses.append("LOWER(p.category) = LOWER(?)")
         params.append(category)
 
+    if color:
+        clauses.append("LOWER(p.color) = LOWER(?)")
+        params.append(color)
+
+    if style:
+        clauses.append("LOWER(p.style) = LOWER(?)")
+        params.append(style)
+
     if max_price is not None:
         clauses.append("p.price IS NOT NULL AND p.price <= ?")
         params.append(max_price)
@@ -334,7 +503,11 @@ def search(
     # Thinning is for the browse case. Somebody who named a category has already
     # narrowed it themselves, and answering "show me the sarees" with exactly one
     # saree is a worse showroom than the wall it was meant to prevent.
-    thin = per_category and not category
+    #
+    # A colour is the same kind of narrowing: "show me the red ones" is a request
+    # for the red ones, and thinning it to one red product per category answers a
+    # question nobody asked.
+    thin = per_category and not category and not color
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT p.* FROM {joined} {where} ORDER BY {order} LIMIT ?"
@@ -403,6 +576,41 @@ def parse_query(text: str) -> tuple[str, float | None]:
     except ValueError:
         return text.strip(), None
     return _PRICE_LIMIT.sub("", text).strip(), limit
+
+
+def parse_facets(text: str) -> tuple[str, str, str]:
+    """Pull a colour and an occasion out of what someone said.
+
+    "Show me the red sarees" is a filter and a search term, not one long search
+    term. Left in the text, "red" is matched against product copy by FTS, which
+    ranks a saree whose description happens to say "red" above the sarees the
+    shop has actually tagged red — so the word is lifted out and applied as the
+    column filter it is, exactly as `parse_query` does with a price ceiling.
+
+    Longest colour first, so "rose gold" is not read as "gold". Pure and
+    separately tested; returns the text with the matched words removed.
+    """
+    remaining = text
+    found_color = ""
+    for candidate in COLORS:
+        pattern = rf"\b{re.escape(candidate.lower())}\b"
+        if re.search(pattern, remaining, flags=re.IGNORECASE):
+            found_color = candidate
+            remaining = re.sub(pattern, " ", remaining, flags=re.IGNORECASE)
+            break
+
+    found_style = ""
+    for label, needles in STYLES.items():
+        for needle in needles:
+            pattern = rf"\b{re.escape(needle)}\b"
+            if re.search(pattern, remaining, flags=re.IGNORECASE):
+                found_style = label
+                remaining = re.sub(pattern, " ", remaining, flags=re.IGNORECASE)
+                break
+        if found_style:
+            break
+
+    return " ".join(remaining.split()), found_color, found_style
 
 
 def to_dict(product: Product) -> dict:
