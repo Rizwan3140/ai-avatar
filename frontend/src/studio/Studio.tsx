@@ -148,7 +148,7 @@ export default function Studio() {
     // The rail replaced a row of four tabs with five more screens buried behind
     // cards on Home — over half the product was reachable only by going Home
     // first and knowing which card to look under.
-    <Shell view={view} onView={go} org={org?.name ?? 'This machine'} who={who.email || who.role}>
+    <Shell view={view} onView={go} org={org?.name} who={who.email || who.role}>
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">

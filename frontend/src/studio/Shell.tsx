@@ -110,6 +110,14 @@ export function Shell({
   who?: string
   children: React.ReactNode
 }) {
+  // One name on the bar, and it comes from the account rather than the source.
+  // It used to be three: a mark hardcoded `L`, a wordmark hardcoded `Dhiyona`,
+  // and the real org name printed a second time beside the profile — so the
+  // header of a Luxora install said Luxora, Dhiyona and L at once, and renaming
+  // the company changed exactly one of them. Rename the org and all of this
+  // follows, because there is only one of it now.
+  const brand = org?.trim() || 'Luxora'
+
   return (
     <div className="studio flex min-h-screen">
       <nav
@@ -158,7 +166,7 @@ export function Shell({
           */}
           <a
             href={pathForView('home')}
-            aria-label="Dhiyona — Home"
+            aria-label={`${brand} — Home`}
             onClick={(e) => {
               if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
               e.preventDefault()
@@ -170,13 +178,12 @@ export function Shell({
               className="grid size-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
               style={{ background: 'var(--s-accent)' }}
             >
-              L
+              {brand.slice(0, 1).toUpperCase()}
             </span>
-            <span className="font-display text-[19px] tracking-[0.1em] uppercase">Dhiyona</span>
+            <span className="font-display text-[19px] tracking-[0.1em] uppercase">{brand}</span>
           </a>
 
           <div className="flex items-center gap-3 text-[13px]" style={{ color: 'var(--s-muted)' }}>
-            {org && <span className="hidden font-medium sm:inline">{org}</span>}
             {who && (
               <span
                 className="grid size-8 place-items-center rounded-full text-[12px] font-semibold uppercase"
