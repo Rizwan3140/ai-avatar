@@ -149,7 +149,23 @@ export function Shell({
           className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-[var(--s-card)] px-5 sm:px-8"
           style={{ borderColor: 'var(--s-line)' }}
         >
-          <a href="/studio" className="flex items-center gap-2.5">
+          {/*
+            The wordmark is a way home from every screen, and it navigates the
+            way the rail does rather than reloading the page. It was the one
+            link in the shell without a handler, so the single most-clicked
+            path back to Home was also the only one that threw the app away
+            and rebuilt it — a white flash, and every open panel forgotten.
+          */}
+          <a
+            href={pathForView('home')}
+            aria-label="Dhiyona — Home"
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+              e.preventDefault()
+              onView('home')
+            }}
+            className="flex items-center gap-2.5"
+          >
             <span
               className="grid size-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
               style={{ background: 'var(--s-accent)' }}
