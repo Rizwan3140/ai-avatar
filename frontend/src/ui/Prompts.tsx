@@ -1,5 +1,6 @@
 import { bus } from '../bus/bus.ts'
 import { useStore } from '../state/store.ts'
+import { SHOWCASE_WIDTH } from './Showcase.tsx'
 
 /**
  * Four things to say, for the visitor who will not speak first.
@@ -31,14 +32,22 @@ const PROMPTS = [
 export function Prompts() {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
+  const showcase = useStore((s) => s.products.length > 0)
 
   // Only while he is genuinely waiting. `idle` covers a muted cabinet too,
   // which is the one case where these are the only way in at all.
   const offer = status === 'idle' || status === 'listening'
   if (!offer) return null
 
+  // These belong under him, not under the products. Spanning the full width put
+  // them beneath the showcase panel and on top of its QR code — and because
+  // both sit at `z-20` and this renders second, the buttons won. Ending the row
+  // where that panel starts is what keeps a scannable code scannable.
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-[1.1em] px-safe pb-safe">
+    <div
+      style={{ right: showcase ? SHOWCASE_WIDTH : 0 }}
+      className="pointer-events-auto absolute bottom-0 left-0 z-20 flex flex-col items-center gap-[1.1em] px-safe pb-safe"
+    >
       <div className="flex flex-wrap items-center justify-center gap-[0.7em] p-[clamp(14px,1.6vh,58px)]">
         {PROMPTS.map(({ label, say }) => (
           <button
