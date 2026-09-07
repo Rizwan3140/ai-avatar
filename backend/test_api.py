@@ -179,6 +179,13 @@ if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
     head = client.head("/", follow_redirects=False)
     check("HEAD says what GET says", head.status_code == workstation.status_code)
 
+    # Asking for a person by name wins over the machine's preference. The
+    # studio's "Talk to this avatar" button is this exact URL, and while the
+    # redirect ignored the query string that button led back to the page it was
+    # pressed on — the one way out of the dashboard, looping to itself.
+    named = client.get(f"/?avatar={AVATAR}", follow_redirects=False)
+    check("asking for an avatar by name serves the panel", named.status_code == 200)
+
     # A fresh install goes to the studio either way, rather than to a blank
     # panel reading "the showroom is offline" — it is not offline, it is empty.
     config.HOME = "kiosk"

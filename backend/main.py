@@ -143,7 +143,7 @@ if FRONTEND_DIST.is_dir():
     # phantom on a machine that was behaving correctly all along, and anything
     # probing this with HEAD would have been told the wrong thing.
     @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
-    def root():
+    def root(avatar: str = ""):
         """The panel on a cabinet, the studio on everything else.
 
         A cabinet opens on the panel: somebody is standing in front of it and a
@@ -163,6 +163,13 @@ if FRONTEND_DIST.is_dir():
         Registered before the mount below, because a mount at "/" would
         otherwise answer first.
         """
+        # `?avatar=` is somebody asking for a particular person, and it wins over
+        # every preference below. The studio's own "Talk to this avatar" link is
+        # exactly this URL, so redirecting it to the studio sent that button
+        # straight back to the page it was clicked on — the one route out of the
+        # dashboard, looping to itself.
+        if avatar:
+            return FileResponse(FRONTEND_DIST / "index.html")
         if config.HOME == "studio" or not store.list_avatars():
             return RedirectResponse("/studio")
         return FileResponse(FRONTEND_DIST / "index.html")
