@@ -88,6 +88,26 @@ ROLE = _get("LUXORA_ROLE", "all")
 # panel or a cabinet somebody wants to set up from the sofa.
 HOME = _get("LUXORA_HOME", "") or ("kiosk" if ROLE == "edge" else "studio")
 
+
+def version() -> str:
+    """Which commit this machine is running, as `update.ps1` last left it.
+
+    Read on every call rather than cached at import, so an update that lands
+    while the server is up is visible without restarting it — which matters
+    precisely because the frontend half of an update does not need a restart,
+    and "am I current" is the question somebody asks straight after running the
+    updater.
+
+    A machine that has never been updated says so. Guessing a version is worse
+    than admitting there is not one, because the whole point of this string is
+    to be believed.
+    """
+    marker = DATA / ".version"
+    try:
+        return marker.read_text(encoding="utf-8").strip() or "unknown"
+    except OSError:
+        return "not set by update.ps1"
+
 # Where an edge machine pulls its avatar configuration from. Blank = standalone,
 # reading only what is on its own disk.
 PLATFORM_URL = _get("PLATFORM_URL")

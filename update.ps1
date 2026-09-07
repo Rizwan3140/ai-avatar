@@ -100,6 +100,23 @@ if ($haveGit -and (Test-Path (Join-Path $root '.git'))) {
 
 $reqAfter = if (Test-Path $reqPath) { (Get-FileHash $reqPath).Hash } else { '' }
 
+# Record what landed, so /api/health can answer "am I current" instead of
+# leaving somebody to infer it from behaviour. Written after the copy, never
+# before: a marker claiming a version the files do not match is worse than no
+# marker, because it is believed.
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $head = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/commits/$branch" `
+        -Headers @{ 'User-Agent' = 'luxora-update' } -UseBasicParsing
+    $stamp = "{0} {1} {2}" -f $head.sha.Substring(0, 7),
+                              (Get-Date -Format 'yyyy-MM-dd HH:mm'),
+                              $head.commit.message.Split("`n")[0]
+    Set-Content -Path (Join-Path $root '.version') -Value $stamp -Encoding utf8
+    Write-Host "  now at: $stamp" -ForegroundColor DarkGray
+} catch {
+    Write-Host "  (could not record the version - the update itself was fine)" -ForegroundColor DarkGray
+}
+
 Write-Host ""
 if ($reqBefore -ne $reqAfter) {
     Write-Host "  requirements.txt changed - install them:" -ForegroundColor Yellow

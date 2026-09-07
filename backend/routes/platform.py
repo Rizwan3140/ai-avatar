@@ -261,6 +261,10 @@ def health():
     return {
         "ok": True,
         "role": config.ROLE,
+        # What this machine is running, so "did my update land" is a question
+        # with an answer rather than a guess from behaviour.
+        "version": config.version(),
+        "home": config.HOME,
         "avatars": len(store.list_avatars()),
         "models_ready": models,
         # Whether the browser should keep re-transcribing a turn in progress.
