@@ -16,10 +16,46 @@
 # It does not delete. A file removed upstream stays on this machine until
 # somebody removes it — the safe direction to be wrong in.
 
+param(
+    # Register a scheduled task so this runs on its own: at logon, and every
+    # day at 07:00. Per-user, so it needs no administrator password — which is
+    # the whole reason this machine exists as a problem.
+    [switch]$Schedule,
+    [switch]$Unschedule
+)
+
 $ErrorActionPreference = 'Stop'
 $repo = 'Rizwan3140/ai-avatar'
 $branch = 'master'
 $root = $PSScriptRoot
+$taskName = 'Luxora update'
+
+if ($Unschedule) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Host "`nAutomatic updates off." -ForegroundColor Yellow
+    return
+}
+
+if ($Schedule) {
+    $self = Join-Path $root 'update.ps1'
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$self`""
+    $triggers = @(
+        New-ScheduledTaskTrigger -AtLogOn
+        New-ScheduledTaskTrigger -Daily -At 7am
+    )
+    # Run whether or not the machine is on mains, and do not stop it halfway
+    # through a copy because a laptop went to battery.
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries -StartWhenAvailable
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers `
+        -Settings $settings -Description 'Pull the latest Luxora from GitHub' -Force | Out-Null
+    Write-Host "`nAutomatic updates on: at logon, and daily at 07:00." -ForegroundColor Green
+    Write-Host "  Turn off with:  .\update.ps1 -Unschedule"
+    Write-Host "  It only copies files. A running server keeps serving the old"
+    Write-Host "  Python until you restart it; the interface updates on refresh."
+    return
+}
 
 Write-Host ""
 Write-Host "Luxora update" -ForegroundColor Cyan
