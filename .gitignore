@@ -91,3 +91,9 @@ frontend/tsconfig.tsbuildinfo
 
 # Written where a snapshot was last applied. Machine-local, like .version.
 knowledge/.snapshot-applied
+
+# Written by start.ps1 while it runs. Machine-local and regenerated.
+server.log*
+tunnel.log*
+tunnel-url.txt
+cloudflared.exe
