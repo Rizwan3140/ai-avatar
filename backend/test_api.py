@@ -172,6 +172,13 @@ if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
     check("a workstation opens on the studio", workstation.status_code == 307)
     check("and lands on the home page", workstation.headers.get("location") == "/studio")
 
+    # HEAD has to agree with GET. Registered as `@app.get` alone it did not:
+    # HEAD fell through to the StaticFiles mount and answered 200 with the
+    # panel, so `curl -I /` and a browser were told different things about the
+    # same URL.
+    head = client.head("/", follow_redirects=False)
+    check("HEAD says what GET says", head.status_code == workstation.status_code)
+
     # A fresh install goes to the studio either way, rather than to a blank
     # panel reading "the showroom is offline" — it is not offline, it is empty.
     config.HOME = "kiosk"

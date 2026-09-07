@@ -136,7 +136,13 @@ if FRONTEND_DIST.is_dir():
         404. One route rather than a client-side router nobody else needs."""
         return FileResponse(FRONTEND_DIST / "index.html")
 
-    @app.get("/", include_in_schema=False)
+    # GET and HEAD, not GET alone. A bare `@app.get` leaves HEAD to fall
+    # through to the StaticFiles mount below, so `curl -I /` answered 200 with
+    # the panel while a browser was being redirected to the studio — the two
+    # verbs disagreeing about what this URL is. That cost an hour of chasing a
+    # phantom on a machine that was behaving correctly all along, and anything
+    # probing this with HEAD would have been told the wrong thing.
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     def root():
         """The panel on a cabinet, the studio on everything else.
 
