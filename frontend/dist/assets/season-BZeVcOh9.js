@@ -1,0 +1,1 @@
+const c=new Set(["--color-accent","--color-ink-soft","--color-line","--backdrop-from","--backdrop-to","--font-display"]);let e=[];function s(t){const n=document.documentElement;for(const o of e)n.style.removeProperty(o);if(e=[],!!t)for(const[o,r]of Object.entries(t))!c.has(o)||typeof r!="string"||(n.style.setProperty(o,r),e.push(o))}export{s as a};
