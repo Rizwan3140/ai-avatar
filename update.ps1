@@ -76,6 +76,12 @@ if ($haveGit -and (Test-Path (Join-Path $root '.git'))) {
     # and a checkout built with `git init` + `fetch` + `reset --hard` has none —
     # so it failed with "no tracking information" while the script sailed past,
     # because $ErrorActionPreference does not apply to native commands.
+    # On a machine that runs this script, snapshot.json is an input and never
+    # an output. Running `snapshot export` here overwrites the shared catalog
+    # with this machine's own — and because the file is tracked, it also blocks
+    # the next pull. Discard any local edit to it rather than letting one
+    # mistaken command wedge every future update.
+    git -C $root checkout -- knowledge/snapshot.json 2>$null
     git -C $root pull --ff-only origin $branch
     if ($LASTEXITCODE -eq 0) {
         $updated = $true

@@ -158,6 +158,14 @@ def main(argv: list[str]) -> int:
         print(f"wrote {PATH}")
         print(f"  {summary['products']} products across {summary['orgs']} orgs")
         print("  commit it, and the other machine picks it up on its next update")
+        # Said plainly because getting it backwards is silent and costly: run
+        # on a machine that receives updates, this overwrites the shared catalog
+        # with that machine's own, and `apply` then reports success having
+        # changed nothing. It cost exactly that once.
+        print("")
+        print("  NOTE: export runs on the machine you edit the catalog on.")
+        print("  On a machine that runs update.ps1, run 'apply' instead —")
+        print("  update.ps1 does it for you.")
         return 0
     if command == "apply":
         print(apply(force="--force" in argv))
