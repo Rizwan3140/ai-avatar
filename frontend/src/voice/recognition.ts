@@ -31,6 +31,49 @@ let levelAt = 0
 /** Barge-in already announced for the turn in progress. */
 let barged = false
 
+/**
+ * What this room sounds like when nobody is talking to the cabinet.
+ *
+ * Starts at the absolute floor and moves with the room. Everything about
+ * whether a sound counts as speech is derived from this, so it is the one
+ * number worth watching if a cabinet starts hearing things.
+ */
+let noiseFloor: number = config.voiceThreshold
+
+/**
+ * Track the ambient level without letting a visitor's voice drag it up.
+ *
+ * Falls faster than it rises, deliberately: dropping quickly makes the cabinet
+ * sensitive again as soon as a crowd moves past, while rising slowly means a
+ * person speaking into it cannot raise the floor behind their own sentence and
+ * cut themselves off halfway through.
+ *
+ * Frozen entirely while a turn is in progress. A floor that keeps climbing
+ * through someone's answer ends the turn on the speaker's own voice.
+ *
+ * Pure, so it can be tested without a microphone.
+ */
+export function nextNoiseFloor(current: number, level: number, inTurn: boolean): number {
+  if (inTurn) return current
+  const rate = level < current ? config.noiseFall : config.noiseRise
+  return current + (level - current) * rate
+}
+
+/**
+ * The level a sound has to reach before it counts.
+ *
+ * Whichever is higher: the absolute floor measured in a quiet room, or a
+ * multiple of what this room is doing now. A quiet showroom therefore behaves
+ * exactly as it did before this existed — the absolute number still governs —
+ * and only a genuinely noisy room raises the bar.
+ *
+ * Pure, so it can be tested without a microphone.
+ */
+export function speechFloor(base: number, floor: number, ratio: number): number {
+  if (!config.adaptiveFloor) return base
+  return Math.max(base, floor * ratio)
+}
+
 /** Longest audio worth re-transcribing for the live caption. */
 const partialSampleCap = (config.sampleRate * config.maxPartialMs) / 1000
 
@@ -155,7 +198,16 @@ function onSamples(block: Float32Array) {
     bus.emit('MIC_LEVEL', { level })
   }
 
-  const loud = level >= config.voiceThreshold
+  // Learn the room, but only between turns — see `nextNoiseFloor`.
+  noiseFloor = nextNoiseFloor(noiseFloor, level, speaking)
+
+  // Starting to speak takes more than continuing to. Without that gap the dip
+  // between two words drops under the floor and ends the turn, so one sentence
+  // arrives as three fragments — and in this app a fragment is not just a bad
+  // caption, it is a search, and the products on screen change under a customer
+  // mid-sentence.
+  const startFloor = speechFloor(config.voiceThreshold, noiseFloor, config.speechOverNoise)
+  const loud = level >= (speaking ? startFloor * config.holdRatio : startFloor)
 
   if (loud) {
     if (!speaking) {
@@ -175,7 +227,10 @@ function onSamples(block: Float32Array) {
     // Once per turn, on the edge. This ran on every 128-sample block above the
     // floor — ~125 USER_STARTED_SPEAKING events a second for as long as someone
     // talked over her, each one re-entering cancel and re-clearing the caption.
-    if (level >= config.bargeInThreshold) {
+    if (
+      level >=
+      speechFloor(config.bargeInThreshold, noiseFloor, config.bargeInOverNoise)
+    ) {
       // Sustained, not instantaneous. `loudSince` restarts every time the level
       // drops back under the floor, so only a voice that keeps going counts —
       // a transient never accumulates.

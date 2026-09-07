@@ -54,6 +54,42 @@ export default {
    * different floors, and no default survives both.
    */
   voiceThreshold: 0.02,
+
+  /**
+   * The floor above is an absolute number, and a mall does not have an absolute
+   * noise level.
+   *
+   * 0.02 was measured in a quiet room. A concourse sits above it on its own, so
+   * every moment of ambient crowd noise read as somebody speaking: the cabinet
+   * transcribed the room, searched on whatever came back, and changed the
+   * products in front of a customer who had said nothing. Then it did it again.
+   *
+   * So the real floor is whichever is higher — the absolute one, or a multiple
+   * of what this room is actually doing. In a quiet showroom the absolute floor
+   * still governs and nothing changes; in a loud one the threshold rises with
+   * the crowd.
+   */
+  adaptiveFloor: true,
+  /** Speech must be this many times the measured ambient level. */
+  speechOverNoise: 2.6,
+  /** Interrupting her needs more, because the speaker feeds the microphone. */
+  bargeInOverNoise: 4.5,
+  /**
+   * How fast the measured floor moves, per audio block at ~125 a second.
+   *
+   * It falls faster than it rises on purpose. Falling quickly means the cabinet
+   * becomes sensitive again promptly once a crowd passes; rising slowly means a
+   * visitor's own voice cannot drag the floor up behind them and deafen the
+   * thing mid-sentence.
+   */
+  noiseRise: 0.0025,
+  noiseFall: 0.02,
+  /**
+   * Once someone is speaking, a lower bar keeps them speaking. Without this the
+   * dip between two words falls under the floor and ends the turn, so a single
+   * sentence arrives as three fragments and three separate searches.
+   */
+  holdRatio: 0.6,
   /**
    * Higher bar to interrupt her, because the speaker feeds the microphone.
    * Browser echo cancellation removes most of her voice but not all of it.
