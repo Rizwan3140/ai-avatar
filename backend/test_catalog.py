@@ -309,6 +309,46 @@ def main() -> int:
     check("one per category and colour", kept, ["b", "c", "d"])
     check("a photograph beats a lower price", "e" in kept, False)
 
+    # ---- what customers call things ----------------------------------------
+    print("\nvocabulary")
+
+    # The reported failure: a shop whose largest category is sarees answered
+    # "we do not carry those" to somebody asking for a sari. The word is the
+    # standard English spelling, the shop files it as "Sarees", and keyword
+    # search matched neither to the other.
+    catalog.upsert(
+        from_rows(
+            [
+                {"sku": "V1", "title": "Banarasi Silk", "type": "Sarees", "mrp": "4000",
+                 "details": "Woven silk with zari border"},
+                {"sku": "V2", "title": "Anarkali Set", "type": "Kurta Sets", "mrp": "2500",
+                 "details": "Cotton kurta with palazzo"},
+            ]
+        )
+    )
+    check("a sari finds the sarees", catalog.search("sari")[0].category, "Sarees")
+    check("so does the plural", catalog.search("saris")[0].category, "Sarees")
+    check("and a salwar suit finds kurta sets",
+          catalog.search("salwar")[0].category, "Kurta Sets")
+
+    # difflib covers what the alias table does not: plurals, typos, and the
+    # transcription errors a microphone in a mall will produce.
+    check("a singular finds a plural category", catalog.resolve_category("saree"), "Sarees")
+    check("a typo still lands", catalog.resolve_category("sarees"), "Sarees")
+
+    # And the half that matters more. An avatar that answers "do you have a
+    # laptop" with sarees is worse than one that says no — a false match here
+    # is the fabrication this project spent months removing.
+    # Absent from this fixture, which does stock laptops and dresses — the
+    # point is that a word for something nobody sells matches nothing, not that
+    # these particular words are unmatchable everywhere.
+    for absent in ("washing machine", "refrigerator", "motorcycle", "television"):
+        check(f"{absent!r} matches no category", catalog.resolve_category(absent), "")
+
+    # It only runs on a miss, so it can never override a real result.
+    check("a real match is not second-guessed",
+          catalog.search("Banarasi")[0].name, "Banarasi Silk")
+
     print("")
     print(str(passed) + " passed, 0 failed")
     return 0

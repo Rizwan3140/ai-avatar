@@ -20,6 +20,7 @@ row, not what the product is, and nothing above this module should be able to
 read it off an object and send it somewhere.
 """
 
+import difflib
 import json
 import re
 import sqlite3
@@ -424,6 +425,81 @@ def categories(org_id: str = DEFAULT_ORG) -> list[str]:
     return [r["category"] for r in rows]
 
 
+#: What customers call things, where it differs from what the supplier called
+#: them. Not a thesaurus — every entry here is a spelling a person actually uses
+#: for a category this catalog actually has.
+#:
+#: "Sari" is the entry that matters. It is the standard English spelling, the
+#: shop files it as "Sarees", and keyword search across five thousand rows
+#: returned nothing at all for it — so a customer asking for the single largest
+#: category in the shop was told we do not carry them. Fuzzy matching alone does
+#: not reach it: "sari" to "sarees" scores below the threshold that keeps
+#: "laptop" from matching, and a false match is far worse than a miss.
+CATEGORY_ALIASES = {
+    "sari": "Sarees",
+    "saris": "Sarees",
+    "saree": "Sarees",
+    "sarees": "Sarees",
+    "lehnga": "Lehengas",
+    "lehanga": "Lehengas",
+    "lehenga": "Lehengas",
+    "ghagra": "Lehengas",
+    "kurti": "Kurtas",
+    "kurtis": "Kurtas",
+    "kurta": "Kurtas",
+    "salwar": "Kurta Sets",
+    "suit": "Kurta Sets",
+    "suits": "Kurta Sets",
+    "dupatta": "Dupattas",
+    "chunni": "Dupattas",
+    "blouse": "Blouses",
+    "bangle": "Bangles",
+    "bracelet": "Bangles",
+    "earring": "Earrings",
+    "jhumka": "Earrings",
+    "jhumkas": "Earrings",
+    "rakhi": "Rakhis",
+    "bag": "Ethnic Bags",
+    "potli": "Ethnic Bags",
+    "palazzo": "Palazzos",
+    "sharara": "Shararas",
+}
+
+#: How close a word must be to a category name before we treat it as that
+#: category. 0.7 because 0.6 matched "laptop" to a clothing category, and an
+#: avatar that answers "do you have a laptop" with sarees is worse than one that
+#: says no — this project spent months on making refusals hold.
+_CATEGORY_CUTOFF = 0.7
+
+
+def resolve_category(text: str, org_id: str = DEFAULT_ORG) -> str:
+    """The category someone meant, or "" if nothing is close enough.
+
+    Aliases first, because they are exact and deliberate. Then difflib, which
+    covers plurals, typos and the transcription errors a microphone in a mall
+    will produce — "kurta" for "Kurtas", "ear rings" for "Earrings".
+
+    Only ever consulted after a search has already found nothing, so it can
+    never override a real result, and matched against the categories this org
+    actually stocks rather than a fixed list.
+    """
+    known = {c.lower(): c for c in categories(org_id) if c.strip()}
+    if not known:
+        return ""
+
+    words = [w for w in re.findall(r"[a-z]+", text.lower()) if w not in STOPWORDS]
+    for word in words:
+        target = CATEGORY_ALIASES.get(word, "")
+        if target and target.lower() in known:
+            return known[target.lower()]
+
+    for word in words:
+        match = difflib.get_close_matches(word, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
+        if match:
+            return known[match[0]]
+    return ""
+
+
 def _facet_values(column: str, org_id: str) -> list[str]:
     """The values one facet actually takes in this catalog.
 
@@ -547,6 +623,26 @@ def search(
     with _connect() as conn:
         rows = conn.execute(sql, params).fetchall()
     found = [_row_to_product(r) for r in rows]
+
+    # Nothing matched, and the words might still name something we stock. A
+    # customer says "sari", the shop files it as "Sarees", and FTS matches
+    # neither to the other — so the largest category in the shop answered "we do
+    # not carry those". Only runs on a miss, so it cannot override a real result,
+    # and only when the caller named no category of its own.
+    if not found and query.strip() and not category:
+        guess = resolve_category(query, org_id)
+        if guess:
+            return search(
+                "",
+                guess,
+                max_price,
+                limit,
+                org_id,
+                per_category=False,
+                color=color,
+                style=style,
+            )
+
     return _one_per_category(found, limit) if thin else found[:limit]
 
 
