@@ -68,12 +68,26 @@ $reqPath = Join-Path $root 'requirements.txt'
 $reqBefore = if (Test-Path $reqPath) { (Get-FileHash $reqPath).Hash } else { '' }
 
 $haveGit = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+$updated = $false
 
 if ($haveGit -and (Test-Path (Join-Path $root '.git'))) {
     Write-Host "  method:  git pull" -ForegroundColor DarkGray
-    git -C $root pull --ff-only
-} else {
-    Write-Host "  method:  zip download (no git here)" -ForegroundColor DarkGray
+    # Remote and branch named explicitly. A bare `git pull` needs an upstream,
+    # and a checkout built with `git init` + `fetch` + `reset --hard` has none —
+    # so it failed with "no tracking information" while the script sailed past,
+    # because $ErrorActionPreference does not apply to native commands.
+    git -C $root pull --ff-only origin $branch
+    if ($LASTEXITCODE -eq 0) {
+        $updated = $true
+        # Set it once so future pulls need no arguments.
+        git -C $root branch --set-upstream-to="origin/$branch" $branch 2>$null | Out-Null
+    } else {
+        Write-Host "  git pull failed - falling back to the zip download" -ForegroundColor Yellow
+    }
+}
+
+if (-not $updated) {
+    Write-Host "  method:  zip download" -ForegroundColor DarkGray
 
     # PowerShell 5.1 still negotiates TLS 1.0 by default, which GitHub refuses.
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -92,10 +106,17 @@ if ($haveGit -and (Test-Path (Join-Path $root '.git'))) {
         if (-not $inner) { throw "the archive did not contain a folder" }
 
         Copy-Item -Path (Join-Path $inner.FullName '*') -Destination $root -Recurse -Force
+        $updated = $true
         Write-Host "  copied over the project"
     } finally {
         Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     }
+}
+
+if (-not $updated) {
+    Write-Host "`nNothing was updated. Leaving the version marker alone rather" -ForegroundColor Red
+    Write-Host "than claiming a version this machine is not running." -ForegroundColor Red
+    exit 1
 }
 
 $reqAfter = if (Test-Path $reqPath) { (Get-FileHash $reqPath).Hash } else { '' }
