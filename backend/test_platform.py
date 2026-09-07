@@ -160,6 +160,15 @@ viewer = accounts.add_member(contoso, "vic@contoso.com", "another-long-one", "vi
 check("a viewer may not write", not viewer.may_write)
 check("members are listed", len(accounts.list_members(contoso)) == 2)
 
+# A company can be renamed without becoming a different company. The id is the
+# foreign key on every product, document, kiosk and event row, so changing it
+# to match a new name would orphan the whole catalog for a cosmetic slug.
+check("a company can be renamed", accounts.rename_org(contoso, "Contoso Retail"))
+check("the new name is what shows", accounts.get_org(contoso)["name"] == "Contoso Retail")
+check("and the id is untouched", accounts.get_org(contoso)["id"] == contoso)
+check("an empty name is refused", not accounts.rename_org(contoso, "   "))
+check("renaming nobody changes nothing", not accounts.rename_org("no-such-org", "X"))
+
 try:
     accounts.add_member(contoso, "dave@contoso.com", "another-long-one", "admiral")
     check("an unknown role is refused", False)

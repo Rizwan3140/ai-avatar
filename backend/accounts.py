@@ -229,6 +229,28 @@ def create_org(name: str, vertical: str = "") -> str:
     return org_id
 
 
+def rename_org(org_id: str, name: str) -> bool:
+    """Change what a company is called, without changing who it is.
+
+    The id stays as it was, deliberately. It is the foreign key on every
+    product, document, kiosk and event row, and `products` is keyed on
+    `(org_id, id)` — so renaming the id would orphan the entire catalog to
+    save a cosmetic slug nobody sees.
+
+    The name is what the studio puts on its bar, and it is the only place a
+    customer's own name should have to be written down once.
+    """
+    name = name.strip()
+    if not name:
+        return False
+    init()
+    with _connect() as conn:
+        changed = conn.execute(
+            "UPDATE orgs SET name = ? WHERE id = ?", (name, org_id)
+        ).rowcount
+    return changed > 0
+
+
 def _slug(text: str) -> str:
     import re
 
