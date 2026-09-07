@@ -104,7 +104,12 @@ def version() -> str:
     """
     marker = DATA / ".version"
     try:
-        return marker.read_text(encoding="utf-8").strip() or "unknown"
+        # utf-8-sig, not utf-8. PowerShell 5.1's `Set-Content -Encoding utf8`
+        # always writes a byte-order mark, so the string arrived starting with
+        # an invisible character: it rendered as a smudge before the commit and
+        # made `version.startswith(sha)` false for the correct sha, which is the
+        # one comparison anybody would write against this field.
+        return marker.read_text(encoding="utf-8-sig").strip() or "unknown"
     except OSError:
         return "not set by update.ps1"
 

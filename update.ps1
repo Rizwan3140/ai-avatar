@@ -111,7 +111,10 @@ try {
     $stamp = "{0} {1} {2}" -f $head.sha.Substring(0, 7),
                               (Get-Date -Format 'yyyy-MM-dd HH:mm'),
                               $head.commit.message.Split("`n")[0]
-    Set-Content -Path (Join-Path $root '.version') -Value $stamp -Encoding utf8
+    # Not Set-Content -Encoding utf8: on PowerShell 5.1 that writes a
+    # byte-order mark, and the mark ends up inside the version string.
+    [System.IO.File]::WriteAllText(
+        (Join-Path $root '.version'), $stamp, (New-Object System.Text.UTF8Encoding $false))
     Write-Host "  now at: $stamp" -ForegroundColor DarkGray
 } catch {
     Write-Host "  (could not record the version - the update itself was fine)" -ForegroundColor DarkGray
