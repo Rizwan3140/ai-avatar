@@ -192,6 +192,18 @@ if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
 
     config.HOME = _home
 
+# The catalog a cabinet mirrors, through the real route. A module being
+# tenant-safe means nothing behind a route that forgot to ask who was calling,
+# which is the entire reason this file exists alongside test_platform.
+r = client.get("/api/kiosk/mumbai-1/catalog")
+check("a cabinet can fetch its own catalog", r.status_code == 200, r.text[:120])
+check("it says which org that is", r.json()["org_id"] == NORTH)
+check("and carries the products", len(r.json()["products"]) > 0)
+# There is no org parameter to pass someone else's tenant into. The org is
+# resolved from the kiosk's avatar, so a query string cannot reach it.
+sneaky = client.get("/api/kiosk/mumbai-1/catalog?org_id=contoso").json()
+check("a tenant cannot be named on the query string", sneaky["org_id"] == NORTH)
+
 print(chr(10) + "voice")
 # A voice is a property of an avatar, cloned from a recording the customer
 # supplies. Until one exists the browser's own synthesiser speaks, and the

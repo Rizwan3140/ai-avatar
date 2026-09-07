@@ -86,6 +86,27 @@ def providers():
     return {"available": avatar_provider.available(), "configured": config.AVATAR_PROVIDER}
 
 
+@router.get("/kiosk/{kiosk_id}/catalog")
+def kiosk_catalog(kiosk_id: str):
+    """This cabinet's whole catalog, for the sync loop to mirror.
+
+    Scoped exactly as `/api/kiosk/{id}` is: the org comes from the kiosk's own
+    avatar, never from a parameter. A cabinet asks what *it* should be selling,
+    keyed by an id it already has — which is what makes this safe to leave
+    public alongside the identity call it sits beside.
+
+    Unpaginated on purpose. The catalog it is mirroring is a few hundred rows
+    after pruning, and a half-applied page is a showroom missing its lehengas:
+    `catalog.replace` is all-or-nothing precisely because this is.
+    """
+    k = store.get_kiosk(kiosk_id)
+    org_id = avatar_or_404(k.avatar_id).org_id
+    return {
+        "org_id": org_id,
+        "products": [catalog.to_dict(p) for p in catalog.all_products(org_id)],
+    }
+
+
 @router.get("/products")
 def products(
     q: str = "",

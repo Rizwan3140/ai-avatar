@@ -90,6 +90,70 @@ def pull() -> str:
     return f"sync: {avatar['id']}{' updated' if changed else ' unchanged'}"
 
 
+def pull_catalog() -> str:
+    """Mirror this cabinet's catalog from the platform.
+
+    Separate from `pull` and separately failing. Identity and stock are not the
+    same urgency: a cabinet that cannot refresh its product list is still a
+    working cabinet showing slightly old prices, and it should not lose an
+    avatar update over that.
+
+    Deliberately a mirror rather than a merge. The reason this exists is that a
+    catalog was pruned from five thousand rows to two hundred and fifty on one
+    machine and there was no way to say so to another — and a merge cannot
+    express a deletion, so the pruned rows would have come straight back.
+
+    Every failure keeps what is on disk. Unreachable platform, malformed
+    payload, empty list: the local catalog is last-known-good and a showroom
+    serving yesterday's prices beats one serving nothing.
+    """
+    if not config.PLATFORM_URL:
+        return "catalog: no PLATFORM_URL, running standalone"
+
+    # Imported here, not at module scope. `catalog` opens a database on import
+    # and this module is loaded by both roles; the rule in this codebase is that
+    # shared code does not pull heavy imports in at the top.
+    from backend import catalog
+
+    try:
+        payload = _fetch(f"/api/kiosk/{urllib.parse.quote(config.KIOSK_ID)}/catalog")
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        return f"catalog: platform unreachable ({error}); keeping local"
+
+    rows = payload.get("products")
+    org_id = payload.get("org_id")
+    if not isinstance(rows, list) or not rows or not org_id:
+        # Includes the genuinely-empty case. A platform with no products for
+        # this cabinet cannot be told apart from a response that lost them, and
+        # only one of those two readings is safe to act on.
+        return "catalog: platform sent nothing usable; keeping local"
+
+    products = [
+        catalog.Product(
+            id=r.get("id", ""),
+            name=r.get("name", ""),
+            category=r.get("category", ""),
+            price=r.get("price"),
+            currency=r.get("currency", "INR"),
+            description=r.get("description", ""),
+            url=r.get("url", ""),
+            image=r.get("image", ""),
+            availability=r.get("availability", "in_stock"),
+            attributes=r.get("attributes") or {},
+        )
+        for r in rows
+        if r.get("id") and r.get("name")
+    ]
+    if not products:
+        return "catalog: every row was unusable; keeping local"
+
+    before = len(catalog.all_products(org_id))
+    catalog.replace(products, org_id)
+    if before == len(products):
+        return f"catalog: {len(products)} products, unchanged"
+    return f"catalog: {before} -> {len(products)} products"
+
+
 def start() -> None:
     """Sync now, then on an interval, always off the request path."""
     if not config.PLATFORM_URL:
@@ -98,6 +162,11 @@ def start() -> None:
     def loop() -> None:
         while True:
             print(pull())
+            # Identity first, then stock. If the platform is only reachable for
+            # one of the two, the one worth having is the cabinet knowing who it
+            # is — and neither can fail the other, because each returns its own
+            # status rather than raising.
+            print(pull_catalog())
             threading.Event().wait(config.SYNC_INTERVAL)
 
     threading.Thread(target=loop, daemon=True).start()

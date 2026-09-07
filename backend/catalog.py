@@ -289,41 +289,69 @@ def _row_to_product(row: sqlite3.Row) -> Product:
     return Product(**data)
 
 
+_UPSERT_SQL = """
+    INSERT INTO products (org_id, id, name, category, price, currency, description,
+                          url, image, availability, attributes, color, style)
+    VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
+            :url, :image, :availability, :attributes, :color, :style)
+    ON CONFLICT(org_id, id) DO UPDATE SET
+        name=excluded.name, category=excluded.category, price=excluded.price,
+        currency=excluded.currency, description=excluded.description,
+        url=excluded.url, image=excluded.image,
+        availability=excluded.availability, attributes=excluded.attributes,
+        color=excluded.color, style=excluded.style
+"""
+
+
+def _bind(products: list[Product], org_id: str) -> list[dict]:
+    return [
+        {
+            "org_id": org_id,
+            **{k: getattr(p, k) for k in CORE},
+            # Attribute values are indexed as text so "cotton" or "16GB"
+            # are searchable without the caller knowing the key.
+            "attributes": json.dumps(p.attributes, ensure_ascii=False),
+            # Derived here, once, rather than at every read. An ingest
+            # is rare and a search is not.
+            **dict(
+                zip(("color", "style"), facets_of(p.name, p.description, p.attributes))
+            ),
+        }
+        for p in products
+    ]
+
+
 def upsert(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
     init()
     with _connect() as conn:
-        conn.executemany(
-            """
-            INSERT INTO products (org_id, id, name, category, price, currency, description,
-                                  url, image, availability, attributes, color, style)
-            VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
-                    :url, :image, :availability, :attributes, :color, :style)
-            ON CONFLICT(org_id, id) DO UPDATE SET
-                name=excluded.name, category=excluded.category, price=excluded.price,
-                currency=excluded.currency, description=excluded.description,
-                url=excluded.url, image=excluded.image,
-                availability=excluded.availability, attributes=excluded.attributes,
-                color=excluded.color, style=excluded.style
-            """,
-            [
-                {
-                    "org_id": org_id,
-                    **{k: getattr(p, k) for k in CORE},
-                    # Attribute values are indexed as text so "cotton" or "16GB"
-                    # are searchable without the caller knowing the key.
-                    "attributes": json.dumps(p.attributes, ensure_ascii=False),
-                    # Derived here, once, rather than at every read. An ingest
-                    # is rare and a search is not.
-                    **dict(
-                        zip(
-                            ("color", "style"),
-                            facets_of(p.name, p.description, p.attributes),
-                        )
-                    ),
-                }
-                for p in products
-            ],
-        )
+        conn.executemany(_UPSERT_SQL, _bind(products, org_id))
+    return len(products)
+
+
+def replace(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
+    """Make one org's catalog exactly this list, in a single transaction.
+
+    `upsert` cannot express a deletion — it is how a cabinet learns about new
+    products and never how it learns that 4,750 of them are gone. Mirroring the
+    platform needs both, and needs them atomic: a clear that commits followed by
+    an insert that fails is a showroom whose avatar has nothing to sell, in the
+    window between two statements.
+
+    The connection is the transaction. Both statements land or neither does.
+
+    Refusing an empty list is not a convenience, it is the guard that matters:
+    the caller is a sync loop reading somebody else's HTTP response, and the
+    difference between "this org has no products" and "the request came back
+    empty" is invisible from here. Wiping a live catalog on a bad response is
+    the one failure this whole feature could introduce, so an empty replace is
+    refused and the caller keeps what it had.
+    """
+    if not products:
+        return 0
+    init()
+    with _connect() as conn:
+        conn.execute("DELETE FROM products WHERE org_id = ?", (org_id,))
+        conn.executemany(_UPSERT_SQL, _bind(products, org_id))
     return len(products)
 
 

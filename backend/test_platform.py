@@ -621,5 +621,70 @@ config.STT_PROVIDER = "groq"
 check("and off for a hosted one", config.stt_provider() != "whisper")
 config.STT_PROVIDER = _was
 
+print("\ncatalog sync")
+# A cabinet mirrors its catalog from the platform, because `upsert` cannot say
+# that four and a half thousand products are gone. Everything here is about the
+# one failure this feature could introduce: wiping a live showroom's stock
+# because a request came back wrong.
+from backend import sync  # noqa: E402
+
+SYNC_ORG = "sync-co"
+catalog.replace(
+    [
+        catalog.Product(id="keep-1", name="Ruby Saree", category="Sarees", price=3000.0),
+        catalog.Product(id="keep-2", name="Ivory Saree", category="Sarees", price=3200.0),
+    ],
+    SYNC_ORG,
+)
+check("a catalog can be mirrored in", len(catalog.all_products(SYNC_ORG)) == 2)
+
+# The whole point: a mirror expresses deletion, which is what an upsert cannot.
+catalog.replace([catalog.Product(id="keep-1", name="Ruby Saree", category="Sarees")], SYNC_ORG)
+check("mirroring removes what is gone", len(catalog.all_products(SYNC_ORG)) == 1)
+
+# And the guard. An empty list is refused rather than obeyed, because the caller
+# is reading somebody else's HTTP response and "this org has no products" is
+# indistinguishable from "the response lost them".
+catalog.replace([], SYNC_ORG)
+check("an empty mirror is refused", len(catalog.all_products(SYNC_ORG)) == 1)
+
+_url, _kiosk = config.PLATFORM_URL, config.KIOSK_ID
+config.PLATFORM_URL, config.KIOSK_ID = "http://platform.invalid", "k1"
+
+config.PLATFORM_URL = ""
+check("standalone says so and does nothing", "standalone" in sync.pull_catalog())
+config.PLATFORM_URL = "http://platform.invalid"
+
+# Every failure keeps what is on disk. A showroom serving yesterday's prices
+# beats one serving nothing.
+_fetch = sync._fetch
+sync._fetch = lambda path: (_ for _ in ()).throw(OSError("no network"))
+check("an unreachable platform keeps local", "keeping local" in sync.pull_catalog())
+
+sync._fetch = lambda path: {"org_id": SYNC_ORG, "products": []}
+check("an empty payload keeps local", "keeping local" in sync.pull_catalog())
+check("and the catalog survived it", len(catalog.all_products(SYNC_ORG)) == 1)
+
+sync._fetch = lambda path: {"products": [{"id": "x", "name": "X"}]}
+check("a payload with no org keeps local", "keeping local" in sync.pull_catalog())
+
+sync._fetch = lambda path: {"org_id": SYNC_ORG, "products": [{"nonsense": True}]}
+check("rows with no id are dropped", "unusable" in sync.pull_catalog())
+check("and that also keeps the catalog", len(catalog.all_products(SYNC_ORG)) == 1)
+
+sync._fetch = lambda path: {
+    "org_id": SYNC_ORG,
+    "products": [
+        {"id": "new-1", "name": "Emerald Lehenga", "category": "Lehengas", "price": 9000.0},
+        {"id": "new-2", "name": "Gold Bangle", "category": "Bangles", "price": 900.0},
+    ],
+}
+check("a good payload mirrors", "1 -> 2 products" in sync.pull_catalog())
+check("and the old row is gone", catalog.get("keep-1", SYNC_ORG) is None)
+check("and the new ones are there", catalog.get("new-1", SYNC_ORG) is not None)
+
+sync._fetch = _fetch
+config.PLATFORM_URL, config.KIOSK_ID = _url, _kiosk
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
