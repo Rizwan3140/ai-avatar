@@ -73,6 +73,21 @@ def _get(name: str, default: str = "") -> str:
 # all    both in one process — development, and a single-kiosk install
 ROLE = _get("LUXORA_ROLE", "all")
 
+# What `/` opens: the panel, or the studio.
+#
+# A cabinet must open on the panel. A member of the public stands in front of
+# that screen, and a dashboard is the one thing it must never show them.
+#
+# Every other machine is somebody working, and for them the panel is the wrong
+# front door — reaching the studio meant knowing to type an address nobody
+# mentions. The role already records which kind of machine this is, so the
+# default is read from it rather than asked for twice on two machines that both
+# had to be configured by hand.
+#
+# `LUXORA_HOME=kiosk` or `=studio` overrides, for a workstation driving a real
+# panel or a cabinet somebody wants to set up from the sofa.
+HOME = _get("LUXORA_HOME", "") or ("kiosk" if ROLE == "edge" else "studio")
+
 # Where an edge machine pulls its avatar configuration from. Blank = standalone,
 # reading only what is on its own disk.
 PLATFORM_URL = _get("PLATFORM_URL")

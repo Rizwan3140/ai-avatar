@@ -138,18 +138,26 @@ if FRONTEND_DIST.is_dir():
 
     @app.get("/", include_in_schema=False)
     def root():
-        """The kiosk — unless there is nobody to show yet.
+        """The panel on a cabinet, the studio on everything else.
 
-        A fresh install has no avatars, so `/api/kiosk/{id}` 404s and the panel
-        came up blank reading "The showroom is offline". It is not offline, it is
-        empty, and the person who just installed it has no way to guess that the
-        thing they need is at a URL nobody mentioned.
+        A cabinet opens on the panel: somebody is standing in front of it and a
+        dashboard is the one thing that screen must never show them. That is
+        `LUXORA_ROLE=edge`, which is what `run.sh kiosk` sets.
 
-        Registered before the mount below, because a mount at "/" would otherwise
-        answer first. It stops redirecting the moment one avatar exists, so a
-        real cabinet is never bounced away from its own screen.
+        Anywhere else this is a person working, and opening on the panel meant
+        the studio was reachable only by typing an address nobody mentions.
+        Deciding it from the role rather than a setting is what keeps two
+        machines from each needing to be configured by hand.
+
+        A fresh install redirects either way. With no avatars, `/api/kiosk/{id}`
+        404s and the panel comes up blank reading "The showroom is offline" — it
+        is not offline, it is empty, and whoever just installed it has no way to
+        guess where to go.
+
+        Registered before the mount below, because a mount at "/" would
+        otherwise answer first.
         """
-        if not store.list_avatars():
+        if config.HOME == "studio" or not store.list_avatars():
             return RedirectResponse("/studio")
         return FileResponse(FRONTEND_DIST / "index.html")
 

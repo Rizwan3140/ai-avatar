@@ -36,7 +36,7 @@ os.environ["LUXORA_SECRET"] = "test-only-secret"
 # hides until something depends on it.
 os.environ["LUXORA_SEED"] = "0"
 
-from backend import accounts, catalog, documents, store, tryon  # noqa: E402
+from backend import accounts, catalog, config, documents, store, tryon  # noqa: E402
 
 # Pin the try-on providers to the one that refuses, for the same reason the
 # database is redirected two lines below: this suite asserts what the routes do,
@@ -151,22 +151,39 @@ check("it gets its avatar without a token", r.json()["avatar"]["id"] == AVATAR)
 check("and its greeting", r.json()["avatar"]["greeting"] == "Welcome.")
 check("and whether it may offer a camera", r.json()["tryon"]["available"] is False)
 
-# `/` is the panel, and it must stay the panel. A fresh install with no avatars
-# sends the first person to the Studio instead of to a blank screen reading "the
-# showroom is offline" — but the moment one avatar exists that redirect has to
-# stop, or a cabinet in a mall bounces away from its own face on every reload.
+# What `/` opens depends on what kind of machine this is, and getting it
+# backwards is bad in both directions: a dashboard shown to the public in a
+# mall, or a workstation whose studio is reachable only by typing an address
+# nobody mentions.
 if (Path(__file__).resolve().parent.parent / "frontend" / "dist").is_dir():
+    _home = config.HOME
+
+    # A cabinet — LUXORA_ROLE=edge, which is what `run.sh kiosk` sets. It must
+    # never bounce away from its own face, on this or any reload.
+    config.HOME = "kiosk"
     check(
-        "a cabinet with an avatar is served the kiosk, not the studio",
+        "a cabinet with an avatar is served the panel",
         client.get("/", follow_redirects=False).status_code == 200,
     )
+
+    # Any other machine is somebody working.
+    config.HOME = "studio"
+    workstation = client.get("/", follow_redirects=False)
+    check("a workstation opens on the studio", workstation.status_code == 307)
+    check("and lands on the home page", workstation.headers.get("location") == "/studio")
+
+    # A fresh install goes to the studio either way, rather than to a blank
+    # panel reading "the showroom is offline" — it is not offline, it is empty.
+    config.HOME = "kiosk"
     _real = store.AVATARS_DIR
     store.AVATARS_DIR = TMP / "nobody"
     store.AVATARS_DIR.mkdir(exist_ok=True)
     empty = client.get("/", follow_redirects=False)
     store.AVATARS_DIR = _real
-    check("with no avatars at all it redirects", empty.status_code == 307)
+    check("with no avatars at all a cabinet still redirects", empty.status_code == 307)
     check("and it redirects to the studio", empty.headers.get("location") == "/studio")
+
+    config.HOME = _home
 
 print(chr(10) + "voice")
 # A voice is a property of an avatar, cloned from a recording the customer
