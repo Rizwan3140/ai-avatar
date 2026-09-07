@@ -40,8 +40,16 @@ export function Signage() {
     if (!avatarId) return
     fetch(`/api/campaigns/${encodeURIComponent(avatarId)}`)
       .then((r) => (r.ok ? r.json() : []))
-      .then(setCampaigns)
-      .catch(() => setCampaigns([]))
+      .then((list: Campaign[]) => {
+        setCampaigns(list)
+        // App needs to know too: the black sleep scrim has to lift for a
+        // cabinet with campaigns and stay for one without.
+        useStore.setState({ hasCampaigns: list.length > 0 })
+      })
+      .catch(() => {
+        setCampaigns([])
+        useStore.setState({ hasCampaigns: false })
+      })
   }, [avatarId])
 
   // Advance the playlist. Only while idle — a timer running behind a
@@ -80,19 +88,47 @@ export function Signage() {
     // exactly what sleeping was avoiding. Rotating the playlist does most of the
     // work; moving it does the rest. One campaign looping alone will still ghost.
     <div
-      className={`pointer-events-none absolute inset-y-0 right-0 z-10 flex flex-col justify-center gap-5 pl-safe transition-transform duration-1000 ${
-        asleep ? 'w-full px-safe' : 'w-[46%] pr-[132px]'
+      className={`pointer-events-none absolute inset-y-0 right-0 z-10 flex flex-col justify-center gap-5 transition-transform duration-1000 ${
+        asleep ? 'w-full' : 'w-[46%] pl-safe pr-[132px]'
       }`}
       style={{
         animation: `rise var(--duration-calm) var(--ease-human)`,
         transform: `translate(${shift.x}px, ${shift.y}px)`,
       }}
     >
-      <div key={campaign.id} className="animate-[rise_600ms_var(--ease-human)] overflow-hidden rounded-xl">
+      {/*
+        Asleep, the artwork fills the panel: `cover`, full height, no rounding
+        and no safe padding. It was `contain` with a width and no height, which
+        letterboxes — a 52" shop window running an advertisement with white bars
+        down two sides, which reads as a mistake rather than a campaign.
+
+        Beside him it stays `contain`, and that is not an inconsistency. The
+        panel is 2160x3840 — portrait — so his gutter is a tall narrow column,
+        and `cover` there would crop a landscape advert to a vertical slice
+        through its middle. Filling the frame is right when the frame is the
+        whole screen and wrong when it is a sliver.
+      */}
+      <div
+        key={campaign.id}
+        className={`animate-[rise_600ms_var(--ease-human)] overflow-hidden ${
+          asleep ? 'min-h-0 flex-1' : 'rounded-xl'
+        }`}
+      >
         {campaign.kind === 'video' ? (
-          <video src={campaign.src} muted loop autoPlay playsInline className="w-full object-contain" />
+          <video
+            src={campaign.src}
+            muted
+            loop
+            autoPlay
+            playsInline
+            className={asleep ? 'h-full w-full object-cover' : 'w-full object-contain'}
+          />
         ) : (
-          <img src={campaign.src} alt="" className="w-full object-contain" />
+          <img
+            src={campaign.src}
+            alt=""
+            className={asleep ? 'h-full w-full object-cover' : 'w-full object-contain'}
+          />
         )}
       </div>
 

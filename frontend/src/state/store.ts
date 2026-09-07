@@ -38,6 +38,21 @@ type State = {
    * and has to be said out loud on the consent screen.
    */
   tryon: { available: boolean; provider: string; on_device: boolean }
+
+  /**
+   * Whether this cabinet has anything to advertise.
+   *
+   * Here rather than inside `Signage` because two components have to agree
+   * about it. Sleep fades the panel to true black to protect the OLED, and that
+   * scrim is painted over everything — including the signage that sleep is
+   * supposed to be showing. So the campaigns played, correctly, underneath a
+   * black rectangle for the entire life of the feature.
+   *
+   * With campaigns, sleep is a billboard. Without, it is a dark panel, which is
+   * the right answer to "there is nothing to show" and the thing that keeps a
+   * transparent OLED alive through a showroom's quiet hours.
+   */
+  hasCampaigns: boolean
 }
 
 /**
@@ -60,6 +75,7 @@ export const useStore = create<State>(() => ({
   // Off until the kiosk says otherwise. A camera that appears by default because
   // a flag failed to load is the wrong direction for this one to fail in.
   tryon: { available: false, provider: '', on_device: false },
+  hasCampaigns: false,
 }))
 
 const set = useStore.setState

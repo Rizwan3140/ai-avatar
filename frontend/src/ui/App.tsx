@@ -18,6 +18,7 @@ import { Transcript } from './Transcript.tsx'
 export function App() {
   const sleeping = useStore((s) => s.status === 'sleeping')
   const showcase = useStore((s) => s.products.length > 0)
+  const hasCampaigns = useStore((s) => s.hasCampaigns)
 
   return (
     <main className="relative h-full overflow-hidden bg-canvas">
@@ -39,11 +40,18 @@ export function App() {
       <Transcript />
 
       {/* Sleep fades to true black, not white — an OLED panel showing black is
-          off, which is what protects it over months of standby. */}
+          off, which is what protects it over months of standby.
+
+          Unless there is something to advertise. This scrim is painted last, so
+          it covered the signage that sleep is meant to be running: the
+          campaigns played correctly underneath a black rectangle, and the
+          feature looked like it had never been built. A cabinet with campaigns
+          sleeps as a billboard; one without sleeps as a dark panel, which is
+          still the right answer to having nothing to show. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-black transition-opacity duration-1000 ease-(--ease-human)"
-        style={{ opacity: sleeping ? 1 : 0 }}
+        style={{ opacity: sleeping && !hasCampaigns ? 1 : 0 }}
       />
     </main>
   )
