@@ -88,3 +88,6 @@ frontend/tsconfig.tsbuildinfo
 # Written by update.ps1 on the machine it runs on. Machine-local by nature -
 # committing it would have every install claiming the same version.
 .version
+
+# Written where a snapshot was last applied. Machine-local, like .version.
+knowledge/.snapshot-applied

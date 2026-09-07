@@ -100,6 +100,18 @@ if ($haveGit -and (Test-Path (Join-Path $root '.git'))) {
 
 $reqAfter = if (Test-Path $reqPath) { (Get-FileHash $reqPath).Hash } else { '' }
 
+# Data does not travel in the files above - the catalog and the company name
+# live in a database that is deliberately never tracked, because it also holds
+# password hashes and this repository is public. `snapshot.json` is the narrow,
+# safe half of it: products and display names, nothing else. Applying it here is
+# what makes "change it there, it changes here" true of data as well as code.
+$py = Join-Path $root '.venv\Scripts\python.exe'
+if (Test-Path $py) {
+    & $py -m backend.snapshot apply
+} else {
+    Write-Host "  (no .venv yet - run the snapshot apply after installing)" -ForegroundColor DarkGray
+}
+
 # Record what landed, so /api/health can answer "am I current" instead of
 # leaving somebody to infer it from behaviour. Written after the copy, never
 # before: a marker claiming a version the files do not match is worse than no

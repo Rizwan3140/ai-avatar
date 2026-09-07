@@ -15,6 +15,7 @@ catalog. The modules take the path from a module-level constant, so the constant
 is what gets pointed elsewhere.
 """
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -685,6 +686,63 @@ check("and the new ones are there", catalog.get("new-1", SYNC_ORG) is not None)
 
 sync._fetch = _fetch
 config.PLATFORM_URL, config.KIOSK_ID = _url, _kiosk
+
+print("\nsnapshot")
+# Catalog changes travel between machines through the repository, because that
+# is the only transport that reliably reaches them. The repository is public,
+# so what a snapshot may contain is a security boundary, not a preference.
+from backend import snapshot  # noqa: E402
+
+SNAP_ORG = "snap-co"
+accounts.create_org("Snap Co")
+catalog.replace(
+    [
+        catalog.Product(id="s1", name="Emerald Lehenga", category="Lehengas", price=9000.0),
+        catalog.Product(id="s2", name="Gold Bangle", category="Bangles", price=900.0),
+    ],
+    SNAP_ORG,
+)
+snapshot.PATH = catalog.DB_PATH.parent / "test-snapshot.json"
+summary = snapshot.export()
+check("a snapshot exports products", summary["products"] >= 2)
+
+body = snapshot.PATH.read_text(encoding="utf-8")
+# The allowlist is the boundary. `users` lives in the same SQLite file and holds
+# email addresses and password hashes, and this file is committed to a public
+# repository — so the check is that they are absent, not that nobody added them.
+check("it carries no password hashes", "password_hash" not in body)
+check("it carries no user table", '"users"' not in body)
+check("it carries no email addresses", "@" not in json.dumps(json.loads(body)["orgs"]))
+check("and only the two expected keys", set(json.loads(body)) == {"orgs", "products"})
+
+# Applying is a mirror: it must express the deletion that made this necessary.
+catalog.replace(
+    [
+        catalog.Product(id="s1", name="Emerald Lehenga", category="Lehengas", price=9000.0),
+        catalog.Product(id="s2", name="Gold Bangle", category="Bangles", price=900.0),
+        catalog.Product(id="s3", name="Stray Row", category="Sarees", price=1.0),
+    ],
+    SNAP_ORG,
+)
+check("a machine can drift", len(catalog.all_products(SNAP_ORG)) == 3)
+snapshot.apply(force=True)
+check("applying mirrors the snapshot", len(catalog.all_products(SNAP_ORG)) == 2)
+check("and the extra row is gone", catalog.get("s3", SNAP_ORG) is None)
+
+# A company name travels with it, which is the other thing that needed a command
+# run on every machine.
+accounts.rename_org(SNAP_ORG, "Wrong Name")
+snapshot.apply(force=True)
+check("the company name travels too", accounts.get_org(SNAP_ORG)["name"] == "Snap Co")
+
+# It skips when nothing changed, so a scheduled updater is not rewriting a
+# database every morning to no effect.
+check("an unchanged snapshot is skipped", "already applied" in snapshot.apply())
+
+# And a missing or unreadable snapshot never empties a shop.
+snapshot.PATH = catalog.DB_PATH.parent / "no-such-snapshot.json"
+check("a missing snapshot changes nothing", "nothing to apply" in snapshot.apply())
+check("and the catalog survived", len(catalog.all_products(SNAP_ORG)) == 2)
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
