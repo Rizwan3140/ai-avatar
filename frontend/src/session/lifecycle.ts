@@ -127,9 +127,20 @@ bus.on('SESSION_ENDED', () => {
 function watchForSleep() {
   let timer: number
 
+  // Idle *and* listening both count down. Only `idle` did, and nothing ends a
+  // session except the End button — so a cabinet with its microphone on sat in
+  // `listening` and never slept at all. Ten minutes of nobody talking to it is
+  // the case the screensaver exists for, and it is also the state a showroom
+  // leaves the panel in all day.
+  //
+  // Thinking and speaking are excluded because he is mid-answer, and a panel
+  // that goes dark while a sentence is still coming out of the speaker is not a
+  // screensaver, it is a crash.
+  const WAITING = new Set(['idle', 'listening'])
+
   const arm = () => {
     window.clearTimeout(timer)
-    if (useStore.getState().status !== 'idle') return
+    if (!WAITING.has(useStore.getState().status)) return
     timer = window.setTimeout(() => bus.emit('SESSION_SLEEP'), config.sleepAfter)
   }
 
