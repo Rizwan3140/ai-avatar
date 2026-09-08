@@ -18,6 +18,11 @@ from backend.routes.platform import avatar_or_404
 
 router = APIRouter(prefix="/api", tags=["conversation"])
 
+MAX_CHAT_CHARS = 4_000
+MAX_CONTEXT_CHARS = 8_000
+MAX_SPEECH_CHARS = 2_000
+MAX_AUDIO_BYTES = 10 * 1024 * 1024
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -50,6 +55,10 @@ def warm() -> None:
 
 @router.post("/chat")
 def chat(req: ChatRequest):
+    if len(req.message) > MAX_CHAT_CHARS:
+        raise HTTPException(413, f"Message is too long (maximum {MAX_CHAT_CHARS} characters).")
+    if len(req.context) > MAX_CONTEXT_CHARS:
+        raise HTTPException(413, "Conversation context is too large.")
     avatar = avatar_or_404(req.avatar_id)
     # The org comes from the avatar this cabinet is showing, never from the
     # request. One showroom's avatar quoting another showroom's prices out loud is
@@ -70,6 +79,14 @@ def chat(req: ChatRequest):
     # And the company's own documents, for the half of showroom questions no
     # product row can answer — delivery, returns, warranty, opening hours.
     passages = documents.search(query, org_id=org_id)
+
+    # What this shop sells, which is not the same as what this question matched.
+    # Without it the model is blind exactly when it most needs to see: retrieval
+    # returning nothing means either "we do not sell it" or "we do and the search
+    # missed", and those are indistinguishable from inside the prompt. A showroom
+    # with twenty-nine categories answered "what do you sell" with "I'm afraid we
+    # don't carry those".
+    shelves = catalog.categories(org_id)
 
     # What was asked and what it matched. A question that matched nothing is the
     # most useful line in the whole log — it is a customer wanting something the
@@ -107,13 +124,14 @@ def chat(req: ChatRequest):
             products,
             req.context,
             documents.as_context(passages),
+            shelves,
         ):
             reply += chunk
             if not withhold:
                 yield chunk
 
         if withhold:
-            if llm.ungrounded_claim(reply, products):
+            if llm.ungrounded_claim(reply, products, shelves):
                 analytics.record(
                     "ungrounded_claim", session=req.session, avatar=avatar.id,
                     org=org_id, text=req.message, said=reply[:200],
@@ -136,7 +154,16 @@ def chat(req: ChatRequest):
 async def listen(request: Request):
     """Raw audio in, text out. Bytes on the body rather than multipart, so this
     needs no extra dependency and no encoding round trip."""
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_AUDIO_BYTES:
+                raise HTTPException(413, "Audio is too large.")
+        except ValueError:
+            raise HTTPException(400, "Invalid content length.") from None
     audio = await request.body()
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(413, "Audio is too large.")
     if not audio:
         return {"text": ""}
     partial = request.query_params.get("partial") == "1"
@@ -168,6 +195,9 @@ def speak(req: SpeakRequest):
     would trade that away.
     """
     from backend import tts
+
+    if len(req.text) > MAX_SPEECH_CHARS:
+        raise HTTPException(413, "Speech text is too long.")
 
     try:
         audio = tts.speak(req.text, req.avatar_id)

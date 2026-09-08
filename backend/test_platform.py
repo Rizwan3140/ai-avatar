@@ -557,6 +557,38 @@ check(
 )
 # The guard is about groundedness, not vocabulary: with products retrieved, the
 # same sentence is true and must be left alone.
+SHELVES = ["Sarees", "Kurta Sets", "Lehengas", "Earrings"]
+
+# A shelf grounds a claim as well as its contents do. Asking a shop what it
+# sells is the first thing somebody at a shop window does, and the reply — "we
+# sell sarees" — was being overwritten with a refusal, because the words "what
+# do you sell" matched no product. A showroom with twenty-nine categories
+# answered "I'm afraid we don't carry those".
+check(
+    "naming a category we stock is grounded",
+    not llm.ungrounded_claim("We sell sarees, kurta sets and lehengas.", [], SHELVES),
+)
+check(
+    "even with no products retrieved for that turn",
+    not llm.ungrounded_claim("We do carry earrings.", [], SHELVES),
+)
+# And the case the guard exists for is untouched: a category we do not stock is
+# still a fabrication, whatever else is on the shelves.
+check(
+    "a category we do not stock is still caught",
+    llm.ungrounded_claim("We do carry washing machines.", [], SHELVES),
+)
+check(
+    "and an invented range with it",
+    llm.ungrounded_claim("We have a wide selection of laptops.", [], SHELVES),
+)
+# Without a shelf list nothing changes, so every install that never passes one
+# behaves exactly as it did.
+check(
+    "no shelves means the old behaviour",
+    llm.ungrounded_claim("We do carry washing machines.", []),
+)
+
 check(
     "the same claim stands when the catalog backs it",
     not llm.ungrounded_claim("We do carry a few of those.", ["a product"]),

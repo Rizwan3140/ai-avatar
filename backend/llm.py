@@ -113,8 +113,10 @@ _CLAIMS_STOCK = re.compile(
 REFUSAL = "I'm afraid we don't carry those."
 
 
-def ungrounded_claim(reply: str, products: list) -> bool:
-    """True when the reply asserts stock that retrieval did not find.
+def ungrounded_claim(
+    reply: str, products: list, categories: list[str] | None = None
+) -> bool:
+    """True when the reply asserts stock we cannot stand behind.
 
     The prompt cannot be trusted with this. Told plainly not to, `llama3.2:3b`
     still answered "we do carry a selection of washing machines from a few
@@ -129,15 +131,56 @@ def ungrounded_claim(reply: str, products: list) -> bool:
     is false by construction. No judgement about what the visitor meant is
     needed — only what the catalog returned.
 
+    A shelf grounds a claim as well as its contents do. "We sell sarees" is true
+    of a shop that stocks sarees whether or not this particular search returned
+    any — and "what do you sell" is the first thing somebody standing at a shop
+    window asks. Without that allowance the guard fired on the correct answer:
+    nothing matched the words, the reply was withheld, "we sell" read as an
+    ungrounded claim, and a showroom with twenty-nine categories said "I'm
+    afraid we don't carry those."
+
+    Naming a category we do not have is still caught, which is the case this was
+    built for — "we carry washing machines" matches no category and is refused
+    exactly as before.
+
     ponytail: a phrase list, checked once per reply. It is deliberately narrow
     and will miss a paraphrase; the day a larger model makes the whole guard
     unnecessary, delete it rather than growing it.
     """
-    return not products and bool(_CLAIMS_STOCK.search(reply))
+    if products or not _CLAIMS_STOCK.search(reply):
+        return False
+    lowered = reply.lower()
+    return not any(c.lower() in lowered for c in (categories or []) if c.strip())
+
+
+def _shop_sells(categories: list[str]) -> str:
+    """The shelves this shop actually has, for the turns where nothing matched.
+
+    Without it the model is blind in exactly the situation where it most needs
+    to see. Retrieval returning nothing means one of two completely different
+    things — we do not sell it, or we do and the search missed — and from inside
+    the prompt those are indistinguishable. So "what do you sell" was answered
+    with "I'm afraid we don't carry those", by a shop with twenty-nine
+    categories on its shelves.
+
+    Names only, and only on the branch that needs them. A few dozen words, not
+    the catalog: pasting products in wholesale is what this file already learned
+    not to do.
+    """
+    if not categories:
+        return ""
+    return (
+        "\n\nThis showroom sells exactly these, and nothing else:\n"
+        + ", ".join(categories)
+        + "\n"
+    )
 
 
 def _turn_prompt(
-    products: list[Product], on_screen: str = '', knowledge: str = ''
+    products: list[Product],
+    on_screen: str = '',
+    knowledge: str = '',
+    categories: list[str] | None = None,
 ) -> str:
     """Catalog first, model second.
 
@@ -219,7 +262,16 @@ def _turn_prompt(
             "(b) They said anything else — a greeting, a thank you, a goodbye, "
             "small talk, a question about you or about the conversation. Reply "
             "naturally in one short sentence. Do NOT tell them we do not carry "
-            "something: they did not ask for a product."
+            "something: they did not ask for a product.\n\n"
+            # The case that was missing, and it is the first question a person
+            # standing in front of a shop window asks. It is neither (a) nor (b),
+            # so it fell into (a) and a showroom with twenty-nine categories
+            # answered "I'm afraid we don't carry those" when asked what it sold.
+            "(c) They asked what this shop sells, or what you have, or what is "
+            "here. Name a few of the categories listed below in one short "
+            "sentence. Do not list them all. Do not invent one that is not "
+            "listed."
+            + _shop_sells(categories or [])
         )
 
     # What the visitor can actually see. Retrieval decides which products are
@@ -375,6 +427,7 @@ def stream_reply(
     products: list[Product] | None = None,
     on_screen: str = "",
     knowledge: str = "",
+    categories: list[str] | None = None,
 ) -> Iterator[str]:
     # Warm when there is nothing to get wrong, cold the moment there is.
     temperature = GROUNDED_TEMPERATURE if (products or knowledge) else CHAT_TEMPERATURE
@@ -388,7 +441,7 @@ def stream_reply(
     # which is the signature of prompt evaluation rather than generation.
     messages = [
         {"role": "system", "content": _stable_prompt(persona)},
-        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge)},
+        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge, categories)},
         *history,
     ]
 
