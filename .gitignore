@@ -101,3 +101,7 @@ server.log*
 tunnel.log*
 tunnel-url.txt
 cloudflared.exe
+
+# Advertising media, uploaded by a customer. Same reasoning as avatars/ above:
+# their content, not ours, and video besides.
+frontend/public/campaigns/

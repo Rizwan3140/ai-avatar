@@ -18,11 +18,12 @@ must never be pulled into the cloud image.
 
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import config, store
+from backend.rate_limit import RateLimiter
 from backend.routes import platform, studio
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,6 +33,33 @@ IS_EDGE = config.ROLE in ("edge", "all")
 IS_CLOUD = config.ROLE in ("cloud", "all")
 
 app = FastAPI(title=f"Luxora ({config.ROLE})")
+
+# Public conversation routes have no account token because a physical cabinet
+# must be able to use them. Keep abuse from turning those open routes into an
+# unbounded model/STT/TTS bill. Limits are per direct client IP and per route;
+# listen is intentionally generous because one spoken turn may create several
+# partial transcription requests.
+_PUBLIC_LIMITS = {
+    "/api/chat": 30,
+    "/api/listen": 120,
+    "/api/speak": 120,
+}
+_PUBLIC_RATE_LIMITER = RateLimiter()
+
+
+@app.middleware("http")
+async def limit_public_conversation(request: Request, call_next):
+    limit = _PUBLIC_LIMITS.get(request.url.path) if request.method == "POST" else None
+    if limit is not None:
+        ip = request.client.host if request.client else "unknown"
+        allowed, retry_after = _PUBLIC_RATE_LIMITER.allow(ip, request.url.path, limit)
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please try again shortly."},
+                headers={"Retry-After": str(retry_after)},
+            )
+    return await call_next(request)
 
 # Off unless asked for. The kiosk serves its own UI from this same origin, so
 # there is no cross-origin request to permit and a permissive default would be
@@ -127,6 +155,14 @@ print(f"\nLuxora — services\n{config.report()}\n")
 RUNTIME_MEDIA = config.DATA / "frontend" / "public" / "avatars"
 if RUNTIME_MEDIA.is_dir():
     app.mount("/avatars", StaticFiles(directory=RUNTIME_MEDIA), name="avatars")
+
+# Advertising, which belongs to the showroom rather than to whichever avatar is
+# standing in it. Created if absent so the mount exists before the first upload
+# — the alternative is a customer uploading a campaign to a route that works and
+# a panel that 404s until someone restarts the process.
+RUNTIME_CAMPAIGNS = config.DATA / "frontend" / "public" / "campaigns"
+RUNTIME_CAMPAIGNS.mkdir(parents=True, exist_ok=True)
+app.mount("/campaigns", StaticFiles(directory=RUNTIME_CAMPAIGNS), name="campaigns")
 
 if FRONTEND_DIST.is_dir():
 

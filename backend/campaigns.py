@@ -3,19 +3,31 @@
 A showroom kiosk is idle most of its life. Right now that time shows a man
 standing still, which is a waste of the most expensive screen in the room.
 
-Campaigns are files in `frontend/public/avatars/<id>/campaigns/` plus one
+Campaigns are files in `frontend/public/campaigns/<org>/` plus one
 `campaigns.json` describing when each runs. Same shape as everything else here:
 readable from disk, editable by hand, synced from the platform, and working with
 the network unplugged.
+
+**Per showroom, not per avatar.** They used to live under
+`avatars/<id>/campaigns/`, which made the advertising a property of whichever
+person happened to be standing in the cabinet — so uploading a campaign against
+one avatar and then demonstrating with another showed nothing at all, and a
+shop running two avatars had to upload everything twice and keep the two in
+step by hand. A campaign belongs to the company whose window it is playing in.
+
+Still scoped by org, because that is the tenant boundary everything else here
+uses. One showroom's advertising must not appear in another's window.
 """
 
 import json
 import re
 from dataclasses import asdict, dataclass
+from dataclasses import fields as dataclass_fields
 from datetime import time
 from pathlib import Path
 
-from backend.store import avatar_dir
+from backend import config
+from backend.store import _safe_id, get_avatar
 
 MEDIA = {".mp4": "video", ".webm": "video", ".jpg": "image", ".jpeg": "image",
          ".png": "image", ".webp": "image"}
@@ -49,55 +61,90 @@ class Campaign:
         return now >= start or now < end
 
 
-def _folder(avatar_id: str) -> Path | None:
-    """None for an id that could never be a folder. The id arrives off a URL, so
-    this is the traversal guard as much as a validation."""
-    try:
-        return avatar_dir(avatar_id) / "campaigns"
-    except ValueError:
-        return None
+#: Where a showroom's advertising lives. Beside `avatars/`, not inside it.
+ROOT = config.DATA / "frontend" / "public" / "campaigns"
 
 
-def declared(avatar_id: str) -> list[Campaign]:
-    """Every campaign configured for this avatar, whatever the clock says.
+def _folder(org_id: str) -> Path | None:
+    """None for an id that could never be a folder.
+
+    The org id reaches here from a resolved avatar rather than off a URL, but it
+    still becomes a path segment — and every other join in this codebase that
+    skipped the shared validator turned out to be the one worth auditing.
+    """
+    return ROOT / org_id if _safe_id(org_id) else None
+
+
+def org_of(avatar_id: str) -> str:
+    """Whose window this avatar is standing in.
+
+    The kiosk still asks by avatar, because that is the only id it has. The
+    answer is the same for every avatar in the same showroom.
+    """
+    avatar = get_avatar(avatar_id)
+    return avatar.org_id if avatar else ""
+
+
+def declared(org_id: str) -> list[Campaign]:
+    """Every campaign configured for this showroom, whatever the clock says.
 
     Falls back to whatever media is in the folder if nothing is scheduled — a
     company that drops in three images should see them play without first writing
     a schedule file.
     """
-    folder = _folder(avatar_id)
+    folder = _folder(org_id)
     if folder is None or not folder.is_dir():
         return []
 
-    config = folder / "campaigns.json"
-    if config.exists():
-        return [Campaign(**entry) for entry in json.loads(config.read_text(encoding="utf-8"))]
+    manifest = folder / "campaigns.json"
+    if manifest.exists():
+        try:
+            entries = json.loads(manifest.read_text(encoding="utf-8"))
+        except ValueError:
+            return []
+        # Unknown keys are ignored rather than raising. This file is written by
+        # sync from a platform that may be a version ahead, and `Campaign(**e)`
+        # on an unexpected field is a TypeError — a 500 on the one endpoint a
+        # cabinet calls to know what to advertise.
+        fields = {f.name for f in dataclass_fields(Campaign)}
+        return [Campaign(**{k: v for k, v in e.items() if k in fields}) for e in entries]
 
     return [
-        Campaign(id=path.stem, src=f"/avatars/{avatar_id}/campaigns/{path.name}", kind=kind)
+        Campaign(id=path.stem, src=f"/campaigns/{org_id}/{path.name}", kind=kind)
         for path in sorted(folder.iterdir())
         if (kind := MEDIA.get(path.suffix.lower()))
     ]
 
 
 def for_avatar(avatar_id: str, now: time | None = None) -> list[Campaign]:
-    """Campaigns due to play right now, in order. What a kiosk asks for."""
+    """Campaigns due to play right now, in order. What a kiosk asks for.
+
+    Takes an avatar because that is the only id a cabinet has, and answers with
+    the showroom's advertising — which is the same whoever is standing in the
+    window.
+    """
+    return for_org(org_of(avatar_id), now)
+
+
+def for_org(org_id: str, now: time | None = None) -> list[Campaign]:
     from datetime import datetime
 
+    if not org_id:
+        return []
     moment = now or datetime.now().time()
-    return [c for c in declared(avatar_id) if c.runs_at(moment)]
+    return [c for c in declared(org_id) if c.runs_at(moment)]
 
 
-def save(avatar_id: str, items: list[Campaign]) -> list[Campaign]:
+def save(org_id: str, items: list[Campaign]) -> list[Campaign]:
     """Write the schedule.
 
-    Writing the file at all is what switches this avatar from "play everything in
-    the folder" to "play what is declared" — so saving an empty list is a valid
-    instruction meaning *stop advertising*, not a no-op.
+    Writing the file at all is what switches this showroom from "play everything
+    in the folder" to "play what is declared" — so saving an empty list is a
+    valid instruction meaning *stop advertising*, not a no-op.
     """
-    folder = _folder(avatar_id)
+    folder = _folder(org_id)
     if folder is None:
-        raise ValueError(f"unusable avatar id: {avatar_id!r}")
+        raise ValueError(f"unusable org id: {org_id!r}")
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "campaigns.json").write_text(
         json.dumps([asdict(c) for c in items], indent=2, ensure_ascii=False) + "\n",
@@ -106,7 +153,7 @@ def save(avatar_id: str, items: list[Campaign]) -> list[Campaign]:
     return items
 
 
-def save_media(avatar_id: str, filename: str, data: bytes) -> str:
+def save_media(org_id: str, filename: str, data: bytes) -> str:
     """Store an uploaded image or clip and return the URL a kiosk plays it from.
 
     The extension is checked against what a browser will actually render, because
@@ -118,12 +165,12 @@ def save_media(avatar_id: str, filename: str, data: bytes) -> str:
     if suffix not in MEDIA:
         raise ValueError(f"{suffix or 'that file'} will not play — use {', '.join(sorted(MEDIA))}")
 
-    folder = _folder(avatar_id)
+    folder = _folder(org_id)
     if folder is None:
-        raise ValueError(f"unusable avatar id: {avatar_id!r}")
+        raise ValueError(f"unusable org id: {org_id!r}")
     folder.mkdir(parents=True, exist_ok=True)
     (folder / safe).write_bytes(data)
-    return f"/avatars/{avatar_id}/campaigns/{safe}"
+    return f"/campaigns/{org_id}/{safe}"
 
 
 def to_dict(campaign: Campaign) -> dict:

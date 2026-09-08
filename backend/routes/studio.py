@@ -696,7 +696,9 @@ def studio_campaigns(avatar_id: str, caller: Principal = Depends(principal)):
     endpoint filters by clock, and an editor needs to see the evening promotion
     at ten in the morning."""
     _avatar_or_404(avatar_id, caller)
-    return [campaigns.to_dict(c) for c in campaigns.declared(avatar_id)]
+    # Scoped to the caller's org, not the avatar. Advertising belongs to the
+    # showroom, so every avatar in it shows the same campaigns.
+    return [campaigns.to_dict(c) for c in campaigns.declared(caller.org_id)]
 
 
 @router.put("/studio/campaigns/{avatar_id}")
@@ -705,8 +707,8 @@ def save_campaigns(
 ):
     _mirrored()
     _avatar_or_404(avatar_id, caller)
-    campaigns.save(avatar_id, [campaigns.Campaign(**i.model_dump()) for i in items])
-    return [campaigns.to_dict(c) for c in campaigns.declared(avatar_id)]
+    campaigns.save(caller.org_id, [campaigns.Campaign(**i.model_dump()) for i in items])
+    return [campaigns.to_dict(c) for c in campaigns.declared(caller.org_id)]
 
 
 @router.post("/studio/campaigns/{avatar_id}/media")
@@ -720,7 +722,7 @@ async def upload_campaign_media(
     if not raw or not name:
         raise HTTPException(400, "need a body and a ?filename=")
     try:
-        src = campaigns.save_media(avatar_id, name, raw)
+        src = campaigns.save_media(caller.org_id, name, raw)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return {"src": src}
@@ -831,7 +833,7 @@ def export_org(caller: Principal = Depends(owner)):
         "kiosks": store.list_kiosks(caller.org_id),
         "products": [catalog.to_dict(p) for p in catalog.all_products(caller.org_id)],
         "campaigns": {
-            a.id: [campaigns.to_dict(c) for c in campaigns.declared(a.id)]
+            a.id: [campaigns.to_dict(c) for c in campaigns.declared(caller.org_id)]
             for a in store.list_avatars(caller.org_id)
         },
     }

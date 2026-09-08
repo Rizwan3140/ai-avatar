@@ -381,6 +381,29 @@ check(
     "cannot delete it",
     client.delete(f"/api/studio/avatars/{AVATAR}", headers=south).status_code == 404,
 )
+# Advertising belongs to the showroom, not to whoever is standing in the window.
+# It used to live under `avatars/<id>/campaigns/`, so a campaign uploaded against
+# one avatar was invisible when demonstrating with another, and a shop running
+# two avatars had to upload everything twice.
+client.put(
+    f"/api/studio/campaigns/{AVATAR}",
+    headers=north,
+    json=[{"id": "sale", "src": "/campaigns/x/sale.png", "kind": "image", "seconds": 8}],
+)
+_second = client.post(
+    "/api/studio/avatars", headers=north, json={"name": "Second"}
+).json()["id"]
+check(
+    "a campaign saved against one avatar plays on another",
+    len(client.get(f"/api/campaigns/{_second}").json()) == 1,
+)
+check(
+    "and the studio shows it against either",
+    len(client.get(f"/api/studio/campaigns/{_second}", headers=north).json()) == 1,
+)
+client.delete(f"/api/studio/avatars/{_second}", headers=north)
+# Shared across a showroom is not shared across showrooms: the org boundary is
+# still the boundary.
 check(
     "cannot read its campaigns",
     client.get(f"/api/studio/campaigns/{AVATAR}", headers=south).status_code == 404,
