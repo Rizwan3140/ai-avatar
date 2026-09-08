@@ -101,14 +101,26 @@ def main() -> int:
     # and a showroom cannot afford a nonsense first result.
     # Sorted, because the order here is bm25 relevance and asserting it would
     # make this brittle. What matters is that nothing else gets in.
-    # One per category. "show me laptops" is a browse, and a browse says what the
-    # shop sells rather than listing a shelf — naming the category outright still
-    # returns every one of them, which the check below this proves.
-    check("filler words match nothing", names(catalog.search("show me laptops")),
-          ["Titan Pro 16"])
-    check("naming a category still returns the shelf",
-          len(catalog.search(category="Laptops")), 2)
-    check("polite phrasing still works", len(catalog.search("do you have any dresses")), 1)
+    # Naming a shelf returns the shelf. This asserted the opposite — that "show
+    # me laptops" thinned to one laptop — on the reasoning that a browse should
+    # say what the shop sells. But "show me laptops" is not a browse, it is a
+    # person pointing at a shelf, and on the real catalog the same rule returned
+    # eight products from eight categories for "show me kurta sets". Thinning is
+    # for "what do you have"; a named category is the visitor doing the
+    # narrowing themselves.
+    check("naming a category returns the shelf", len(catalog.search("show me laptops")), 2)
+    check("in either form", len(catalog.search(category="Laptops")), 2)
+    check("polite phrasing still works", len(catalog.search("do you have any dresses")), 2)
+    # And the shelf word is lifted out before ranking, so what is left ranks
+    # within it rather than against it.
+    check("lifts the shelf word out before ranking",
+          catalog.parse_category("show me the laptops please")[0].split(),
+          ["show", "me", "the", "please"])
+    # Only shelves this org actually has. "kurta sets" is not one yet in this
+    # fixture, so nothing is lifted — the multi-word case is checked below,
+    # once the vocabulary fixture adds it.
+    check("an unknown shelf lifts nothing",
+          catalog.parse_category("show me the kurta sets")[1], "")
     check("only the question matters", names(catalog.search("I am looking for silk")),
           ["Midnight Wrap Dress"])
 
@@ -123,7 +135,7 @@ def main() -> int:
 
     print("\ncrawler")
 
-    from backend.crawl import _Extract, product_from_jsonld, product_from_meta
+    from backend.crawl import _Extract, _public_url, product_from_jsonld, product_from_meta
 
     # The shapes a real storefront actually emits: a @graph wrapper, a nested
     # brand object, a list of images, and availability as a schema.org URL.
@@ -154,6 +166,13 @@ def main() -> int:
     check("flattens the brand object", crawled.attributes.get("brand"), "Aurelia")
     check("keeps vertical attributes", crawled.attributes.get("material"), "Silk")
     check("collects links to follow", parser.links, ["/p/2"])
+
+    for unsafe in ("ftp://example.com/shop", "http://127.0.0.1:8000", "http://user:pass@example.com"):
+        try:
+            _public_url(unsafe)
+            check(f"rejects unsafe crawl url: {unsafe}", False, True)
+        except ValueError:
+            check(f"rejects unsafe crawl url: {unsafe}", True, True)
 
     fallback = product_from_meta(parser.meta, "https://shop/p/9")
     check("opengraph fallback", (fallback.name, fallback.price), ("Fallback Product", 1299.0))
@@ -330,6 +349,13 @@ def main() -> int:
     check("so does the plural", catalog.search("saris")[0].category, "Sarees")
     check("and a salwar suit finds kurta sets",
           catalog.search("salwar")[0].category, "Kurta Sets")
+    # A two-word shelf is lifted whole. Leaving "sets" behind would rank a
+    # jewellery set against the kurta sets the visitor asked for.
+    check("lifts a multi-word category cleanly",
+          catalog.parse_category("show me the kurta sets please")[0].split(),
+          ["show", "me", "the", "please"])
+    check("and filters to it", {p.category for p in catalog.search("show me kurta sets")},
+          {"Kurta Sets"})
 
     # difflib covers what the alias table does not: plurals, typos, and the
     # transcription errors a microphone in a mall will produce.

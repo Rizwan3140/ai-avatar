@@ -448,8 +448,9 @@ CATEGORY_ALIASES = {
     "kurtis": "Kurtas",
     "kurta": "Kurtas",
     "salwar": "Kurta Sets",
-    "suit": "Kurta Sets",
-    "suits": "Kurta Sets",
+    # "suit" is deliberately absent. Now that a named category filters every
+    # search rather than only rescuing a miss, "does this suit me?" would have
+    # swapped the sarees on screen for kurta sets mid-sentence.
     "dupatta": "Dupattas",
     "chunni": "Dupattas",
     "blouse": "Blouses",
@@ -498,6 +499,62 @@ def resolve_category(text: str, org_id: str = DEFAULT_ORG) -> str:
         if match:
             return known[match[0]]
     return ""
+
+
+def parse_category(text: str, org_id: str = DEFAULT_ORG) -> tuple[str, str]:
+    """Lift the shelf out of the sentence, the way `parse_facets` lifts a colour.
+
+    "Show me kurta sets" returned eight products in eight different categories,
+    one of them a kurta set. The words matched a co-ord, a dupatta and a dress
+    whose copy mentions a kurta, and the one-per-category thinning that makes a
+    browse look like a showroom then made a shelf look like a jumble. The
+    visitor named a category; the category has to be the filter, not a hint.
+
+    Returns the text with the category's words removed, so what is left is the
+    part FTS should rank on — "for gaming" from "laptop for gaming" — and an
+    empty remainder means the shelf, unranked.
+    """
+    known = {c.lower(): c for c in categories(org_id) if c.strip()}
+    if not known:
+        return text, ""
+    words = re.findall(r"[a-z]+", text.lower())
+
+    def lift(hit: str, said: set[str]) -> tuple[str, str]:
+        # Every word of the shelf goes, not just the one that matched. Leaving
+        # "sets" behind after lifting "Kurta Sets" ranks a jewellery set against
+        # the kurta sets somebody asked for.
+        gone = said | set(hit.lower().split())
+        kept = [w for w in text.split() if re.sub(r"[^a-z]", "", w.lower()) not in gone]
+        return " ".join(kept), hit
+
+    # Pairs before singles, because a longer phrase is a more specific request
+    # and this catalog is full of two-word shelves — "Kurta Sets", "Jewellery
+    # Sets", "Ethnic Bags". Matching "kurta" alone sent someone asking for a
+    # kurta set to the kurtas, which is a different rail in a real shop.
+    for a, b in zip(words, words[1:]):
+        # Both halves have to carry meaning. "the laptops" scores 0.78 against
+        # "Laptops" on its own, so a pair holding a function word matched — and
+        # lifted "the" out of the sentence with it.
+        if a in STOPWORDS or b in STOPWORDS:
+            continue
+        phrase = f"{a} {b}"
+        if phrase in known:
+            return lift(known[phrase], {a, b})
+        match = difflib.get_close_matches(phrase, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
+        if match:
+            return lift(known[match[0]], {a, b})
+
+    for word in words:
+        if word in STOPWORDS:
+            continue
+        target = CATEGORY_ALIASES.get(word, "")
+        hit = known.get(target.lower()) if target else None
+        if not hit:
+            match = difflib.get_close_matches(word, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
+            hit = known[match[0]] if match else None
+        if hit:
+            return lift(hit, {word})
+    return text, ""
 
 
 def _facet_values(column: str, org_id: str) -> list[str]:
@@ -571,6 +628,18 @@ def search(
     out loud to a customer.
     """
     init()
+
+    # A category named in the sentence is a filter, applied before anything is
+    # ranked. This used to run only as a fallback on a miss — so "show me sarees"
+    # keyword-matched a blouse and an accessory whose copy says "saree", never
+    # reached the fallback, and the thinning below returned one of each. The
+    # visitor said which shelf; ranking other shelves against it is not a
+    # search, it is a guess with a confident face.
+    lifted = False
+    if query.strip() and not category:
+        query, category = parse_category(query, org_id)
+        lifted = bool(category)
+
     # Always present, always first. A tenant filter that is one branch among
     # several is a tenant filter that a later edit can drop.
     clauses: list[str] = ["p.org_id = ?"]
@@ -623,6 +692,22 @@ def search(
     with _connect() as conn:
         rows = conn.execute(sql, params).fetchall()
     found = [_row_to_product(r) for r in rows]
+
+    # The words left over after lifting a shelf are a ranking hint, not a second
+    # filter. "What's the best laptop?" leaves "best", which appears in no
+    # laptop's copy — so ANDing it against the category returned nothing at all
+    # for a question about a shelf we stock. Fall back to the shelf itself.
+    if not found and lifted:
+        return search(
+            "",
+            category,
+            max_price,
+            limit,
+            org_id,
+            per_category=False,
+            color=color,
+            style=style,
+        )
 
     # Nothing matched, and the words might still name something we stock. A
     # customer says "sari", the shop files it as "Sarees", and FTS matches
