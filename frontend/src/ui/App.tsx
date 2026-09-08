@@ -21,7 +21,7 @@ export function App() {
   const hasCampaigns = useStore((s) => s.hasCampaigns)
 
   return (
-    <main className="relative h-full overflow-hidden bg-canvas">
+    <main className="kiosk-root relative h-full overflow-hidden bg-canvas">
       {/* He shrinks aside rather than leaving. The visitor is still being helped
           by someone, not left browsing a website. */}
       <div

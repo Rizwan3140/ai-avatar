@@ -23,7 +23,7 @@ export function Subtitle() {
 
   function content() {
     if (error) {
-      return <p className="text-ink-soft text-body">{error}</p>
+      return <p role="alert" className="text-ink-soft text-body">{error}</p>
     }
 
     // Boot shows motion, never a progress log. The step name is in the event
@@ -52,7 +52,7 @@ export function Subtitle() {
           className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 mx-auto flex max-w-[80%] items-start gap-[0.8em] rounded-[1.1em] px-[1.3em] py-[1.05em] text-left shadow-float backdrop-blur-md"
         >
           <Spark />
-          <p className="text-ink text-title leading-relaxed font-normal text-balance">{subtitle}</p>
+          <p aria-live="polite" className="text-ink text-title leading-relaxed font-normal text-balance">{subtitle}</p>
         </div>
       )
     }

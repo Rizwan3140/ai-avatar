@@ -15,6 +15,10 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState<{ text: string; screen?: Screen } | null>(null)
+  const [draft, setDraft] = useState<Product | null>(null)
+  const [crawlOpen, setCrawlOpen] = useState(false)
+  const [crawlUrl, setCrawlUrl] = useState('')
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const mayWrite = who.role !== 'viewer'
 
@@ -40,12 +44,14 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
 
   const crawl = () =>
     act(async () => {
-      const url = window.prompt('Storefront URL to read')
-      if (!url?.trim()) return null
+      const url = crawlUrl.trim()
+      if (!url) return null
       const result = await api<{ imported: number }>('/api/studio/products/crawl', {
         method: 'POST',
         body: { url, limit: 40 },
       })
+      setCrawlUrl('')
+      setCrawlOpen(false)
       return {
         text: result.imported
           ? `${result.imported} products read from ${url}.`
@@ -60,11 +66,10 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
 
   const clearAll = () =>
     act(async () => {
-      const n = products.data?.length ?? 0
-      if (!window.confirm(`Remove all ${n} products? Import your own afterwards.`)) return null
       const { removed } = await api<{ removed: number }>('/api/studio/products', {
         method: 'DELETE',
       })
+      setConfirmClear(false)
       return { text: `${removed} removed. The catalog is empty — import yours now.` }
     })
 
@@ -72,6 +77,17 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
     act(async () => {
       await api(`/api/studio/products/${encodeURIComponent(product.id)}`, { method: 'DELETE' })
       return { text: `${product.name} removed.` }
+    })
+
+  const saveEdit = () =>
+    act(async () => {
+      if (!draft) return null
+      const saved = await api<Product>('/api/studio/products', {
+        method: 'PUT',
+        body: draft,
+      })
+      setDraft(null)
+      return { text: `${saved.name} saved.` }
     })
 
   return (
@@ -104,7 +120,7 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
         hint="Column names are matched by meaning, so a company's own export works without editing. A file is read by its shape — rows become products, prose becomes passages."
         action={
           mayWrite && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <FilePicker
                 label={busy ? 'Reading…' : 'Import a file'}
                 accept=".csv,.tsv,.json,.txt,.md,.docx,.pdf"
@@ -112,23 +128,173 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                 onPick={importFile}
                 tone="primary"
               />
-              <Button tone="quiet" onClick={crawl} disabled={busy}>
+              <Button tone="quiet" onClick={() => setCrawlOpen((value) => !value)} disabled={busy}>
                 Read a website
               </Button>
               {/* Sample data is useful until the moment a customer uploads
                   their own, and then it is a laptop in a saree shop. */}
-              <Button
-                tone="danger"
-                onClick={clearAll}
-                disabled={busy || !products.data?.length}
-              >
-                Clear all
-              </Button>
+              {confirmClear ? (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1">
+                  <span className="text-amber-800 text-xs">Remove {products.data?.length ?? 0} products?</span>
+                  <Button tone="danger" onClick={clearAll} disabled={busy}>Yes, clear</Button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(false)}
+                    className="text-amber-800 text-xs underline underline-offset-2"
+                  >
+                    cancel
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  tone="danger"
+                  onClick={() => setConfirmClear(true)}
+                  disabled={busy || !products.data?.length}
+                >
+                  Clear all
+                </Button>
+              )}
             </div>
           )
         }
       >
         {products.error && <Note tone="warn">{products.error}</Note>}
+        {crawlOpen && (
+          <form
+            className="mb-5 flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-end"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void crawl()
+            }}
+          >
+            <label className="text-ink-soft flex-1 text-xs">
+              Storefront URL
+              <input
+                className="input mt-1"
+                type="url"
+                inputMode="url"
+                placeholder="https://shop.example.com"
+                value={crawlUrl}
+                onChange={(event) => setCrawlUrl(event.target.value)}
+                autoFocus
+                required
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={busy || !crawlUrl.trim()}>
+                {busy ? 'Reading…' : 'Read URL'}
+              </Button>
+              <Button tone="quiet" onClick={() => setCrawlOpen(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+        {draft && (
+          <section className="mb-5 rounded-lg border border-line bg-white p-4" aria-label="Edit product">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-medium">Edit product</h3>
+                <p className="text-ink-soft mt-1 text-xs">Keep the price, availability, and customer-facing copy accurate.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDraft(null)}
+                className="text-ink-soft text-xs underline underline-offset-2"
+              >
+                cancel
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-ink-soft text-xs">
+                Name
+                <input
+                  className="input mt-1"
+                  value={draft.name}
+                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                />
+              </label>
+              <label className="text-ink-soft text-xs">
+                Category
+                <input
+                  className="input mt-1"
+                  value={draft.category}
+                  onChange={(event) => setDraft({ ...draft, category: event.target.value })}
+                />
+              </label>
+              <label className="text-ink-soft text-xs">
+                Price
+                <input
+                  className="input mt-1"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draft.price ?? ''}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      price: event.target.value === '' ? null : Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label className="text-ink-soft text-xs">
+                Currency
+                <input
+                  className="input mt-1"
+                  value={draft.currency}
+                  onChange={(event) => setDraft({ ...draft, currency: event.target.value.toUpperCase() })}
+                  maxLength={3}
+                />
+              </label>
+              <label className="text-ink-soft text-xs">
+                Availability
+                <select
+                  className="input mt-1"
+                  value={draft.availability}
+                  onChange={(event) => setDraft({ ...draft, availability: event.target.value })}
+                >
+                  <option value="in_stock">In stock</option>
+                  <option value="out_of_stock">Out of stock</option>
+                </select>
+              </label>
+              <label className="text-ink-soft text-xs sm:col-span-2">
+                Description
+                <textarea
+                  className="input mt-1 min-h-24 resize-y"
+                  value={draft.description}
+                  onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                />
+              </label>
+              <label className="text-ink-soft text-xs sm:col-span-2">
+                Product URL
+                <input
+                  className="input mt-1"
+                  type="url"
+                  value={draft.url}
+                  onChange={(event) => setDraft({ ...draft, url: event.target.value })}
+                />
+              </label>
+              <label className="text-ink-soft text-xs sm:col-span-2">
+                Image URL
+                <input
+                  className="input mt-1"
+                  type="url"
+                  value={draft.image}
+                  onChange={(event) => setDraft({ ...draft, image: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={saveEdit} disabled={busy || !draft.name.trim()}>
+                {busy ? 'Saving…' : 'Save product'}
+              </Button>
+              <Button tone="quiet" onClick={() => setDraft(null)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+          </section>
+        )}
         {!products.data ? (
           <Empty>Loading…</Empty>
         ) : products.data.length === 0 ? (
@@ -140,7 +306,7 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
             <table className="w-full min-w-[560px] border-collapse bg-white text-sm">
               <thead>
                 <tr className="border-b border-line">
-                  {['Product', 'Category', 'Price', 'Image', ''].map((head) => (
+                  {['Product', 'Category', 'Price', 'Image', 'Actions'].map((head) => (
                     <th
                       key={head}
                       className="text-ink-soft px-3 py-2 text-left text-[11px] font-semibold tracking-wider uppercase"
@@ -170,14 +336,24 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                     </td>
                     <td className="px-3 py-2 text-right">
                       {mayWrite && (
-                        <button
-                          type="button"
-                          onClick={() => remove(product)}
-                          disabled={busy}
-                          className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
-                        >
-                          remove
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setDraft({ ...product })}
+                            disabled={busy}
+                            className="text-ink-soft text-xs underline underline-offset-2 hover:text-ink"
+                          >
+                            edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => remove(product)}
+                            disabled={busy}
+                            className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
+                          >
+                            remove
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -12,7 +12,8 @@ import config from '../voice/voice.config.ts'
  * filter threw away, what she replied, and whether the recogniser is even
  * running.
  *
- * Hidden in production builds. Press ` (backtick) to toggle.
+ * Hidden by default in production builds. The small toggle keeps it available
+ * for staff without making a visitor discover a keyboard shortcut.
  */
 type Line = {
   kind: 'you' | 'her' | 'echo' | 'system'
@@ -24,7 +25,10 @@ type Line = {
 const MAX_LINES = 60
 
 export function Transcript() {
-  const [open, setOpen] = useState(import.meta.env?.DEV ?? false)
+  const diagnostics =
+    (import.meta.env?.DEV ?? false) ||
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1')
+  const [open, setOpen] = useState(diagnostics)
   const [lines, setLines] = useState<Line[]>([])
   const [interim, setInterim] = useState('')
   const [mic, setMic] = useState(false)
@@ -94,10 +98,24 @@ export function Transcript() {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
   }, [lines, interim])
 
-  if (!open) return null
+  // The transcript is a staff diagnostic, not a visitor-facing feature. A
+  // deliberate `?debug=1` keeps it reachable on a deployed cabinet without
+  // putting technical status copy in the normal showroom experience.
+  if (!diagnostics) return null
 
   return (
-    <aside className="pointer-events-none absolute bottom-6 left-6 z-20 flex w-[min(32vw,400px)] flex-col overflow-hidden rounded-2xl bg-black/70 text-white shadow-float backdrop-blur-xl">
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="transcript-panel"
+        onClick={() => setOpen((value) => !value)}
+        className="pointer-events-auto absolute bottom-safe left-safe z-30 rounded-full bg-black/60 px-3 py-2 text-[10px] tracking-[0.12em] text-white/65 uppercase shadow-sm backdrop-blur-md transition-colors hover:bg-black/75 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      >
+        {open ? 'Hide transcript' : 'Show transcript'}
+      </button>
+
+      {open && <aside id="transcript-panel" role="region" aria-label="Conversation transcript" style={{ bottom: 'calc(var(--spacing-safe) + 3.5rem)' }} className="pointer-events-auto absolute left-safe z-20 flex w-[min(32vw,400px)] flex-col overflow-hidden rounded-2xl bg-black/70 text-white shadow-float backdrop-blur-xl">
       <header className="flex items-center gap-2 px-4 py-2 text-[10px] tracking-[0.18em] text-white/45 uppercase">
         <span
           className={`size-[7px] rounded-full ${mic ? 'bg-emerald-400' : 'bg-white/25'}`}
@@ -105,7 +123,7 @@ export function Transcript() {
         />
         <span>{mic ? 'mic open' : 'mic closed'}</span>
         <span className="ml-auto">{status}</span>
-        <span className="text-white/25">` hide</span>
+        <span className="text-white/25">` toggle</span>
       </header>
 
       {/* Live input level — proof the microphone is hearing you, before any
@@ -122,7 +140,7 @@ export function Transcript() {
         <span>speech ≥ {config.voiceThreshold} · barge-in ≥ {config.bargeInThreshold}</span>
       </div>
 
-      <div ref={scroller} className="max-h-[38vh] space-y-2 overflow-y-auto px-4 pb-3 text-[13px] leading-snug">
+      <div ref={scroller} aria-live="polite" aria-atomic="false" className="max-h-[38vh] space-y-2 overflow-y-auto px-4 pb-3 text-[13px] leading-snug">
         {lines.length === 0 && !interim && (
           <p className="py-2 text-white/35">
             {mic ? 'Listening — say something.' : 'Tap the microphone to start.'}
@@ -142,7 +160,8 @@ export function Transcript() {
         {/* Live partial — proof the microphone is actually open. */}
         {interim && <p className="text-accent/80 italic">{interim}…</p>}
       </div>
-    </aside>
+      </aside>}
+    </>
   )
 }
 

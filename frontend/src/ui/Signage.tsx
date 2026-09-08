@@ -29,12 +29,16 @@ export function Signage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [index, setIndex] = useState(0)
 
-  // Sleep used to blank the panel. On a concourse a dark shop window reads as
-  // broken, and an idle cabinet is the advertising slot this product exists to
-  // fill — so sleep runs the same playlist, with the whole frame instead of the
-  // gutter, because there is no avatar left to share it with.
+  // Only asleep. This ran during `idle` too, which is the state a cabinet is in
+  // before anybody has said a word to it — so the advertising was up beside him
+  // from the moment the page loaded, competing with the person who is supposed
+  // to be the first thing you notice.
+  //
+  // Sleep is different: ten minutes with nobody there, no avatar on screen, and
+  // a dark shop window on a concourse reads as broken. Then it is a screensaver,
+  // it takes the whole frame, and a touch brings him back.
   const asleep = status === 'sleeping'
-  const idle = status === 'idle' || asleep
+  const idle = asleep
 
   useEffect(() => {
     if (!avatarId) return

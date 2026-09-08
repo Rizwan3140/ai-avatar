@@ -81,7 +81,15 @@ export const httpProvider: AiProvider = {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, context, session: sessionId() }),
+      body: JSON.stringify({
+        message,
+        context,
+        session: sessionId(),
+        // The avatar is the tenant boundary for the conversation. The server
+        // can only resolve the right persona and catalog when the browser sends
+        // the identity it booted with.
+        avatar_id: useStore.getState().avatarId,
+      }),
       signal,
     })
 
@@ -128,6 +136,10 @@ export type KioskConfig = {
   /** Token overrides for the season in force today. Absent means the everyday
    *  look, which is the tokens already compiled into the stylesheet. */
   season?: Record<string, string>
+  /** "studio" on a machine somebody works at, "kiosk" on a cabinet. Decides
+   *  whether the wordmark on the panel is a way back to the dashboard — on a
+   *  cabinet it must not be, because the public is standing in front of it. */
+  home?: string
 }
 
 /**

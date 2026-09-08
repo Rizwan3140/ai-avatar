@@ -81,11 +81,17 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-weight: 400;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Kiosk-only interaction rules. Keeping these off `body` lets the Studio use
+   normal page scrolling, text selection, and form controls. */
+.kiosk-root {
+  height: 100%;
   overflow: hidden;
-  /* Kiosk: no text selection, no long-press menus, no rubber-band scroll. */
   user-select: none;
   -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
 

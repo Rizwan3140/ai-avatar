@@ -72,8 +72,15 @@ export default {
   /** After the crossfade lands, before the first phoneme. */
   speechDelay: 120,
 
-  /** Idle this long and she sleeps. OLED kiosks run for months. */
-  sleepAfter: 3 * 60 * 1000,
+  /**
+   * Idle this long and he sleeps, and the campaigns take the screen.
+   *
+   * Ten minutes, not three. Sleep is now the screensaver rather than a blank
+   * panel, so this is the gap after which a cabinet stops presenting a person
+   * and starts advertising — and three minutes is a customer still deciding.
+   * OLED kiosks run for months, which is what the burn-in shift below is for.
+   */
+  sleepAfter: 10 * 60 * 1000,
   /** Burn-in: nudge static elements this far, this often. */
   burnInShift: 3,
   burnInInterval: 60 * 1000,

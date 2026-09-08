@@ -32,9 +32,11 @@ export async function boot(): Promise<void> {
   const wanted = new URLSearchParams(window.location.search).get('avatar')?.trim() || ''
 
   try {
-    const { avatar, tryon, season } = await step('identity', () =>
+    const { avatar, tryon, season, home } = await step('identity', () =>
       wanted ? fetchAvatar(wanted) : fetchKiosk(KIOSK_ID),
     )
+    // Whether the wordmark is a way back to the dashboard. A cabinet says no.
+    useStore.setState({ studioReachable: home === 'studio' })
     // Before anything paints. What the showroom is wearing this month arrives
     // with its identity, so the panel never flashes the everyday look and then
     // repaints itself into Diwali a moment later.

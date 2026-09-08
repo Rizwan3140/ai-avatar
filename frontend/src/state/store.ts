@@ -53,6 +53,19 @@ type State = {
    * transparent OLED alive through a showroom's quiet hours.
    */
   hasCampaigns: boolean
+
+  /**
+   * Whether this machine has a studio to go back to.
+   *
+   * False on a cabinet, where the wordmark must not be a door into the
+   * dashboard for whoever is standing in front of a shop window. True on a
+   * workstation, where it is the obvious way home and doing nothing when
+   * clicked reads as broken.
+   *
+   * Comes from the same `LUXORA_HOME` that decides what `/` opens, so the panel
+   * and the server cannot disagree about what kind of machine this is.
+   */
+  studioReachable: boolean
 }
 
 /**
@@ -76,6 +89,10 @@ export const useStore = create<State>(() => ({
   // a flag failed to load is the wrong direction for this one to fail in.
   tryon: { available: false, provider: '', on_device: false },
   hasCampaigns: false,
+  // Off until the kiosk says otherwise, the same direction as `tryon`: a link
+  // into the dashboard appearing because a flag failed to load is the wrong way
+  // for this one to fail.
+  studioReachable: false,
 }))
 
 const set = useStore.setState
@@ -89,7 +106,9 @@ bus.on('SYSTEM_ERROR', ({ message }) => set({ error: message }))
 
 // The mic stays hot for the whole conversation, so a session begins in
 // listening and returns there after every reply. Idle means no conversation.
-bus.on('SESSION_STARTED', () => set({ status: 'listening', subtitle: '', muted: false }))
+bus.on('SESSION_STARTED', () =>
+  set({ status: 'listening', subtitle: '', muted: false, error: null }),
+)
 bus.on('SESSION_ENDED', () =>
   set({ status: 'idle', subtitle: '', emotion: 'neutral', muted: false }),
 )
@@ -108,7 +127,7 @@ bus.on('MIC_MUTED', ({ muted }) =>
 bus.on('SESSION_WAKE', () => set({ status: 'idle', subtitle: '' }))
 
 bus.on('USER_STARTED_SPEAKING', () => set({ status: 'listening', subtitle: '' }))
-bus.on('USER_UTTERANCE', () => set({ status: 'thinking' }))
+bus.on('USER_UTTERANCE', () => set({ status: 'thinking', error: null }))
 
 bus.on('SPEECH_STARTED', () => set({ status: 'speaking' }))
 bus.on('SPEECH_SENTENCE', ({ text }) => set({ subtitle: text }))

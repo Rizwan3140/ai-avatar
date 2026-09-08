@@ -53,7 +53,16 @@ export function Prompts() {
           <button
             key={label}
             type="button"
-            onClick={() => bus.emit('USER_UTTERANCE', { text: say })}
+            onClick={() => {
+              // A prompt is a way into the same conversation, not a shortcut
+              // around it. Start the session first so the voice engine and
+              // history are ready before the utterance reaches the model.
+              if (status === 'idle') {
+                if (muted) bus.emit('MIC_MUTED', { muted: false })
+                else bus.emit('SESSION_STARTED')
+              }
+              bus.emit('USER_UTTERANCE', { text: say })
+            }}
             className="border-line bg-canvas/80 text-ink text-label hover:border-ink/30 rounded-full border px-[1.4em] py-[0.7em] shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow] duration-300 ease-(--ease-human) hover:-translate-y-px hover:shadow-md active:translate-y-0"
           >
             {label}

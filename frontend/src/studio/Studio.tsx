@@ -142,9 +142,8 @@ export default function Studio() {
   }
 
   return (
-    // `h-full overflow-y-auto`, not `min-h-full`: index.css sets
-    // `body { overflow: hidden }` so a kiosk cannot rubber-band, which also meant
-    // the Studio could not scroll at all — a persona editor and a product table
+    // The kiosk owns its overflow rules on `.kiosk-root`; the Studio is allowed
+    // to use document scrolling so long forms and product tables remain usable.
     // The rail replaced a row of four tabs with five more screens buried behind
     // cards on Home — over half the product was reachable only by going Home
     // first and knowing which card to look under.

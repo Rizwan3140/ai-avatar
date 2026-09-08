@@ -65,6 +65,11 @@ def kiosk(kiosk_id: str):
         # request is in flight, and so it survives on last-known-good config
         # when there is no network to ask.
         "season": seasons.active(k.org_id),
+        # Whether this machine has a studio worth going back to. A workstation
+        # does; a cabinet in a mall does not, and the wordmark on its panel must
+        # not be a door into the dashboard for whoever is standing in front of
+        # it. Same value that decides what `/` opens, so the two cannot disagree.
+        "home": config.HOME,
     }
 
 

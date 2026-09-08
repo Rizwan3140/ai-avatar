@@ -15,6 +15,7 @@ import { useStore } from '../state/store.ts'
  */
 export function Masthead({ name }: { name?: string }) {
   const status = useStore((s) => s.status)
+  const studioReachable = useStore((s) => s.studioReachable)
   const sleeping = status === 'sleeping'
 
   return (
@@ -23,10 +24,30 @@ export function Masthead({ name }: { name?: string }) {
       className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-4 px-safe pt-safe transition-opacity duration-700 ease-(--ease-human)"
       style={{ opacity: sleeping ? 0 : 1 }}
     >
-      <div className="flex flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)]">
-        <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
-          {name ?? 'Dhiyona'}
-        </span>
+      {/*
+        The wordmark is a way back to the dashboard — but only on a machine that
+        has one. On a cabinet it stays exactly what it was: text, unclickable,
+        because a member of the public standing at a shop window must not be one
+        tap from the studio. `pointer-events` is re-enabled on this element
+        alone; the header itself stays transparent to touch so the panel behind
+        it still wakes.
+      */}
+      <div
+        className={`flex flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)] ${
+          studioReachable ? 'pointer-events-auto' : ''
+        }`}
+      >
+        {studioReachable ? (
+          <a href="/studio" aria-label={`${name ?? 'Dhiyona'} — back to the studio`}>
+            <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
+              {name ?? 'Dhiyona'}
+            </span>
+          </a>
+        ) : (
+          <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
+            {name ?? 'Dhiyona'}
+          </span>
+        )}
         <span className="text-ink-soft text-label tracking-[0.24em] uppercase opacity-70">
           Showroom assistant
         </span>
