@@ -10,7 +10,7 @@ The org comes from the token, never from the request body. A tenant id a caller
 can name is not a tenant id — it is a parameter for reading someone else's data.
 """
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -24,26 +24,63 @@ router = APIRouter(prefix="/api", tags=["studio"])
 # --- who is calling ----------------------------------------------------------
 
 
-def principal(authorization: str = Header(default="")) -> Principal:
+#: Addresses that are this machine's own console.
+#:
+#: `::ffff:127.0.0.1` is included because a dual-stack listener reports IPv4
+#: clients in that form, and reading it as "not loopback" would lock somebody
+#: out of their own bench install.
+LOOPBACK = frozenset({"127.0.0.1", "::1", "::ffff:127.0.0.1", "localhost"})
+
+
+def principal(request: Request, authorization: str = Header(default="")) -> Principal:
     """The caller, or a 401.
 
-    With no accounts on the machine this returns a default owner: that is the
-    single-kiosk install that exists today, where demanding a login before anyone
-    can create one is a locked door with the key inside. The first account closes
-    it for good.
+    With no accounts on the machine this returns a default owner **to a caller
+    at the machine itself**: that is the single-kiosk install that exists today,
+    where demanding a login before anyone can create one is a locked door with
+    the key inside. The first account closes it for good.
+
+    The loopback condition is the part that was missing, and it was load-bearing
+    without being written down. "No accounts exist" was standing in for "whoever
+    is asking is sitting at this machine", which held while the only way to
+    reach the port was to be in the room. `start.ps1` ended that: it opens a
+    Cloudflare tunnel over the whole app at every logon and writes the public
+    HTTPS address to a file. Quick-tunnel hostnames appear in Certificate
+    Transparency logs, so the address is discoverable — and every studio route
+    then answered to the internet as a full owner, with no token: wipe the
+    catalog, rewrite the persona a public screen speaks from, replace the
+    footage, export the org.
+
+    A bench install is unchanged. A tunnelled one now refuses, which is the
+    honest answer to "who are you" from a stranger.
     """
     if not accounts.any_users():
-        return Principal(
-            user_id="local", email="", org_id=accounts.DEFAULT_ORG, role="owner"
+        client = request.client.host if request.client else ""
+        if client in LOOPBACK:
+            return Principal(
+                user_id="local", email="", org_id=accounts.DEFAULT_ORG, role="owner"
+            )
+        raise HTTPException(
+            401,
+            "This machine has no accounts yet. Create the first one from the "
+            "machine itself, then sign in.",
         )
 
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
         raise HTTPException(401, "sign in to continue")
     try:
-        return accounts.verify_token(token)
+        caller = accounts.verify_token(token)
     except AuthError as exc:
         raise HTTPException(401, str(exc)) from exc
+
+    # The token proves identity; the database decides rights. See
+    # `accounts.membership` — without this, removing somebody left their token
+    # working with its original role until it expired.
+    role = accounts.membership(caller.user_id, caller.org_id)
+    if role is None:
+        raise HTTPException(401, "your access to this organisation has ended")
+    return replace(caller, role=role)
 
 
 def editor(caller: Principal = Depends(principal)) -> Principal:
@@ -102,11 +139,27 @@ def auth_status():
 
 
 @router.post("/auth/signup")
-def signup(req: SignupRequest):
+def signup(request: Request, req: SignupRequest):
     # After the first account exists, signup would let anyone on the network mint
     # themselves an org on this platform. Further accounts come from an owner.
     if accounts.any_users():
         raise HTTPException(403, "this platform already has accounts — ask an owner for one")
+
+    # And before it exists, this route hands out ownership of the whole install
+    # to whoever asks first. A fresh deploy has an empty database and a public
+    # port, and `_adopt_existing` below moves every avatar, kiosk, product and
+    # document already on disk into the new org — so a stranger who arrives
+    # before the operator does not merely get an account, they inherit the
+    # showroom, and the guard above then locks the real operator out.
+    #
+    # The window is small and the outcome is total, which is the combination
+    # worth closing. Claiming an install is something you do at the machine.
+    client = request.client.host if request.client else ""
+    if client not in LOOPBACK:
+        raise HTTPException(
+            403,
+            "The first account must be created from the machine itself.",
+        )
     try:
         caller = accounts.signup(req.email, req.password, req.org_name, req.vertical)
     except AuthError as exc:

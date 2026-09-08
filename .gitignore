@@ -44,7 +44,11 @@ knowledge/.secret
 
 # The catalog, the knowledge passages and the accounts. A customer's data, and
 # rebuilt from their own files by `python -m backend.ingest`.
-knowledge/catalog.db
+# The glob matters. This named one filename, and `prune.py` writes
+# `catalog.db.bak` beside it — 24 MB holding the `users` table, so every
+# customer email and scrypt hash, one `git add -A` from a public repository.
+# SQLite's own `-wal` and `-shm` sidecars carry the same rows mid-write.
+knowledge/catalog.db*
 
 # A photograph of a real person, uploaded to build a poster. Deleted after the
 # cut-out runs; ignored so an interrupted upload never lands in a commit.

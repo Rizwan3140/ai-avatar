@@ -61,7 +61,15 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.main import app  # noqa: E402
 
-client = TestClient(app)
+# Loopback, because that is what a person at the machine is. TestClient reports
+# "testclient" by default, which is not an address at all — and putting that
+# string in the server's allowlist to make a suite pass would be writing a
+# backdoor into production to satisfy a test.
+client = TestClient(app, client=("127.0.0.1", 50000))
+
+#: The same app, reached from somewhere else. Used for the checks that a
+#: stranger is refused what the console is given.
+remote = TestClient(app, client=("203.0.113.7", 50000))
 ok = bad = 0
 
 
@@ -81,6 +89,24 @@ check("a fresh machine reports itself open", r.json() == {"open": True})
 
 r = client.get("/api/studio/avatars")
 check("and the studio answers without a token", r.status_code == 200)
+
+# But only to somebody at the machine. "No accounts exist" was standing in for
+# "whoever is asking is in the room", which held until start.ps1 began opening a
+# Cloudflare tunnel over the whole app at every logon — and every studio route
+# then answered the internet as a full owner, with no token.
+check(
+    "an open machine refuses a stranger",
+    remote.get("/api/studio/avatars").status_code == 401,
+    remote.get("/api/studio/avatars").text[:120],
+)
+check(
+    "and refuses to let one claim it",
+    remote.post(
+        "/api/auth/signup",
+        json={"email": "attacker@evil.com", "password": "a-long-enough-one"},
+    ).status_code
+    == 403,
+)
 
 r = client.post(
     "/api/auth/signup",
@@ -302,6 +328,42 @@ check("viewing is recorded", r.json() == {"ok": True})
 print("\na second company")
 r = client.post("/api/studio/members", headers=north, json={"email": "z@z.com", "password": "a-long-enough-one"})
 check("an owner can add a member", r.status_code == 200, r.text[:160])
+
+# Offboarding has to actually offboard. A token is signed, so its role and org
+# are as true a fortnight later as the moment they were minted — which meant
+# removing somebody deleted the row and left their browser working, with the
+# rights it was issued with, until the token expired. An ex-owner could still
+# export the org or delete its avatars.
+_leaver = accounts.add_member(NORTH, "leaver@northwind.com", "another-long-one", "editor")
+_leaver_auth = {"Authorization": f"Bearer {accounts.issue_token(_leaver)}"}
+check(
+    "a member's token works while they are a member",
+    client.get("/api/studio/avatars", headers=_leaver_auth).status_code == 200,
+)
+accounts.remove_member(NORTH, _leaver.user_id)
+check(
+    "and stops the moment they are removed",
+    client.get("/api/studio/avatars", headers=_leaver_auth).status_code == 401,
+)
+
+# The same mechanism makes a downgrade take effect at once, rather than at the
+# end of the token's fourteen days.
+_demoted = accounts.add_member(NORTH, "demoted@northwind.com", "another-long-one", "editor")
+_demoted_auth = {"Authorization": f"Bearer {accounts.issue_token(_demoted)}"}
+_made = client.post("/api/studio/avatars", headers=_demoted_auth, json={"name": "Temp"})
+check("an editor may write", _made.status_code == 200, _made.text[:120])
+# Removed again, or every count asserted below this line moves — a test that
+# leaves state behind fails the next assertion instead of its own.
+client.delete(f"/api/studio/avatars/{_made.json()['id']}", headers=north)
+
+accounts.add_member(NORTH, "demoted@northwind.com", "another-long-one", "viewer")
+check(
+    "and cannot once demoted, on the token they already hold",
+    client.post(
+        "/api/studio/avatars", headers=_demoted_auth, json={"name": "Temp2"}
+    ).status_code
+    == 403,
+)
 
 SOUTH = accounts.create_org("Contoso")
 rival = accounts.add_member(SOUTH, "rival@contoso.com", "another-long-one", "owner")

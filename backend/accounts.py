@@ -337,6 +337,38 @@ def add_member(org_id: str, email: str, password: str, role: str = "editor") -> 
     return Principal(user_id, email, org_id, role)
 
 
+def membership(user_id: str, org_id: str) -> str | None:
+    """The role this person holds in this org right now, or None if they hold none.
+
+    A token says who someone was when they signed in. It cannot say who they
+    still are — it is signed, so its `org_id` and `role` are exactly as true
+    fourteen days later as the moment they were minted, whatever has happened in
+    between.
+
+    So removing somebody did not remove their access. `remove_member` deleted
+    the row; the token in their browser kept working until it expired, with the
+    rights it was issued with. An owner downgraded to viewer stayed an owner. A
+    contractor whose access was revoked could still export the org, or delete
+    its avatars, for up to two weeks.
+
+    One query per authenticated request turns that around: identity from the
+    token, rights from the database. Role changes take effect immediately, and
+    offboarding works because it is the same fact both places.
+
+    Not full revocation — a stolen token still works while its holder remains a
+    member. That needs a `token_version` bumped on password change, which is a
+    column and a migration; this is the part that makes the People screen mean
+    what it says.
+    """
+    init()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT role FROM members WHERE user_id = ? AND org_id = ?",
+            (user_id, org_id),
+        ).fetchone()
+    return row["role"] if row else None
+
+
 def list_members(org_id: str) -> list[dict]:
     init()
     with _connect() as conn:
