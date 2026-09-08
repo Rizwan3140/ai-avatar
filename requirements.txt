@@ -1,9 +1,13 @@
-fastapi
-uvicorn[standard]
-faster-whisper
-numpy
-segno            # QR codes, rendered locally so they survive the network dropping
-pypdf            # PDF text only. DOCX is a zip of XML and needs no library.
+# Pinned. Unpinned, every fresh kiosk resolved whatever was current that
+# morning, so two machines running "the same" code were not, and a yanked or
+# compromised release would arrive silently on the next install. Bump these
+# deliberately, together, and note it in the commit.
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+faster-whisper==1.2.1
+numpy==2.4.6
+segno==1.6.6     # QR codes, rendered locally so they survive the network dropping
+pypdf==6.16.1    # PDF text only. DOCX is a zip of XML and needs no library.
 
 # Not listed, on purpose:
 #   auth        hashlib.scrypt, hmac and secrets are stdlib and are the parts

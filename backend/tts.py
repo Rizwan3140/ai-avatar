@@ -126,7 +126,14 @@ def reference_for(avatar_id: str):
     Lives beside the footage, because it is the same kind of thing: content that
     belongs to one avatar and travels with it.
     """
-    path = store.AVATARS_DIR / avatar_id / REFERENCE_NAME
+    # `avatar_dir` validates. `/api/speak` and `/api/voice` are both public and
+    # both take this id straight off the request, so joining it unchecked made
+    # the id a path — which is exactly what the route's own docstring promised
+    # it was not.
+    try:
+        path = store.avatar_dir(avatar_id) / REFERENCE_NAME
+    except ValueError:
+        return None
     return path if path.is_file() else None
 
 

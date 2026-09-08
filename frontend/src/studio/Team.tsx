@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, type Org, type Principal } from './api.ts'
-import { Button, Empty, Field, Note, Section, useLoad } from './ui.tsx'
+import { Button, ConfirmAction, Empty, Field, Note, Section, useLoad } from './ui.tsx'
 
 type Member = { id: string; email: string; role: string }
 
@@ -49,7 +49,6 @@ export function Team({ who, org }: { who: Principal; org: Org | null }) {
 
   const remove = (member: Member) =>
     act(async () => {
-      if (!window.confirm(`Remove ${member.email}?`)) return ''
       await api(`/api/studio/members/${member.id}`, { method: 'DELETE' })
       members.reload()
       return `${member.email} removed.`
@@ -126,14 +125,13 @@ export function Team({ who, org }: { who: Principal; org: Org | null }) {
                 <span className="min-w-0 flex-1 truncate">{member.email}</span>
                 <span className="text-ink-soft text-xs">{member.role}</span>
                 {isOwner && member.id !== who.user_id && (
-                  <button
-                    type="button"
-                    onClick={() => remove(member)}
+                  <ConfirmAction
+                    label="remove"
+                    prompt={`Remove ${member.email}?`}
+                    confirmLabel="Remove"
                     disabled={busy}
-                    className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
-                  >
-                    remove
-                  </button>
+                    onConfirm={() => remove(member)}
+                  />
                 )}
               </li>
             ))}

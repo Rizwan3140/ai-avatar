@@ -90,7 +90,8 @@ if (-not (Test-Path $py)) {
 }
 
 Start-Process -FilePath $py `
-    -ArgumentList '-m', 'uvicorn', 'backend.main:app', '--port', "$Port" `
+    -ArgumentList '-m', 'uvicorn', 'backend.main:app', '--port', "$Port", `
+                  '--proxy-headers', '--forwarded-allow-ips', '127.0.0.1' `
     -WorkingDirectory $root -WindowStyle Hidden `
     -RedirectStandardOutput $serverLog -RedirectStandardError "$serverLog.err"
 
@@ -121,11 +122,36 @@ if ($NoTunnel) { return }
 # --- 3. the tunnel ------------------------------------------------------------
 Write-Host "`n[3/3] publishing" -ForegroundColor Cyan
 $cf = Join-Path $root 'cloudflared.exe'
+$cfHashFile = Join-Path $root 'cloudflared.sha256'
+
+# This binary is downloaded once and then executed at every logon, for the life
+# of the machine. Cloudflare publishes no checksum for the Windows build, so the
+# first download is trust-on-first-use and this does not pretend otherwise. What
+# it does do is pin what arrived: anything that rewrites cloudflared.exe on disk
+# afterwards - which is the threat on a kiosk that runs unattended - stops the
+# tunnel instead of being run.
 if (-not (Test-Path $cf)) {
     Write-Host "  cloudflared.exe is not here - downloading it once" -ForegroundColor DarkGray
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' `
         -OutFile $cf -UseBasicParsing
+    (Get-FileHash $cf -Algorithm SHA256).Hash | Set-Content -Path $cfHashFile -Encoding ascii
+    Write-Host "  pinned to $((Get-Content $cfHashFile).Substring(0,16))..." -ForegroundColor DarkGray
+}
+
+if (Test-Path $cfHashFile) {
+    $expected = (Get-Content $cfHashFile -Raw).Trim()
+    $actual = (Get-FileHash $cf -Algorithm SHA256).Hash
+    if ($actual -ne $expected) {
+        Write-Host "  cloudflared.exe is not the binary this machine recorded." -ForegroundColor Red
+        Write-Host "  Not publishing. Delete both files to re-download deliberately:" -ForegroundColor Red
+        Write-Host "    $cf"
+        Write-Host "    $cfHashFile"
+        Write-Host "  The server is still up on http://localhost:$Port" -ForegroundColor DarkGray
+        return
+    }
+} else {
+    (Get-FileHash $cf -Algorithm SHA256).Hash | Set-Content -Path $cfHashFile -Encoding ascii
 }
 
 Remove-Item $tunnelLog -ErrorAction SilentlyContinue

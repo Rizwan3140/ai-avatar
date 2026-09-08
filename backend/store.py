@@ -19,6 +19,7 @@ the tidiness of splitting it.
 
 import json
 import re
+import secrets
 import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -149,12 +150,28 @@ def _safe_id(value: str) -> bool:
 
 
 def new_id(name: str) -> str:
-    """A folder name from a display name, unique against what already exists."""
+    """A folder name from a display name, with enough randomness to be unguessable.
+
+    The slug alone was a tenant selector. `org_for()` on the public API resolves
+    an org from whichever avatar id it is handed, with no tenant filter — so
+    `?avatar=northwind-retail` reads Northwind's catalog, personas and prices
+    from an endpoint that asks for no credential. Slugging the display name made
+    that free to guess: a company called Northwind Retail is `northwind-retail`
+    on every install that has ever sold to them.
+
+    Six hex characters is not authentication and is not pretending to be. It
+    turns "type the company name" into "enumerate 16 million ids against a rate
+    limiter", which is the difference between a leak and an attack. The real fix
+    is a per-cabinet secret issued at registration; this is what closes the door
+    today without a migration, and it changes nothing for avatars that already
+    exist — their ids are the key on every kiosk row, campaign folder and clip
+    on disk, and renaming them would orphan all three.
+    """
     base = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")[:40] or "avatar"
-    candidate, n = base, 2
-    while (AVATARS_DIR / candidate).exists():
-        candidate, n = f"{base}-{n}", n + 1
-    return candidate
+    while True:
+        candidate = f"{base}-{secrets.token_hex(3)}"
+        if not (AVATARS_DIR / candidate).exists():
+            return candidate
 
 
 def create_avatar(name: str, org_id: str = DEFAULT_ORG, **fields) -> Avatar:

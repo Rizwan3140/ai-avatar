@@ -463,12 +463,40 @@ check(
     "without consent the request is refused",
     client.post(f"/api/tryon/titan-pro-16?avatar={AVATAR}", content=b"fake").status_code == 428,
 )
-r = client.post(f"/api/tryon/titan-pro-16?consent=1&avatar={AVATAR}", content=b"fake")
+# The old constant. It was what the browser typed into every request, so the
+# check proved a client had been written and never that a person had agreed.
+check(
+    "the literal consent=1 is no longer consent",
+    client.post(f"/api/tryon/titan-pro-16?consent=1&avatar={AVATAR}", content=b"fake").status_code
+    == 428,
+)
+# Nobody is asked to agree to something this machine cannot do.
+check(
+    "consent is not offered when try-on is off",
+    client.post("/api/tryon/consent").status_code == 503,
+)
+
+_grant = tryon.issue_consent()
+r = client.post(f"/api/tryon/titan-pro-16?consent={_grant}&avatar={AVATAR}", content=b"fake")
 check("with consent and no provider it says so", r.status_code == 503, r.text[:160])
 check("and names what is missing", "local try-on" in r.json()["detail"], r.text[:200])
 check(
+    "and the agreement was spent",
+    client.post(f"/api/tryon/titan-pro-16?consent={_grant}&avatar={AVATAR}", content=b"fake").status_code
+    == 428,
+)
+check(
     "an unknown product 404s before any photo is touched",
-    client.post(f"/api/tryon/nope?consent=1&avatar={AVATAR}", content=b"fake").status_code == 404,
+    client.post(f"/api/tryon/nope?consent={tryon.issue_consent()}&avatar={AVATAR}", content=b"fake").status_code
+    == 404,
+)
+# And that lookup must not have cost the visitor their agreement.
+_kept = tryon.issue_consent()
+client.post(f"/api/tryon/nope?consent={_kept}&avatar={AVATAR}", content=b"fake")
+check(
+    "a failed lookup does not burn the agreement",
+    client.post(f"/api/tryon/titan-pro-16?consent={_kept}&avatar={AVATAR}", content=b"fake").status_code
+    == 503,
 )
 
 # A cabinet whose identity call failed sends no avatar at all. It used to fall
@@ -486,7 +514,8 @@ check(
 check(
     "nor does try-on",
     client.post(
-        "/api/tryon/titan-pro-16?consent=1&avatar=no-such-avatar", content=b"fake"
+        f"/api/tryon/titan-pro-16?consent={tryon.issue_consent()}&avatar=no-such-avatar",
+        content=b"fake",
     ).status_code
     == 404,
 )
@@ -504,6 +533,82 @@ check("and lists its documents", s["documents"][0]["source"] == "policy.txt")
 r = client.get("/api/studio/export", headers=north)
 check("an owner can export everything", len(r.json()["products"]) == 2)
 check("an editor cannot", client.get("/api/studio/export", headers=hands).status_code == 403)
+
+
+print("\nthe open API, from a stranger")
+
+# `store.get_kiosk` answers an unknown id with the default avatar, which is the
+# right call for the identity route — a screen showing the wrong person beats a
+# screen showing nothing. It was the wrong call for the catalog beside it: any
+# made-up cabinet id returned some org's entire product list, prices included,
+# with no credential and nothing to guess.
+check(
+    "an unregistered cabinet still gets somebody to show",
+    client.get("/api/kiosk/not-a-real-cabinet").status_code == 200,
+)
+check(
+    "but not a catalog to mirror",
+    client.get("/api/kiosk/not-a-real-cabinet/catalog").status_code == 404,
+)
+check(
+    "while a registered one still can",
+    client.get("/api/kiosk/mumbai-1/catalog").status_code == 200,
+)
+
+# Bounded. `limit` is multiplied before it reaches SQLite, so an unbounded one
+# asks a public endpoint for the whole table.
+check(
+    "a public search cannot ask for the whole table",
+    client.get(f"/api/products?limit=100000&avatar={AVATAR}").status_code == 422,
+)
+check(
+    "a sane limit still works",
+    client.get(f"/api/products?limit=5&avatar={AVATAR}").status_code == 200,
+)
+check(
+    "and the analytics window is bounded too",
+    client.get("/api/analytics?days=0", headers=north).status_code == 422,
+)
+
+# Headers nobody asked for and everybody needs. frame-ancestors is the one that
+# matters: without it the Studio can be framed by any page and clicked through
+# invisibly, and the Studio is where the destructive buttons are.
+_headers = client.get("/api/health").headers
+check("responses carry a content security policy", "content-security-policy" in _headers)
+check("which refuses to be framed", "frame-ancestors 'none'" in _headers["content-security-policy"])
+check("and the type is not sniffed", _headers.get("x-content-type-options") == "nosniff")
+check("and referrers do not leak", _headers.get("referrer-policy") == "no-referrer")
+
+print("\nwhat each role may read")
+
+# "A viewer can read insights and nothing else" is what the Team screen tells an
+# owner. A viewer reading every colleague's email address made that untrue.
+check(
+    "a viewer cannot list the team",
+    client.get("/api/studio/members", headers=_demoted_auth).status_code == 403,
+)
+check(
+    "an editor can",
+    client.get("/api/studio/members", headers=hands).status_code == 200,
+)
+
+# The renderer is written to avatar.json and served to the cabinet, which picks
+# a renderer from it. An unknown value is a panel that draws nothing.
+check(
+    "a renderer must be one this app has",
+    client.patch(
+        f"/api/studio/avatars/{AVATAR}", headers=north, json={"renderer": "; rm -rf /"}
+    ).status_code
+    == 400,
+)
+check(
+    "a real one is accepted",
+    client.patch(
+        f"/api/studio/avatars/{AVATAR}", headers=north, json={"renderer": "simli"}
+    ).status_code
+    == 200,
+)
+client.patch(f"/api/studio/avatars/{AVATAR}", headers=north, json={"renderer": "mp4"})
 
 print(f"\n{ok} passed, {bad} failed")
 shutil.rmtree(TMP, ignore_errors=True)

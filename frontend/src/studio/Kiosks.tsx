@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, type Avatar, type Kiosk, type Principal } from './api.ts'
-import { Button, Empty, Field, Note, Section, useLoad } from './ui.tsx'
+import { Button, ConfirmAction, Empty, Field, Note, Section, useLoad } from './ui.tsx'
 
 /**
  * Cabinets, and which avatar each one shows.
@@ -55,7 +55,6 @@ export function Kiosks({ who }: { who: Principal }) {
 
   const unregister = (kiosk: Kiosk) =>
     act(async () => {
-      if (!window.confirm(`Unregister ${kiosk.id}? It will fall back to the default avatar.`)) return
       await api(`/api/studio/kiosks/${encodeURIComponent(kiosk.id)}`, { method: 'DELETE' })
     })
 
@@ -98,14 +97,13 @@ export function Kiosks({ who }: { who: Principal }) {
                 </select>
 
                 {mayWrite && (
-                  <button
-                    type="button"
-                    onClick={() => unregister(kiosk)}
+                  <ConfirmAction
+                    label="unregister"
+                    prompt={`${kiosk.id} will use the default avatar.`}
+                    confirmLabel="Unregister"
                     disabled={busy}
-                    className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
-                  >
-                    unregister
-                  </button>
+                    onConfirm={() => unregister(kiosk)}
+                  />
                 )}
               </li>
             ))}

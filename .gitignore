@@ -23,6 +23,12 @@ node_modules/
 # `frontend/public/avatars` and mounted ahead of this copy anyway.
 frontend/dist/avatars/
 
+# And the advertising, for the same reason. Campaign media moved to
+# frontend/public/campaigns/ when campaigns became a property of the showroom
+# rather than of one avatar, so Vite now copies it into dist/ too - a
+# customer's own video, already served from public/, and not ours to ship.
+frontend/dist/campaigns/
+
 # Raw generator downloads. The conformed clips in public/avatars are the source
 # of truth; these are the offcuts.
 raw/
@@ -101,6 +107,10 @@ server.log*
 tunnel.log*
 tunnel-url.txt
 cloudflared.exe
+# The hash of the binary this machine downloaded. Machine-local, like .version -
+# it pins what arrived, so anything that rewrites cloudflared.exe afterwards
+# stops the tunnel instead of being run.
+cloudflared.sha256
 
 # Advertising media, uploaded by a customer. Same reasoning as avatars/ above:
 # their content, not ours, and video besides.

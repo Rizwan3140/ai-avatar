@@ -776,5 +776,101 @@ snapshot.PATH = catalog.DB_PATH.parent / "no-such-snapshot.json"
 check("a missing snapshot changes nothing", "nothing to apply" in snapshot.apply())
 check("and the catalog survived", len(catalog.all_products(SNAP_ORG)) == 2)
 
+
+# --- consent is a fact this machine observed -------------------------------
+# It used to be the literal "1" on a query string, which the browser typed into
+# every request: the check was real and the value proved nothing. A nonce is
+# unguessable, spent once, and expires on its own.
+
+_grant = tryon.issue_consent()
+check("a consent token is not guessable", len(_grant) > 16 and _grant != "1")
+check("the old constant is not consent", not tryon.consume_consent("1"))
+check("an unknown token is not consent", not tryon.consume_consent("made-up"))
+check("a real one is accepted", tryon.consume_consent(_grant))
+check("and only once", not tryon.consume_consent(_grant))
+
+_stale = tryon.issue_consent()
+tryon._consents[_stale] = tryon._consents[_stale] - tryon.CONSENT_TTL - 1
+check("an expired agreement is refused", not tryon.consume_consent(_stale))
+
+for _ in range(tryon.MAX_CONSENTS + 50):
+    tryon.issue_consent()
+check("outstanding consents are bounded", len(tryon._consents) <= tryon.MAX_CONSENTS)
+
+# --- an avatar id is a bearer credential for its org's catalog -------------
+# `org_for()` on the public API resolves an org from whichever avatar id it is
+# handed, with no tenant filter. Slugging the display name made that free to
+# guess: a company called Northwind Retail was `northwind-retail` everywhere.
+
+_ids = {store.new_id("Northwind Retail") for _ in range(20)}
+check("two avatars of one name do not collide", len(_ids) == 20)
+check("the name is still legible in the id", all(i.startswith("northwind-retail-") for i in _ids))
+check("but the id is not the name", "northwind-retail" not in _ids)
+check("and every id is still a safe path segment", all(store._safe_id(i) for i in _ids))
+
+# --- a request must not be able to name a file to read ---------------------
+# `/api/speak` and `/api/voice` are public and take this id straight off the
+# request. The route's own docstring promised this was not a path; it was.
+from backend import tts  # noqa: E402
+
+check("a traversing avatar id resolves to no voice", tts.reference_for("../../etc") is None)
+check("an absolute one too", tts.reference_for("/etc/passwd") is None)
+check("and an empty one", tts.reference_for("") is None)
+
+# --- sync trusts what it receives, so it must not receive it in clear -------
+from backend import sync  # noqa: E402
+
+_platform = _config.PLATFORM_URL
+_config.PLATFORM_URL = "http://platform.example.com"
+check("a plain-http platform is refused", "https" in sync.insecure_platform())
+_config.PLATFORM_URL = "https://platform.example.com"
+check("an https one is accepted", sync.insecure_platform() == "")
+_config.PLATFORM_URL = "http://127.0.0.1:8000"
+check("loopback is exempt, there being no network", sync.insecure_platform() == "")
+_config.PLATFORM_URL = _platform
+
+# --- an owner logs in as an owner ------------------------------------------
+# `ORDER BY role` is alphabetical and 'editor' sorts before 'owner', so somebody
+# who owned their own company and was added as an editor to another signed in to
+# the other one, with no way to switch.
+accounts.signup("both@example.com", "a-long-enough-one", "Both Ltd")
+accounts.add_member(accounts.create_org("Someone Else"), "both@example.com", "unused-here", "editor")
+check(
+    "the org with the most rights wins",
+    accounts.login("both@example.com", "a-long-enough-one").role == "owner",
+)
+
+# --- visitor speech expires -------------------------------------------------
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from backend import analytics  # noqa: E402
+
+analytics.EVENTS_DIR = _TMP / "events"
+analytics.EVENTS_DIR.mkdir(parents=True, exist_ok=True)
+_old_day = (datetime.now(timezone.utc) - timedelta(days=400)).strftime("%Y-%m-%d")
+_today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+(analytics.EVENTS_DIR / (_old_day + ".jsonl")).write_text("{}", encoding="utf-8")
+(analytics.EVENTS_DIR / (_today + ".jsonl")).write_text("{}", encoding="utf-8")
+check("an old event file is swept", analytics.sweep(90) == 1)
+check("and today's is kept", (analytics.EVENTS_DIR / (_today + ".jsonl")).exists())
+check("0 days means keep everything", analytics.sweep(0) == 0)
+
+# --- the public budget covers the route that spends money ------------------
+# try-on is the one open route billed per call, and its path carries a product
+# id, so a dictionary keyed on exact paths never matched it.
+from backend import rate_limit  # noqa: E402
+
+check("try-on is rate limited", rate_limit.limit_for("/api/tryon/x") == rate_limit.TRYON_LIMIT)
+check("chat is limited", rate_limit.limit_for("/api/chat") == 30)
+check("login is limited", rate_limit.limit_for("/api/auth/login") == 10)
+check("an ordinary read is not", rate_limit.limit_for("/api/products") is None)
+
+_limiter = rate_limit.RateLimiter()
+check("a budget allows what it says", all(_limiter.allow("1.2.3.4", "/x", 3)[0] for _ in range(3)))
+_refused, _retry = _limiter.allow("1.2.3.4", "/x", 3)
+check("and refuses the next", not _refused)
+check("saying when to come back", _retry >= 1)
+check("one caller's budget is not another's", _limiter.allow("5.6.7.8", "/x", 3)[0])
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

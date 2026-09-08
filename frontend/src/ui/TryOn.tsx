@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
-import { tryOnProduct } from '../provider/http.ts'
+import { requestConsent, tryOnProduct } from '../provider/http.ts'
 import { useStore } from '../state/store.ts'
 
 /**
@@ -37,6 +37,8 @@ export function TryOn({ product }: { product: Product }) {
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const objectUrl = useRef('')
+  // Issued by the server the moment the visitor agrees, spent on one photograph.
+  const consent = useRef('')
 
   /** Everything that could outlive this dialogue, torn down in one place. */
   function release() {
@@ -44,6 +46,8 @@ export function TryOn({ product }: { product: Product }) {
     stream.current = null
     if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
     objectUrl.current = ''
+    // An unspent agreement does not follow the visitor out of the room.
+    consent.current = ''
   }
 
   useEffect(() => release, [])
@@ -77,6 +81,11 @@ export function TryOn({ product }: { product: Product }) {
   async function startCamera() {
     setProblem('')
     try {
+      // Before the camera, not after. This is the click that means yes, and
+      // recording it server-side is what makes consent a fact this machine
+      // observed rather than a flag the browser asserts.
+      consent.current = await requestConsent()
+
       const media = await navigator.mediaDevices.getUserMedia({
         // Front-facing and portrait: a garment swap needs the person standing,
         // and the cabinet is a vertical panel.
@@ -114,7 +123,8 @@ export function TryOn({ product }: { product: Product }) {
 
     setStage('working')
     try {
-      const swapped = await tryOnProduct(product.id, photo)
+      const swapped = await tryOnProduct(product.id, photo, consent.current)
+      consent.current = 
       objectUrl.current = URL.createObjectURL(swapped)
       setResult(objectUrl.current)
       setStage('result')

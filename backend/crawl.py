@@ -14,8 +14,10 @@ to read a public page is a crawler that stops working when the invoice does.
 """
 
 import html as html_module
+import ipaddress
 import json
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -30,6 +32,69 @@ USER_AGENT = "LuxoraBot/1.0 (+showroom catalog indexer)"
 TIMEOUT = 15
 #: Politeness. A showroom's own site is small and there is no hurry.
 DELAY = 0.5
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not let a merchant page turn a crawl into a cross-host fetch."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _public_url(url: str) -> urllib.parse.ParseResult:
+    """Accept only public HTTP(S) origins before urllib touches the network.
+
+    Studio users supply this URL, so localhost, link-local metadata endpoints,
+    private LAN hosts, and numeric representations of them must not become an
+    SSRF primitive. Redirects are disabled separately above.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Enter a public http:// or https:// storefront URL.")
+
+    host = parsed.hostname
+    try:
+        port = parsed.port
+    except ValueError:
+        raise ValueError("Enter a valid storefront port.") from None
+    try:
+        addresses = {ipaddress.ip_address(host)}
+    except ValueError:
+        try:
+            addresses = {
+                ipaddress.ip_address(info[4][0])
+                for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            }
+        except (OSError, ValueError):
+            raise ValueError("That storefront host could not be resolved.") from None
+
+    if any(
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_unspecified
+        for address in addresses
+    ):
+        raise ValueError("That storefront must resolve to a public address.")
+    return parsed
+
+
+def _same_origin(url: str, origin: urllib.parse.ParseResult) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    return (
+        parsed.scheme == origin.scheme
+        and parsed.hostname == origin.hostname
+        and parsed.port == origin.port
+    )
 
 #: What a product page's URL looks like on every storefront platform worth
 #: naming. Only used to decide what to read first, so a false positive costs one
@@ -178,7 +243,7 @@ def _json(url: str):
     answer, so a failure here is an answer rather than an error."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with _OPENER.open(request, timeout=TIMEOUT) as response:
             if "json" not in response.headers.get("Content-Type", ""):
                 return None
             return json.loads(response.read(8_000_000))
@@ -328,7 +393,7 @@ def _shopify_product(node: dict, base: str, currency: str) -> Product:
 
 def _fetch(url: str) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with _OPENER.open(request, timeout=TIMEOUT) as response:
         if "html" not in response.headers.get("Content-Type", ""):
             return ""
         # Cap the read. One oversized page should not stall a whole crawl.
@@ -338,8 +403,9 @@ def _fetch(url: str) -> str:
 
 def crawl(start: str, max_pages: int = 60) -> list[Product]:
     """Walk a site, same host only, and return every product found."""
-    origin = urllib.parse.urlparse(start)
-    base = f"{origin.scheme}://{origin.netloc}"
+    origin = _public_url(start)
+    port = f":{origin.port}" if origin.port else ""
+    base = f"{origin.scheme}://{origin.hostname}{port}"
 
     # Ask the storefront for its catalog before walking it. A store that hands
     # over the whole thing in eleven requests should not be crawled page by page
@@ -349,9 +415,13 @@ def crawl(start: str, max_pages: int = 60) -> list[Product]:
         return catalog_json
 
     robots = urllib.robotparser.RobotFileParser()
-    robots.set_url(f"{base}/robots.txt")
+    robots_url = f"{base}/robots.txt"
+    robots.set_url(robots_url)
     try:
-        robots.read()
+        request = urllib.request.Request(robots_url, headers={"User-Agent": USER_AGENT})
+        with _OPENER.open(request, timeout=TIMEOUT) as response:
+            charset = response.headers.get_content_charset() or "utf-8"
+            robots.parse(response.read(256_000).decode(charset, errors="replace").splitlines())
     except Exception:
         # No robots.txt is permission by omission, not a reason to stop.
         pass
@@ -395,7 +465,7 @@ def crawl(start: str, max_pages: int = 60) -> list[Product]:
 
         for href in parser.links:
             link = urllib.parse.urljoin(url, href).split("#")[0]
-            if link.startswith(base) and link not in seen and len(queue) < max_pages * 3:
+            if _same_origin(link, origin) and link not in seen and len(queue) < max_pages * 3:
                 # Plain breadth-first spends the whole budget on whatever a
                 # homepage links first, which is menus, collections and policy
                 # pages. One storefront put its first product link at position

@@ -117,6 +117,12 @@ def version() -> str:
 # reading only what is on its own disk.
 PLATFORM_URL = _get("PLATFORM_URL")
 SYNC_INTERVAL = int(_get("SYNC_INTERVAL", "300"))
+
+#: How many days of visitor questions to keep. The event log records what was
+#: asked, verbatim, and a showroom kiosk is spoken to by members of the public
+#: who never agreed to anything — so it expires. 0 keeps everything, for an
+#: install that has decided that for itself.
+EVENT_RETENTION_DAYS = int(_get("LUXORA_EVENT_RETENTION_DAYS", "90") or 0)
 # Which cabinet this machine is. The kiosk UI reads the same value from
 # VITE_KIOSK_ID; sync uses it to pull this cabinet's configuration and no other
 # tenant's. Must match what was registered in the studio.

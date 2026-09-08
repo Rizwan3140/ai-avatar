@@ -8,6 +8,8 @@ Keeping it local also means the conversation survives the network going down,
 which is the failure a showroom actually experiences.
 """
 
+import hashlib
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
@@ -46,6 +48,23 @@ class SpeakRequest(BaseModel):
     avatar_id: str
 
 
+def _key(request: Request, session: str) -> str:
+    """The history key for this caller's session.
+
+    `session` is a string the caller chooses, and nothing bound it to the caller
+    — so anyone holding an id could read a stranger's conversation back out of
+    the model, add turns to it, or wipe it mid-sentence from across the network.
+    Mixing in the client address makes the id necessary but no longer sufficient.
+
+    A cabinet's browser and its backend share a machine, so every visitor at one
+    panel shares an address and the session id is still what tells them apart.
+    That is the case this has to keep working, and it does: the address only
+    stops somebody who is *not* at the cabinet from naming a session there.
+    """
+    client = request.client.host if request.client else "unknown"
+    return hashlib.sha256(f"{client}|{session}".encode()).hexdigest()[:32]
+
+
 def warm() -> None:
     """Load both models in the background, so the first visitor does not wait out
     a cold start in the middle of their sentence."""
@@ -54,11 +73,12 @@ def warm() -> None:
 
 
 @router.post("/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, request: Request):
     if len(req.message) > MAX_CHAT_CHARS:
         raise HTTPException(413, f"Message is too long (maximum {MAX_CHAT_CHARS} characters).")
     if len(req.context) > MAX_CONTEXT_CHARS:
         raise HTTPException(413, "Conversation context is too large.")
+    session = _key(request, req.session)
     avatar = avatar_or_404(req.avatar_id)
     # The org comes from the avatar this cabinet is showing, never from the
     # request. One showroom's avatar quoting another showroom's prices out loud is
@@ -93,7 +113,7 @@ def chat(req: ChatRequest):
     # company does not stock.
     analytics.record(
         "question",
-        session=req.session,
+        session=session,
         avatar=avatar.id,
         org=org_id,
         text=req.message,
@@ -103,7 +123,7 @@ def chat(req: ChatRequest):
     for product in products:
         analytics.record("product_shown", product=product.id, name=product.name, org=org_id)
 
-    memory.add_message(req.session, "user", req.message)
+    memory.add_message(session, "user", req.message)
 
     def generate():
         reply = ""
@@ -119,7 +139,7 @@ def chat(req: ChatRequest):
         withhold = not products
 
         for chunk in llm.stream_reply(
-            memory.get_history(req.session),
+            memory.get_history(session),
             avatar.persona,
             products,
             req.context,
@@ -133,13 +153,13 @@ def chat(req: ChatRequest):
         if withhold:
             if llm.ungrounded_claim(reply, products, shelves):
                 analytics.record(
-                    "ungrounded_claim", session=req.session, avatar=avatar.id,
+                    "ungrounded_claim", session=session, avatar=avatar.id,
                     org=org_id, text=req.message, said=reply[:200],
                 )
                 reply = llm.REFUSAL
             yield reply
 
-        memory.add_message(req.session, "assistant", reply)
+        memory.add_message(session, "assistant", reply)
 
     return StreamingResponse(
         generate(),
@@ -219,8 +239,11 @@ def speak(req: SpeakRequest):
 
 
 @router.post("/reset")
-def reset(req: ResetRequest | None = None):
+def reset(request: Request, req: ResetRequest | None = None):
     """A visitor walked away. The next one starts a conversation, not a
-    continuation — and nobody else's is touched."""
-    memory.clear(req.session if req else "default")
+    continuation — and nobody else's is touched.
+
+    Keyed the same way `chat` is, so this clears the caller's own session and
+    cannot be pointed at somebody else's by naming their id."""
+    memory.clear(_key(request, req.session if req else "default"))
     return {"ok": True, "active_sessions": memory.active()}

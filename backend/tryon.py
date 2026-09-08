@@ -26,6 +26,8 @@ debugged by staring at a blank rectangle.
 
 import base64
 import json
+import secrets
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -46,6 +48,53 @@ MAX_WAIT = 90
 #: Bigger than any phone photo we would want to send, small enough that a kiosk
 #: cannot be used to push files through the platform.
 MAX_IMAGE = 12 * 1024 * 1024
+
+
+#: How long a visitor's agreement stands. Long enough to read the screen, open
+#: the camera and take a frame; short enough that it is agreement to *this*
+#: photograph rather than a standing permission.
+CONSENT_TTL = 180
+
+#: Bounded, so issuing tokens cannot grow this without end.
+MAX_CONSENTS = 500
+
+_consents: dict[str, float] = {}
+_consent_lock = threading.Lock()
+
+
+def issue_consent() -> str:
+    """A visitor has said yes on the screen. Record that here, not there.
+
+    `?consent=1` was a constant the browser typed into every request. The check
+    was real and the value was not: the actual gate was a React state, which is
+    a client-side control on a route reachable by anyone, and it left no record
+    tying a specific act of agreement to a specific photograph — which is the
+    first thing a regulator asks for.
+
+    A nonce fixes both halves. It cannot be guessed, it is spent when used, it
+    expires on its own, and the event log records which one authorised which
+    try-on.
+    """
+    now = time.monotonic()
+    token = secrets.token_urlsafe(16)
+    with _consent_lock:
+        for issued, at in list(_consents.items()):
+            if now - at > CONSENT_TTL:
+                del _consents[issued]
+        while len(_consents) >= MAX_CONSENTS:
+            del _consents[min(_consents, key=_consents.get)]
+        _consents[token] = now
+    return token
+
+
+def consume_consent(token: str) -> bool:
+    """Spend it. A second use is not a second agreement."""
+    if not token:
+        return False
+    now = time.monotonic()
+    with _consent_lock:
+        issued = _consents.pop(token, None)
+    return issued is not None and now - issued <= CONSENT_TTL
 
 
 class TryOnUnavailable(RuntimeError):

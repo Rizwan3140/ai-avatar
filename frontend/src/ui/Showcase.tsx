@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
 import { scope } from '../provider/http.ts'
@@ -28,7 +29,7 @@ export function Showcase() {
   return (
     <aside
       style={{ width: SHOWCASE_WIDTH }}
-      className="animate-[rise_var(--duration-calm)_var(--ease-human)] absolute inset-y-0 right-0 z-20 flex flex-col gap-5 bg-canvas/95 px-safe py-safe backdrop-blur-sm"
+      className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 absolute inset-y-0 right-0 z-20 flex flex-col gap-[clamp(14px,1.6vh,56px)] px-safe py-safe backdrop-blur-sm"
     >
       {selected ? (
         <Detail product={selected} siblings={products.length} />
@@ -39,10 +40,27 @@ export function Showcase() {
   )
 }
 
+/**
+ * What these products have in common, if anything.
+ *
+ * Worth showing only now that it is true. Until the catalog started filtering on
+ * a named category, "show me kurta sets" returned a co-ord, a dupatta and a
+ * dress — so a heading saying "Kurta Sets" would have been a caption lying about
+ * the pictures underneath it. A shelf that is one shelf can be named.
+ */
+function sharedCategory(products: Product[]): string {
+  const first = products[0]?.category?.trim()
+  if (!first) return ''
+  return products.every((p) => p.category?.trim() === first) ? first : ''
+}
+
 function Grid({ products }: { products: Product[] }) {
+  const shelf = sharedCategory(products)
+
   return (
     <>
-      <Heading count={products.length} />
+      <Heading shelf={shelf} count={products.length} />
+
       {/* A contact sheet, not a row of cards.
           The card was the problem — a bordered box with a small picture inside a
           lot of padding, which at this scale reads as a spreadsheet of
@@ -51,16 +69,20 @@ function Grid({ products }: { products: Product[] }) {
           So the image runs edge to edge and the name sits quietly beneath it,
           the way a gallery labels what is on the wall. */}
       <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-[clamp(14px,1.4vh,52px)] gap-y-[clamp(18px,1.9vh,68px)] overflow-y-auto">
-        {products.map((product) => (
+        {products.map((product, i) => (
           <button
             key={product.id}
             type="button"
             onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
-            className="group flex flex-col gap-[0.55em] text-left"
+            // Laid out one after another rather than all at once. Capped at
+            // eight steps so a longer list never turns the wait into a queue —
+            // past that they arrive together, which nobody reads as a fault.
+            className="lay-down group flex flex-col gap-[0.55em] text-left"
+            style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
           >
             <Image
               product={product}
-              className="aspect-[3/4] transition-[filter,transform] duration-500 ease-(--ease-human) group-hover:scale-[1.015]"
+              className="aspect-[3/4] transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.02] group-active:scale-[0.99]"
               fit="cover"
             />
             <span className="font-display line-clamp-2 text-body leading-[1.15] text-balance">
@@ -105,8 +127,14 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
     // head-first and the crop lands on hem and floor, so the frame keeps the
     // face, the neckline and the fabric — the parts somebody decides on — and
     // gives up the part they do not.
-    <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-line/20">
-      <Image product={product} className="absolute inset-0 h-full" fit="cover" />
+    <div
+      key={product.id}
+      className="lay-down bg-line/20 relative min-h-0 flex-1 overflow-hidden rounded-xl"
+    >
+      {/* The one still on the panel that moves. A garment photograph held
+          perfectly steady for a minute is a poster; this is slow enough that
+          nobody catches it moving and enough that the frame stays alive. */}
+      <Image product={product} className="drifting absolute inset-0 h-full" fit="cover" />
 
       <button
         type="button"
@@ -120,12 +148,23 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
           it exists for. The garment keeps its light. */}
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-[2em] bg-linear-to-t from-black/85 via-black/45 to-transparent p-[clamp(16px,1.8vh,64px)] pt-[22%] text-white">
         <div className="flex min-w-0 flex-col gap-[0.3em]">
-          <h2 className="font-display text-display leading-[1.02] tracking-[-0.015em] text-balance">
+          <h2
+            className="font-display lay-down text-display leading-[1.02] tracking-[-0.015em] text-balance"
+            style={{ animationDelay: '90ms' }}
+          >
             {product.name}
           </h2>
-          <p className="text-title leading-none tabular-nums">{product.spoken_price}</p>
+          <p
+            className="lay-down text-title leading-none tabular-nums"
+            style={{ animationDelay: '160ms' }}
+          >
+            {product.spoken_price}
+          </p>
           {facts.length > 0 && (
-            <p className="text-label tracking-[0.08em] uppercase opacity-75">
+            <p
+              className="lay-down text-label tracking-[0.08em] uppercase opacity-75"
+              style={{ animationDelay: '220ms' }}
+            >
               {facts.join('   ·   ')}
             </p>
           )}
@@ -133,8 +172,12 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
 
         {product.url && scope() !== null && (
           // The card the whole screen is for, floated on the photograph rather
-          // than filed in a footer under it.
-          <div className="flex shrink-0 flex-col items-center gap-[0.5em] rounded-lg bg-white/95 p-[clamp(8px,0.9vh,32px)] text-ink shadow-float backdrop-blur-md">
+          // than filed in a footer under it. Arriving last, after the name and
+          // the price, because it is the thing to do once you have decided.
+          <div
+            className="text-ink lay-down flex shrink-0 flex-col items-center gap-[0.5em] rounded-lg bg-white/95 p-[clamp(8px,0.9vh,32px)] shadow-float backdrop-blur-md"
+            style={{ animationDelay: '300ms' }}
+          >
             {/* Ours, not a QR web service — otherwise this is the one element on
                 screen that goes blank when the network drops. An SVG, so it
                 scales to the panel without losing a module. */}
@@ -158,11 +201,34 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
   )
 }
 
-function Heading({ count }: { count: number }) {
+/**
+ * What is on the shelf, and how much of it.
+ *
+ * "8 results" is what a search engine says. A shop says "Sarees", and now that
+ * asking for a category returns that category, the panel can say it too — the
+ * heading is read off the products themselves rather than the query, so it can
+ * only ever describe what is actually underneath it.
+ */
+function Heading({ shelf, count }: { shelf: string; count: number }) {
+  const piece = count === 1 ? 'piece' : 'pieces'
+
   return (
-    <h2 className="text-ink-soft text-label font-medium tracking-[0.14em] uppercase">
-      {count} {count === 1 ? 'result' : 'results'}
-    </h2>
+    <div className="flex shrink-0 flex-col gap-[0.5em]">
+      <div className="flex items-baseline justify-between gap-[1em]">
+        <h2 className="font-display text-title leading-none tracking-[-0.01em]">
+          {shelf || 'Selected for you'}
+        </h2>
+        <span className="text-ink-soft text-label shrink-0 tabular-nums">
+          {count} {piece}
+        </span>
+      </div>
+      {/* Drawn from the left as the products land, so the page reads as being
+          set rather than as having been there all along. */}
+      <span
+        aria-hidden
+        className="bg-line h-px origin-left animate-[draw_520ms_var(--ease-human)]"
+      />
+    </div>
   )
 }
 
@@ -177,25 +243,47 @@ function Image({
   // whole garment on the screen someone decides from. Neither is right for both.
   fit: 'cover' | 'contain'
 }) {
+  const [loaded, setLoaded] = useState(false)
+
+  // A new product in the same slot is a new image. Without this the second one
+  // inherits the first's `loaded` and skips its own fade, so the grid flickers
+  // between two garments instead of changing between them.
+  useEffect(() => setLoaded(false), [product.image])
+
   if (!product.image) {
     // Catalogs arrive without images more often than not. A tidy placeholder
     // beats a broken icon, and the name is what the visitor is reading anyway.
     return (
       <div
-        className={`grid w-full place-items-center rounded bg-line/30 text-ink-soft text-xs ${className}`}
+        className={`bg-line/30 text-ink-soft grid w-full place-items-center rounded text-xs ${className}`}
         aria-hidden
       >
         {product.category || 'No image'}
       </div>
     )
   }
+
   return (
-    <img
-      src={product.image}
-      alt=""
-      className={`w-full rounded ${fit === 'cover' ? 'object-cover object-top' : 'object-contain'} ${className}`}
-      loading="lazy"
-    />
+    // The placeholder sits under the image rather than being replaced by it, so
+    // there is no moment where the cell is empty. A grid that reflows as each
+    // photograph arrives is the single most website-like thing this panel could
+    // do, and the aspect ratio is already fixed by the caller for that reason.
+    <span className={`relative block w-full overflow-hidden rounded ${className}`}>
+      {!loaded && <span aria-hidden className="bg-line/25 shimmering absolute inset-0" />}
+      <img
+        src={product.image}
+        alt=""
+        onLoad={() => setLoaded(true)}
+        // Errors count as loaded: a broken URL must not leave a cell shimmering
+        // forever, which reads as the panel still working on something.
+        onError={() => setLoaded(true)}
+        className={`h-full w-full ${
+          fit === 'cover' ? 'object-cover object-top' : 'object-contain'
+        } transition-opacity duration-500 ease-(--ease-human) ${
+          loaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        loading="lazy"
+      />
+    </span>
   )
 }
-

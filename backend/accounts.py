@@ -300,8 +300,14 @@ def login(email: str, password: str) -> Principal:
         if not check_password(password, stored) or row is None:
             raise AuthError("email or password is incorrect")
 
+        # Most rights first. `ORDER BY role` is alphabetical, and 'editor'
+        # sorts before 'owner' — so somebody who owns their own company and was
+        # added as an editor to another signed in to the other one, with no way
+        # to switch. An owner of anything logs in as an owner of that thing.
         member = conn.execute(
-            "SELECT org_id, role FROM members WHERE user_id = ? ORDER BY role LIMIT 1",
+            "SELECT org_id, role FROM members WHERE user_id = ? "
+            "ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, "
+            "org_id LIMIT 1",
             (row["id"],),
         ).fetchone()
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, upload, type Avatar, type Principal, POSES } from './api.ts'
-import { Button, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
+import { Button, ConfirmAction, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
 
 /**
  * Avatars — list, create, configure, delete.
@@ -31,6 +31,8 @@ export function Avatars({ who }: { who: Principal }) {
   const [busy, setBusy] = useState('')
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newName, setNewName] = useState('')
 
   // The voices this browser has. Read once — getVoices() returns [] on the first
   // call in Chrome, which is why the event is waited for rather than assumed.
@@ -85,19 +87,20 @@ export function Avatars({ who }: { who: Principal }) {
 
   const create = () =>
     act('create', async () => {
-      const name = window.prompt('Name for the new avatar')
-      if (!name?.trim()) return
+      const name = newName.trim()
+      if (!name) return
       const made = await api<Avatar>('/api/studio/avatars', { method: 'POST', body: { name } })
       setData((list) => [...(list ?? []), made])
       setSelected(made.id)
       setDraft({})
+      setNewName('')
+      setCreateOpen(false)
       setNote(`${made.name} created. Upload a photo to give them a face.`)
     })
 
   const remove = () =>
     act('delete', async () => {
       if (!avatar) return
-      if (!window.confirm(`Delete ${avatar.name}, their footage and their campaigns?`)) return
       await api(`/api/studio/avatars/${avatar.id}`, { method: 'DELETE' })
       setSelected('')
       setDraft({})
@@ -138,7 +141,6 @@ export function Avatars({ who }: { who: Principal }) {
   const dropClip = (pose: string) =>
     act(`clip-${pose}`, async () => {
       if (!avatar) return
-      if (!window.confirm(`Remove the ${pose} clip? It falls back to idle.`)) return
       replace(
         await api<Avatar>(`/api/studio/avatars/${avatar.id}/clips/${pose}`, { method: 'DELETE' }),
       )
@@ -147,6 +149,35 @@ export function Avatars({ who }: { who: Principal }) {
 
   if (error) return <Note tone="warn">{error}</Note>
   if (!avatars) return <Empty>Loading…</Empty>
+
+  const createForm = () => (
+    <form
+      className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-white p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void create()
+      }}
+    >
+      <Field label="Avatar name" hint="Use the name visitors should hear.">
+        <input
+          className="input min-w-48"
+          value={newName}
+          onChange={(event) => setNewName(event.target.value)}
+          placeholder="Maya"
+          autoFocus
+          required
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={busy === 'create' || !newName.trim()}>
+          {busy === 'create' ? 'Creating…' : 'Create'}
+        </Button>
+        <Button tone="quiet" onClick={() => setCreateOpen(false)} disabled={busy === 'create'}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -159,7 +190,9 @@ export function Avatars({ who }: { who: Principal }) {
             No avatars yet. Create one, then upload a photograph of the person who should stand in
             the cabinet.
           </Empty>
-          {mayWrite && <Button onClick={create}>Create an avatar</Button>}
+          {mayWrite && (
+            createOpen ? createForm() : <Button onClick={() => setCreateOpen(true)}>Create an avatar</Button>
+          )}
         </div>
       ) : (
         <div className="grid gap-8 md:grid-cols-[220px_1fr]">
@@ -194,9 +227,17 @@ export function Avatars({ who }: { who: Principal }) {
               </button>
             ))}
             {mayWrite && (
-              <Button tone="quiet" className="mt-2" onClick={create} disabled={busy === 'create'}>
-                New avatar
-              </Button>
+              <>
+                <Button
+                  tone="quiet"
+                  className="mt-2"
+                  onClick={() => setCreateOpen((value) => !value)}
+                  disabled={busy === 'create'}
+                >
+                  {createOpen ? 'Cancel new avatar' : 'New avatar'}
+                </Button>
+                {createOpen && createForm()}
+              </>
             )}
           </nav>
 
@@ -385,14 +426,13 @@ export function Avatars({ who }: { who: Principal }) {
                           />
                         )}
                         {mayWrite && have && pose !== 'idle' && (
-                          <button
-                            type="button"
-                            onClick={() => dropClip(pose)}
+                          <ConfirmAction
+                            label="remove"
+                            prompt={`Remove ${pose}? It falls back to idle.`}
+                            confirmLabel="Remove clip"
                             disabled={!!busy}
-                            className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700"
-                          >
-                            remove
-                          </button>
+                            onConfirm={() => dropClip(pose)}
+                          />
                         )}
                       </div>
                     )
@@ -438,9 +478,15 @@ export function Avatars({ who }: { who: Principal }) {
                     <span className="text-ink-soft text-xs">unsaved changes</span>
                   )}
                   {who.role === 'owner' && (
-                    <Button tone="danger" className="ml-auto" onClick={remove} disabled={!!busy}>
-                      Delete
-                    </Button>
+                    <span className="ml-auto">
+                      <ConfirmAction
+                        label="Delete"
+                        prompt={`Delete ${avatar.name}, footage, and campaigns?`}
+                        confirmLabel="Delete avatar"
+                        disabled={!!busy}
+                        onConfirm={remove}
+                      />
+                    </span>
                   )}
                 </div>
               )}

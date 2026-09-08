@@ -54,14 +54,29 @@ export async function searchProducts(query: string): Promise<Product[]> {
  * A photograph of the visitor, wearing what is on screen.
  *
  * The image goes up on the request body and comes back as an image. It is never
- * written to disk at either end, and consent is a query parameter with no
- * default — a request without it is refused rather than assumed.
+ * written to disk at either end.
+ *
+ * The consent token is issued by the server when the visitor agrees, and spent
+ * here. It used to be the literal `consent=1`, typed into every request by this
+ * function — which proved a client had been written, never that a person had
+ * said yes.
  */
-export async function tryOnProduct(productId: string, photo: Blob): Promise<Blob> {
+export async function requestConsent(): Promise<string> {
+  const response = await fetch('/api/tryon/consent', { method: 'POST' })
+  if (!response.ok) throw new Error('Try-on is not available right now.')
+  return (await response.json()).consent as string
+}
+
+export async function tryOnProduct(
+  productId: string,
+  photo: Blob,
+  consent: string,
+): Promise<Blob> {
   const asking = scope()
   if (asking === null) throw new Error('This cabinet has not been set up yet.')
+  if (!consent) throw new Error('That agreement has expired. Please ask again.')
   const response = await fetch(
-    `/api/tryon/${encodeURIComponent(productId)}?consent=1&${asking}`,
+    `/api/tryon/${encodeURIComponent(productId)}?consent=${encodeURIComponent(consent)}&${asking}`,
     { method: 'POST', body: photo, headers: { 'Content-Type': 'application/octet-stream' } },
   )
   if (!response.ok) {

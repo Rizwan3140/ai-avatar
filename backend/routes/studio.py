@@ -12,7 +12,7 @@ can name is not a tenant id — it is a parameter for reading someone else's dat
 
 from dataclasses import asdict, replace
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon, tts
@@ -203,7 +203,10 @@ def me(caller: Principal = Depends(principal)):
 
 
 @router.get("/studio/members")
-def members(caller: Principal = Depends(principal)):
+def members(caller: Principal = Depends(editor)):
+    """Editor and above. The Team screen tells an owner that "a viewer can read
+    insights and nothing else", and a viewer reading every colleague's email
+    address made that sentence untrue."""
     return accounts.list_members(caller.org_id)
 
 
@@ -237,6 +240,10 @@ def update_org(patch: OrgPatch, caller: Principal = Depends(owner)):
 
 
 # --- avatars -----------------------------------------------------------------
+
+
+#: What `DigitalHumanRenderer` in the frontend knows how to be.
+RENDERERS = ("mp4", "simli", "heygen", "anam")
 
 
 class AvatarPatch(BaseModel):
@@ -293,6 +300,10 @@ def create_avatar(req: AvatarCreate, caller: Principal = Depends(editor)):
 def update_avatar(avatar_id: str, patch: AvatarPatch, caller: Principal = Depends(editor)):
     _mirrored()
     avatar = _avatar_or_404(avatar_id, caller)
+    # Written to avatar.json and served to the cabinet, which picks a renderer
+    # from it. An unknown value is a panel that draws nothing.
+    if patch.renderer is not None and patch.renderer not in RENDERERS:
+        raise HTTPException(400, f"renderer must be one of {', '.join(RENDERERS)}")
     for key, value in patch.model_dump(exclude_none=True).items():
         setattr(avatar, key, value)
     return _with_status(store.save_avatar(avatar))
@@ -791,7 +802,9 @@ def delete_season(season_id: str, caller: Principal = Depends(editor)):
 
 
 @router.get("/analytics")
-def analytics_summary(days: int = 30, caller: Principal = Depends(principal)):
+def analytics_summary(
+    days: int = Query(30, ge=1, le=365), caller: Principal = Depends(principal)
+):
     """Behind a login now. It was public, which on a single-customer install was
     only a little careless and on a platform is one company reading another's
     questions off an open URL."""

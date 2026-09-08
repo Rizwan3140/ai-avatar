@@ -17,7 +17,7 @@ catalog.
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from backend import analytics, avatar_provider, campaigns, catalog, config, seasons, store, tryon
 
@@ -103,7 +103,17 @@ def kiosk_catalog(kiosk_id: str):
     Unpaginated on purpose. The catalog it is mirroring is a few hundred rows
     after pruning, and a half-applied page is a showroom missing its lehengas:
     `catalog.replace` is all-or-nothing precisely because this is.
+
+    Registered cabinets only. `store.get_kiosk` answers an unknown id with the
+    default avatar, which is the right call for the identity route beside this
+    one — a screen showing the wrong person beats a screen showing nothing. It
+    is the wrong call here: it made `GET /api/kiosk/anything-at-all/catalog`
+    hand a stranger some org's entire product list, prices included, with no
+    credential and nothing to guess. A cabinet nobody registered has no catalog
+    to mirror, so saying so is both safer and truer.
     """
+    if kiosk_id not in store.list_kiosks():
+        raise HTTPException(404, "no cabinet is registered under that id")
     k = store.get_kiosk(kiosk_id)
     org_id = avatar_or_404(k.avatar_id).org_id
     return {
@@ -117,7 +127,9 @@ def products(
     q: str = "",
     category: str = "",
     max_price: float | None = None,
-    limit: int = 8,
+    # Bounded. `limit` is multiplied by FAN_OUT before it reaches SQLite, so an
+    # unbounded one is a way to ask a public endpoint for the whole table.
+    limit: int = Query(8, ge=1, le=100),
     avatar: str = "",
     color: str = "",
     style: str = "",
@@ -214,6 +226,19 @@ def tryon_status():
     return tryon.status()
 
 
+@router.post("/tryon/consent")
+def tryon_consent():
+    """A visitor pressed "yes, take a photo". Returns the token that authorises
+    exactly one try-on, for the next few minutes.
+
+    Issued by the server so that agreement is something this machine observed,
+    rather than something the caller asserts on every request.
+    """
+    if not tryon.available():
+        raise HTTPException(503, "try-on is not switched on here")
+    return {"consent": tryon.issue_consent(), "expires_in": tryon.CONSENT_TTL}
+
+
 @router.post("/tryon/{product_id}")
 async def try_on(product_id: str, request: Request, avatar: str = "", consent: str = ""):
     """A photo of a visitor, wearing the garment they are looking at.
@@ -226,10 +251,16 @@ async def try_on(product_id: str, request: Request, avatar: str = "", consent: s
     Consent is a required query parameter with no default. A request without it
     is rejected rather than assumed, because the assumption is the whole risk.
     """
-    if consent != "1":
-        raise HTTPException(
-            428, "the visitor has not agreed to be photographed"
-        )
+    # A token from `/api/tryon/consent`. It used to be the literal "1", which
+    # the browser put on every request — so the parameter proved that a client
+    # had been written, never that a person had agreed.
+    #
+    # Absence is refused here, before anything else happens. The token itself is
+    # spent further down, once there is actually a photograph to process: a
+    # visitor who agreed and then hit a missing product should not have to be
+    # asked again because a lookup failed.
+    if not consent:
+        raise HTTPException(428, "the visitor has not agreed to be photographed")
 
     org_id = org_for(avatar)
     found = catalog.get(product_id, org_id)
@@ -237,6 +268,13 @@ async def try_on(product_id: str, request: Request, avatar: str = "", consent: s
         raise HTTPException(404, "no such product")
 
     photo = await request.body()
+
+    # Spent, once, at the last moment before the photograph is used.
+    if not tryon.consume_consent(consent):
+        raise HTTPException(
+            428, "that agreement has expired or was already used - ask again"
+        )
+
     try:
         result = tryon.try_on(
             photo,
@@ -255,6 +293,9 @@ async def try_on(product_id: str, request: Request, avatar: str = "", consent: s
 
     analytics.record(
         "tryon", product=product_id, name=found.name,
+        # Which agreement authorised this. Not a person and not an image — the
+        # one fact that was missing when consent lived only in the browser.
+        consent=consent[:12],
         provider=result.provider, seconds=round(result.seconds, 1),
         # Without this the try-on landed in the default org's summary, so one
         # company's dashboard counted another company's try-ons.

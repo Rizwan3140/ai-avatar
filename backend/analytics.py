@@ -44,6 +44,41 @@ def record(event: str, **fields) -> None:
         pass
 
 
+#: How long an event file is kept. Every question a member of the public speaks
+#: aloud is written here verbatim, and people say their names, their phone
+#: numbers and their addresses to a screen in a mall. The module used to claim
+#: "nothing here identifies a person"; the counters are what that was true of,
+#: not the text they are counted from.
+#:
+#: Retention is the honest fix rather than redaction: `top_questions` and `gaps`
+#: are the reason the text is kept at all, and they need the words. So the words
+#: expire.
+RETENTION_DAYS = config.EVENT_RETENTION_DAYS
+
+
+def sweep(days: int = RETENTION_DAYS) -> int:
+    """Delete event files older than the retention window. Returns how many.
+
+    Named by date, so age is the filename and there is nothing to parse. Never
+    raises: losing a metric is a rounding error, and failing to boot a showroom
+    because a log would not delete is not.
+    """
+    from datetime import timedelta
+
+    if days <= 0 or not EVENTS_DIR.is_dir():
+        return 0
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    removed = 0
+    for path in EVENTS_DIR.glob("*.jsonl"):
+        if path.stem < cutoff:
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
 def _read(days: int) -> list[dict]:
     if not EVENTS_DIR.is_dir():
         return []

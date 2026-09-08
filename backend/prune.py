@@ -88,8 +88,20 @@ def main(argv: list[str]) -> int:
         return 0
 
     backup = catalog.DB_PATH.with_suffix(".db.bak")
+    # Actually take it. `shutil` was imported and never used, so this printed the
+    # path of a backup that was never written and the docstring's "reversible
+    # only from a backup" was reversible from nothing.
+    shutil.copy2(catalog.DB_PATH, backup)
     print(f"backup: {backup}")
     print(f"kept {after} of {before} products")
+
+    # The one command anybody runs on a machine by hand, so it is where
+    # housekeeping gets noticed. See `analytics.RETENTION_DAYS`.
+    from backend import analytics
+
+    swept = analytics.sweep()
+    if swept:
+        print(f"removed {swept} event files past {analytics.RETENTION_DAYS} days")
     return 0
 
 

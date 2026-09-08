@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import config, store
-from backend.rate_limit import RateLimiter
+from backend.rate_limit import RateLimiter, limit_for
 from backend.routes import platform, studio
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,17 +39,40 @@ app = FastAPI(title=f"Luxora ({config.ROLE})")
 # unbounded model/STT/TTS bill. Limits are per direct client IP and per route;
 # listen is intentionally generous because one spoken turn may create several
 # partial transcription requests.
-_PUBLIC_LIMITS = {
-    "/api/chat": 30,
-    "/api/listen": 120,
-    "/api/speak": 120,
-}
 _PUBLIC_RATE_LIMITER = RateLimiter()
+
+#: Sent on every response. None of these change what the app does; each closes a
+#: way of using it that nobody intended.
+#:
+#: `frame-ancestors` is the one that matters most here — without it the Studio
+#: can be framed by any page and clicked through invisibly, and the Studio is
+#: where the destructive buttons are. The CSP is otherwise a description of what
+#: this app already does: its own scripts, its own styles, and `blob:`/`data:`
+#: for the three things generated in the browser — the try-on result, the
+#: exported CSV, and synthesised speech.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        # React writes inline style attributes and Tailwind emits a style
+        # element, so this cannot be tightened without a nonce pipeline.
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
 
 
 @app.middleware("http")
 async def limit_public_conversation(request: Request, call_next):
-    limit = _PUBLIC_LIMITS.get(request.url.path) if request.method == "POST" else None
+    limit = limit_for(request.url.path) if request.method == "POST" else None
     if limit is not None:
         ip = request.client.host if request.client else "unknown"
         allowed, retry_after = _PUBLIC_RATE_LIMITER.allow(ip, request.url.path, limit)
@@ -57,9 +80,19 @@ async def limit_public_conversation(request: Request, call_next):
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please try again shortly."},
-                headers={"Retry-After": str(retry_after)},
+                headers={"Retry-After": str(retry_after), **_SECURITY_HEADERS},
             )
-    return await call_next(request)
+    response = await call_next(request)
+    for header, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    # Only over TLS. Sent on a plain-http kiosk it is ignored by the browser
+    # anyway, and asserting it from `localhost` would pin a scheme the cabinet
+    # does not serve.
+    if request.url.scheme == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 # Off unless asked for. The kiosk serves its own UI from this same origin, so
 # there is no cross-origin request to permit and a permissive default would be
@@ -123,6 +156,17 @@ try:
         print(f"  seeded {_seeded} sample products (catalog was empty)")
 except Exception as _error:  # never block startup on sample data
     print(f"  could not seed the sample catalog: {_error}")
+
+# Visitor questions are kept for a bounded time, not forever. Boot is the one
+# moment this is guaranteed to run on a cabinet that may never see a console.
+try:
+    from backend import analytics
+
+    _swept = analytics.sweep()
+    if _swept:
+        print(f"  removed {_swept} event files past {analytics.RETENTION_DAYS} days")
+except Exception as _error:  # never block startup on housekeeping
+    print(f"  could not sweep the event log: {_error}")
 
 print(f"\nLuxora — services\n{config.report()}\n")
 

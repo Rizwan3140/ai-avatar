@@ -55,6 +55,55 @@ export function Button({
   )
 }
 
+/** Keep destructive confirmation beside the action instead of using a browser dialog. */
+export function ConfirmAction({
+  label,
+  prompt,
+  confirmLabel = 'Confirm',
+  disabled,
+  onConfirm,
+}: {
+  label: string
+  prompt: string
+  confirmLabel?: string
+  disabled?: boolean
+  onConfirm: () => void | Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className="text-ink-soft text-xs underline underline-offset-2 hover:text-amber-700 disabled:opacity-40"
+      >
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <span role="group" aria-label={prompt} className="flex flex-wrap items-center justify-end gap-2">
+      <span className="text-amber-800 text-xs">{prompt}</span>
+      <Button
+        tone="danger"
+        disabled={disabled}
+        onClick={() => {
+          setOpen(false)
+          void onConfirm()
+        }}
+      >
+        {confirmLabel}
+      </Button>
+      <Button tone="quiet" disabled={disabled} onClick={() => setOpen(false)}>
+        Cancel
+      </Button>
+    </span>
+  )
+}
+
 /** A message that is not an error — "saved", "12 products imported". */
 export function Note({ children, tone }: { children: React.ReactNode; tone?: 'warn' }) {
   if (!children) return null

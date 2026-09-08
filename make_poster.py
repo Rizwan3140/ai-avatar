@@ -21,6 +21,12 @@ from pathlib import Path
 from PIL import Image
 from rembg import remove
 
+# A photograph arrives from an upload route, and PNG compresses empty pixels
+# extraordinarily well: a few megabytes on the wire can be tens of gigabytes
+# once decoded, which is a crash rather than a rejection. Pillow's own default
+# only warns.
+Image.MAX_IMAGE_PIXELS = 80_000_000
+
 AVATARS = Path(__file__).resolve().parent / "frontend" / "public" / "avatars"
 
 # (width, height, share of frame the subject fills, headroom above them)

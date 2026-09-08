@@ -153,6 +153,87 @@ body {
   }
 }
 
+/* ---------------------------------------------------------------------------
+   The showcase's own motion.
+
+   Products arrive because somebody asked out loud, and eight things appearing
+   at once reads as a page load. Arriving in sequence reads as someone laying
+   garments on a counter — which is what is actually happening, and it is the
+   difference between a search result and a shop.
+
+   The whole sequence is under half a second. This is not a slideshow; it is the
+   moment between asking and seeing, and a visitor who has to wait for an
+   animation will look away from the person instead.
+--------------------------------------------------------------------------- */
+@keyframes lay-down {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* A garment photograph is a still, and a still on a two-metre panel is a poster.
+   The drift is far too slow to notice as movement and just enough that the frame
+   is never quite dead — the same argument as `breathe` on the avatar himself. */
+@keyframes drift {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(0, -1.2%, 0);
+  }
+}
+
+/* Runs across an image while it decodes, so an empty frame reads as loading
+   rather than as broken. Stops the instant the image paints over it. */
+@keyframes shimmer {
+  from {
+    background-position: -160% 0;
+  }
+  to {
+    background-position: 260% 0;
+  }
+}
+
+/* The rule under a heading, drawn rather than declared. A hairline that arrives
+   with the products it introduces is a page being set; one that is simply there
+   is a border. */
+@keyframes draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.lay-down {
+  /* `backwards` so the item is invisible during its own delay. Without it every
+     card paints at full opacity first and then starts its animation, which is a
+     flash of the finished layout followed by it assembling — worse than no
+     animation at all. */
+  animation: lay-down 460ms var(--ease-human) backwards;
+}
+
+.drifting {
+  animation: drift 24s var(--ease-human) infinite alternate;
+}
+
+.shimmering {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, var(--color-line) 55%, var(--color-canvas)) 42%,
+    transparent 64%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
 @keyframes dot {
   0%,
   80%,

@@ -23,7 +23,7 @@ import urllib.parse
 import urllib.request
 
 from backend import config
-from backend.store import AVATARS_DIR, KIOSKS_FILE
+from backend.store import KIOSKS_FILE, avatar_dir
 
 TIMEOUT = 10
 
@@ -58,7 +58,16 @@ def pull() -> str:
     if not avatar.get("id"):
         return "sync: platform has no avatar for this cabinet; using local config"
 
-    folder = AVATARS_DIR / avatar["id"]
+    # Through `avatar_dir`, which validates. This used to join the id straight
+    # onto the avatars folder, and the id arrives in a JSON body from another
+    # machine — so a compromised platform, or anyone on-path while PLATFORM_URL
+    # is plain http, could answer with `"id": "../../.."` and write a file
+    # anywhere the kiosk process can reach. Every other path join in this
+    # codebase goes through here; this one had been missed.
+    try:
+        folder = avatar_dir(avatar["id"])
+    except ValueError:
+        return f"sync: platform sent an unusable avatar id {avatar['id']!r}; using local config"
     folder.mkdir(parents=True, exist_ok=True)
     meta = {key: avatar.get(key, "") for key in SYNCED_KEYS}
     target = folder / "avatar.json"
@@ -154,9 +163,34 @@ def pull_catalog() -> str:
     return f"catalog: {before} -> {len(products)} products"
 
 
+def insecure_platform() -> str:
+    """Why this PLATFORM_URL must not be used, or "" when it is fine.
+
+    Everything this module writes is trusted completely: the persona a public
+    screen speaks from, and the whole catalog including prices. Over plain http
+    that content is whatever the network decides it is, and the kiosk has no way
+    to tell. Loopback is exempt because there is no network to sit on.
+    """
+    parsed = urllib.parse.urlparse(config.PLATFORM_URL)
+    if parsed.scheme == "https":
+        return ""
+    if parsed.hostname in ("127.0.0.1", "::1", "localhost"):
+        return ""
+    return (
+        f"PLATFORM_URL is {config.PLATFORM_URL!r}. Sync trusts the persona and "
+        f"the catalog it receives; over plain http those are whatever the "
+        f"network says they are. Use https://."
+    )
+
+
 def start() -> None:
     """Sync now, then on an interval, always off the request path."""
     if not config.PLATFORM_URL:
+        return
+
+    refusal = insecure_platform()
+    if refusal:
+        print(f"  sync: refusing to run. {refusal}")
         return
 
     def loop() -> None:

@@ -23,14 +23,14 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 74 checks
-./.venv/bin/python -m backend.test_catalog  # 51 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 124 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 75 — the same through the real routes
+(cd frontend && npm test)                   # 90 checks
+./.venv/bin/python -m backend.test_catalog  # 85 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 188 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 109 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-324 checks total. **Never run the Python suites through `unittest`** — they are
+472 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -134,6 +134,29 @@ company's prices out loud.
   locked door with the key inside. The first account closes it permanently, and
   whatever was already on disk moves to that org rather than disappearing behind
   a tenant filter.
+- **The open studio is a property of the console, not of the database.** With no
+  accounts, `principal()` hands back an owner - but only to a caller on
+  loopback. "No accounts exist" had been standing in for "whoever is asking is
+  sitting at this machine", which held right up until `start.ps1` put a
+  Cloudflare tunnel over the whole app at every logon. Creating the first
+  account is bound the same way, because claiming an install is something you
+  do at the machine.
+- **A token proves identity; the database decides rights.** `principal()` reads
+  the role from `members` on every request. A signed token's role is as true a
+  fortnight later as the day it was minted, so removing somebody used to leave
+  their browser working until it expired. Not full revocation - a stolen token
+  still works while its holder is a member; that wants a `token_version`.
+- **Consent is a nonce, not a flag.** `?consent=1` was a constant the browser
+  typed into every request: the check was real and the value proved nothing,
+  and there was no record tying an agreement to a photograph. The token is
+  issued when the visitor presses yes, spent once at the last moment before the
+  image is used, and written to the event log. A failed lookup does not burn it.
+- **An avatar id is unguessable, because it is a bearer credential.**
+  `org_for()` resolves an org from whichever avatar id the public API is
+  handed. Slugging the display name made that free to guess - a company called
+  Northwind Retail was `northwind-retail` on every install. New ids carry six
+  random hex characters; existing ones are untouched, because the id is the key
+  on every kiosk row, campaign folder and clip on disk.
 - **A visitor's photograph is never written to disk.** Not a temp file, not a
   cache, not the event log — the log records that a try-on happened and for which
   product. Consent is a required parameter with no default. This is DPDP/GDPR
