@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../state/store.ts'
+import { SHOWCASE_WIDTH } from './Showcase.tsx'
 
 /**
  * The band across the top of the cabinet: who this is, that it is awake, and
@@ -16,13 +17,25 @@ import { useStore } from '../state/store.ts'
 export function Masthead({ name }: { name?: string }) {
   const status = useStore((s) => s.status)
   const studioReachable = useStore((s) => s.studioReachable)
+  const showcase = useStore((s) => s.products.length > 0)
   const sleeping = status === 'sleeping'
 
   return (
     <header
       aria-hidden={sleeping}
-      className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-4 px-safe pt-safe transition-opacity duration-700 ease-(--ease-human)"
-      style={{ opacity: sleeping ? 0 : 1 }}
+      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex gap-4 px-safe pt-safe transition-[opacity,right] duration-700 ease-(--ease-human) ${
+        // Stacked once the products take the panel. A third of the width cannot
+        // hold the wordmark and the status side by side at this type scale —
+        // first the status was sliced to "Lis", then, once it held its width, it
+        // was printed straight through the shop's own name. Two lines fit; one
+        // line was never going to.
+        showcase ? 'flex-col items-start' : 'items-start justify-between'
+      }`}
+      // Ends where the products begin, exactly as the prompt rail does. Running
+      // the full width put "SHOWROOM ASSISTANT" and the clock underneath the
+      // panel, so the shop's own name was sliced off mid-word the moment
+      // anybody asked to see something.
+      style={{ opacity: sleeping ? 0 : 1, right: showcase ? SHOWCASE_WIDTH : 0 }}
     >
       {/*
         The wordmark is a way back to the dashboard — but only on a machine that
@@ -33,7 +46,11 @@ export function Masthead({ name }: { name?: string }) {
         it still wakes.
       */}
       <div
-        className={`flex flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)] ${
+        // `min-w-0` so the name yields first. With the products up this band is
+        // a third of its width, the wordmark wraps to two lines, and without
+        // this the status was pushed past the panel edge and sliced to "Lis".
+        // Of the two, the one a visitor needs is whether it is listening.
+        className={`flex min-w-0 flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)] ${
           studioReachable ? 'pointer-events-auto' : ''
         }`}
       >
@@ -53,9 +70,20 @@ export function Masthead({ name }: { name?: string }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-[0.9em] p-[clamp(14px,1.6vh,58px)]">
+      {/* The clock goes when the products come.
+          With the panel up this band is a third of its usual width, and the
+          wordmark alone takes two lines of it — so the time and the presence
+          were pushed against the showcase edge and sliced, leaving "Lis" where
+          "Listening" should be. The time is a courtesy for somebody walking
+          past an idle cabinet; presence is the one fact a person needs before
+          they will talk to a screen, so that is the one that stays. */}
+      <div
+        className={`flex shrink-0 items-center gap-[0.9em] p-[clamp(14px,1.6vh,58px)] ${
+          showcase ? 'pt-0' : ''
+        }`}
+      >
         <Presence status={status} />
-        <Clock />
+        {!showcase && <Clock />}
       </div>
     </header>
   )

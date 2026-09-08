@@ -244,13 +244,22 @@ function Image({
   fit: 'cover' | 'contain'
 }) {
   const [loaded, setLoaded] = useState(false)
+  const [broken, setBroken] = useState(false)
 
   // A new product in the same slot is a new image. Without this the second one
   // inherits the first's `loaded` and skips its own fade, so the grid flickers
   // between two garments instead of changing between them.
-  useEffect(() => setLoaded(false), [product.image])
+  useEffect(() => {
+    setLoaded(false)
+    setBroken(false)
+  }, [product.image])
 
-  if (!product.image) {
+  // A URL that fails is the same situation as no URL at all, and it happens for
+  // real: these point at a supplier's CDN, which goes down, rate-limits, and
+  // rewrites its paths without telling anybody. Treating the two cases
+  // differently put a browser's broken-image glyph on a shop window — the one
+  // graphic on the panel that says the software is faulty.
+  if (!product.image || broken) {
     // Catalogs arrive without images more often than not. A tidy placeholder
     // beats a broken icon, and the name is what the visitor is reading anyway.
     return (
@@ -274,9 +283,10 @@ function Image({
         src={product.image}
         alt=""
         onLoad={() => setLoaded(true)}
-        // Errors count as loaded: a broken URL must not leave a cell shimmering
-        // forever, which reads as the panel still working on something.
-        onError={() => setLoaded(true)}
+        // Not "loaded": a failed URL falls back to the placeholder above rather
+        // than revealing a broken glyph, and either way the cell stops
+        // shimmering — shimmering forever reads as the panel still working.
+        onError={() => setBroken(true)}
         className={`h-full w-full ${
           fit === 'cover' ? 'object-cover object-top' : 'object-contain'
         } transition-opacity duration-500 ease-(--ease-human) ${

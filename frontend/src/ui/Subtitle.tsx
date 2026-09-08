@@ -16,7 +16,28 @@ export function Subtitle() {
     // Floats over the lower part of the frame rather than sitting below it, so
     // he can stand on the bottom edge. The scrim keeps a caption readable where
     // it crosses him, without becoming a panel.
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center bg-linear-to-t from-canvas via-canvas/85 to-transparent px-safe pt-24 pb-safe">
+    // Reserves the floor when the prompt rail is up, rather than sharing it.
+    //
+    // Both components are anchored to `bottom-0` and neither knew about the
+    // other, so at rest the greeting was printed straight through the rail: the
+    // shop's own opening line crossing "Or just ask out loud", with its last
+    // line clipped by the bottom edge of the panel. It is the first thing a
+    // visitor reads and it was the most broken thing on the screen.
+    //
+    // The rail appears in exactly the states below, so this is the same
+    // condition read from the other side rather than a guess at its height.
+    <div
+      className="pointer-events-none from-canvas via-canvas/85 absolute inset-x-0 bottom-0 z-10 flex justify-center bg-linear-to-t to-transparent px-safe pt-24 pb-safe"
+      // Inline, not a utility class. `pb-safe` is already on this element and
+      // the two are the same property, so which one won came down to their
+      // order in the generated stylesheet — it lost, and the greeting stayed
+      // printed through the rail.
+      style={
+        status === 'idle' || status === 'listening'
+          ? { paddingBottom: 'clamp(220px, 25vh, 900px)' }
+          : undefined
+      }
+    >
       <div className="w-full max-w-[90%] text-center">{content()}</div>
     </div>
   )

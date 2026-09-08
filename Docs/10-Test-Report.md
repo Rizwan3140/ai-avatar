@@ -67,12 +67,12 @@ On the development machine the interpreter is the project virtualenv:
 ### 4.1 Frontend — `npm test`
 
 ```
-ℹ tests 57
-ℹ pass 57
+ℹ tests 90
+ℹ pass 90
 ℹ fail 0
 ```
 
-**57 passed, 0 failed, 0 errors.**
+**90 passed, 0 failed, 0 errors.**
 
 Covers the conversation state machine, session lifecycle, product navigation and
 pronoun resolution, try-on voice intent, WAV encoding and RMS measurement,
@@ -84,7 +84,7 @@ selection persistence, and the import-destination message.
 all checks passed
 ```
 
-**27 passed, 0 failed, 0 errors.**
+**85 passed, 0 failed, 0 errors.**
 
 Covers catalog search and ranking, price-ceiling parsing from natural speech,
 CSV ingestion quirks including unquoted commas, and the schema.org crawler.
@@ -92,10 +92,10 @@ CSV ingestion quirks including unquoted commas, and the schema.org crawler.
 ### 4.3 Backend platform — `python -m backend.test_platform`
 
 ```
-98 passed, 0 failed
+154 passed, 0 failed
 ```
 
-**98 passed, 0 failed, 0 errors.**
+**154 passed, 0 failed, 0 errors.**
 
 Covers password hashing and verification, token issue/verify/tamper/expiry,
 account and membership management, tenant isolation, document chunking and
@@ -105,10 +105,10 @@ resolution, and identifier safety.
 ### 4.4 Backend API — `python -m backend.test_api`
 
 ```
-52 passed, 0 failed
+83 passed, 0 failed
 ```
 
-**52 passed, 0 failed, 0 errors.**
+**83 passed, 0 failed, 0 errors.**
 
 Runs the real ASGI application through FastAPI's `TestClient`, exercising the
 actual routes and their dependencies rather than the modules behind them.
@@ -117,13 +117,13 @@ actual routes and their dependencies rather than the modules behind them.
 
 | Suite | Checks |
 |---|---|
-| Frontend | 57 |
-| Backend catalog | 27 |
-| Backend platform | 98 |
-| Backend API | 52 |
-| **Total** | **234** |
+| Frontend | 90 |
+| Backend catalog | 85 |
+| Backend platform | 154 |
+| Backend API | 83 |
+| **Total** | **412** |
 
-**234 passed · 0 failed · 0 errors.**
+**412 passed · 0 failed · 0 errors.**
 
 ### 5.1 Relationship to the previously reported figures
 
@@ -132,12 +132,12 @@ actual routes and their dependencies rather than the modules behind them.
 | Pre-audit | 217 | Superseded |
 | After Cline Phase 0 + Phase 1 | 221 | Superseded |
 | After try-on and showcase work | 227 | Superseded |
-| **This report** | **234** | Current |
+| **This report** | **412** | Current |
 
-221 → 227 was six regression checks from the try-on and showcase work. 227 → 234
-is seven more covering `importMessage`, added when the Products and Documents
-screens were split. No check was removed, weakened or skipped. Every previously
-passing check still passes.
+221 → 227 was six regression checks from the try-on and showcase work. The later
+increase to 412 includes the split Products/Documents checks, current platform
+coverage, the avatar identity regression, and crawler safety checks. No check was
+removed, weakened or skipped. Every previously passing check still passes.
 
 ## 6. Regression tests added
 
@@ -160,10 +160,12 @@ passing check still passes.
 | Naming a product keeps it selected when its results arrive | Detail view opening and bouncing back to the grid |
 | A selection no longer in the results is dropped | A stale product staying selected after a new search |
 | `importMessage`, 7 cases across both screens | A file uploaded on one screen landing on the other with nothing said |
+| Chat carries the active avatar id | A cabinet answering with the default avatar's persona or catalog |
+| Unsafe crawler URLs are refused | Studio website import becoming an SSRF primitive |
 
 ## 7. Limitations
 
-These are the boundaries of what the 234 checks establish. Each is a real gap,
+These are the boundaries of what the 412 checks establish. Each is a real gap,
 not a caveat.
 
 ### 7.1 The API suite runs in cloud role
@@ -284,7 +286,7 @@ runaway.
 
 ## 9. Conclusion
 
-The automated baseline is **234 passing checks with zero failures and zero
+The automated baseline is **412 passing checks with zero failures and zero
 errors**, and it is reproducible with four commands.
 
 That baseline covers the platform thoroughly — tenancy, accounts, catalog,

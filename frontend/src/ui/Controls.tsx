@@ -73,7 +73,12 @@ export function Controls() {
           freely in front of a camera-height display should not have to interpret
           a glyph, and the microphone really is released underneath this. */}
       {muted && (
-        <p className="absolute top-1/2 right-full mr-3 -translate-y-1/2 rounded-full bg-ink px-3 py-1 text-sm whitespace-nowrap text-white">
+        // Sized from the panel, not in fixed pixels. `text-sm` with `px-3 py-1`
+        // is nine millimetres of type on a 3840px screen read from two metres
+        // back — the same mistake the type scale was rebuilt to remove, left
+        // behind on the one message that has to be readable from further away
+        // than anything else here.
+        <p className="bg-ink text-label absolute top-1/2 right-full mr-[0.8em] -translate-y-1/2 rounded-full px-[1.1em] py-[0.5em] whitespace-nowrap text-white">
           Microphone off
         </p>
       )}

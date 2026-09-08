@@ -71,10 +71,10 @@ drive the panel as a second display over HDMI, which keeps it on `localhost` and
 sidesteps the whole problem.
 
 ```bash
-(cd frontend && npm test)                   # 57 — conversation, navigation, audio, studio
-./.venv/bin/python -m backend.test_catalog  # 27 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 98 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 52 — the same through the real routes
+(cd frontend && npm test)                   # 90 — conversation, navigation, audio, studio
+./.venv/bin/python -m backend.test_catalog  # 85 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 154 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 83 — the same through the real routes
 ```
 
 No test framework anywhere: `node --test` and a plain assert script. **Tenancy is

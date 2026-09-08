@@ -48,8 +48,13 @@ export function Prompts() {
       style={{ right: showcase ? SHOWCASE_WIDTH : 0 }}
       className="pointer-events-auto absolute bottom-0 left-0 z-20 flex flex-col items-center gap-[1.1em] px-safe pb-safe"
     >
-      <div className="flex flex-wrap items-center justify-center gap-[0.7em] p-[clamp(14px,1.6vh,58px)]">
-        {PROMPTS.map(({ label, say }) => (
+      {/* Two by two, not a row that wraps.
+          At cabinet scale each chip is a couple of hundred pixels wide, so four
+          across never fit and the fourth dropped to a line of its own —
+          three-and-one, which reads as a layout that ran out of room rather
+          than a set of four things offered deliberately. */}
+      <div className="grid grid-cols-2 gap-[0.7em] p-[clamp(14px,1.6vh,58px)]">
+        {PROMPTS.map(({ label, say }, i) => (
           <button
             key={label}
             type="button"
@@ -63,7 +68,11 @@ export function Prompts() {
               }
               bus.emit('USER_UTTERANCE', { text: say })
             }}
-            className="border-line bg-canvas/80 text-ink text-label hover:border-ink/30 rounded-full border px-[1.4em] py-[0.7em] shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow] duration-300 ease-(--ease-human) hover:-translate-y-px hover:shadow-md active:translate-y-0"
+            // Arriving in sequence, like the products do. Four things appearing
+            // at once is a toolbar; four arriving one after another is an offer
+            // being made.
+            className="lay-down border-line/80 bg-canvas/70 text-ink text-label hover:border-ink/25 rounded-full border px-[1.4em] py-[0.75em] text-center whitespace-nowrap shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow,background-color] duration-300 ease-(--ease-human) hover:bg-canvas/90 hover:-translate-y-[2px] hover:shadow-md active:translate-y-0 active:scale-[0.98]"
+            style={{ animationDelay: `${i * 70}ms` }}
           >
             {label}
           </button>
