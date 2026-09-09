@@ -580,17 +580,22 @@ check("and lists its documents", s["documents"][0]["source"] == "policy.txt")
 # rather than a second call — this route exists to be the studio's only one on
 # first paint. It must be the same avatar a cabinet with nothing assigned to it
 # would show, or the dashboard is a picture of somebody else.
-check("summary carries the avatar on stage", s["stage"]["id"] == AVATAR, json.dumps(s["stage"]))
+check("summary carries the avatar on stage", s["cast"][0]["id"] == AVATAR, json.dumps(s["cast"]))
 check(
     "and it is the one an unassigned cabinet shows",
-    s["stage"]["id"] == store.default_avatar(NORTH).id,
+    s["cast"][0]["id"] == store.default_avatar(NORTH).id,
 )
-check("with what the dashboard draws", set(s["stage"]) >= {"name", "poster", "ready", "missing_clips"})
+check("with what the dashboard draws", set(s["cast"][0]) >= {"name", "poster", "ready", "missing_clips"})
+# The dashboard scrolls through everyone who could stand in the cabinet, so the
+# cast is the whole roster and not only the one leading it. A shop that cannot
+# see its other avatars cannot see which of them are missing footage.
+check("and the rest of the cast behind them", len(s["cast"]) == s["avatars"], json.dumps(s["cast"]))
+check("each of them once", len({m["id"] for m in s["cast"]}) == len(s["cast"]))
 # An org with no avatars has nobody on stage, and the dashboard must draw that
 # rather than crash on it — a new account sees this screen before anything else.
 check(
     "an org with no avatars has nobody on stage",
-    client.get("/api/studio/summary", headers=south).json()["stage"] is None,
+    client.get("/api/studio/summary", headers=south).json()["cast"] == [],
 )
 
 r = client.get("/api/studio/export", headers=north)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type View, pathForView, viewFromPath } from './routes.ts'
 import { LABELS, Shell } from './Shell.tsx'
 import { api, setToken, token, type Org, type Principal } from './api.ts'
@@ -41,10 +41,13 @@ const BLURBS: Record<View, string> = {
 }
 
 
+/** One avatar as the dashboard needs it: enough to show and to judge. */
+type Member = { id: string; name: string; poster: string; ready: boolean; missing_clips: string[] }
+
 type Summary = {
   avatars: number
   kiosks: number
-  stage: { id: string; name: string; poster: string; ready: boolean; missing_clips: string[] } | null
+  cast: Member[]
   products: number
   documents: { source: string }[]
   incomplete: string[]
@@ -223,10 +226,8 @@ function Home({
   // cabinet by looking at it, so the screen leads with the thing rather than
   // with a number describing the thing.
   // It rides in on the summary rather than a fetch of its own: that route
-  // exists precisely so this screen paints in one call, and it picks the
-  // avatar with `default_avatar` — the same rule a cabinet uses to decide who
-  // stands in it when nothing has been assigned.
-  const onStage = summary?.stage ?? null
+  // exists precisely so this screen paints in one call.
+  const cast = summary?.cast ?? []
 
   // A ledger, not a row of cards. These are four facts about one machine and
   // they are read together; three bordered boxes made them look like three
@@ -264,42 +265,7 @@ function Home({
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,290px)_1fr]">
-        {/* Shown at the panel's own proportions — 2160x3840, so 9:16 portrait.
-            A landscape thumbnail of a portrait display is a picture of
-            something that does not exist. */}
-        <section className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => onView('avatars')}
-            className="s-card group relative aspect-[9/16] w-full overflow-hidden p-0 text-left"
-          >
-            {onStage?.poster ? (
-              <img
-                src={onStage.poster}
-                alt=""
-                className="h-full w-full object-cover object-top transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
-              />
-            ) : (
-              <span
-                className="grid h-full w-full place-items-center text-[13px]"
-                style={{ color: 'var(--s-faint)' }}
-              >
-                No avatar yet
-              </span>
-            )}
-            {onStage && (
-              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-linear-to-t from-black/70 to-transparent p-3 pt-10 text-white">
-                <span className="font-display text-[17px] leading-none">{onStage.name}</span>
-                <span className="text-[11.5px] opacity-80">
-                  {onStage.ready ? 'Ready' : `${onStage.missing_clips.length} clips missing`}
-                </span>
-              </span>
-            )}
-          </button>
-          <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
-            What the cabinet shows at rest. Opens the showroom screen.
-          </p>
-        </section>
+        <Stage cast={cast} onView={onView} />
 
         <div className="flex flex-col gap-6">
           <section className="s-card px-5 py-1">
@@ -379,6 +345,178 @@ function Home({
  * that it duplicated the navigation beside it. Deleting it is most of the
  * improvement, and the rail it pointed at is unchanged.
  */
+/**
+ * Everyone who can stand in the cabinet, one at a time, at the panel's own
+ * proportions — 2160x3840, so 9:16 portrait. A landscape thumbnail of a
+ * portrait display is a picture of something that does not exist.
+ *
+ * This showed only `default_avatar`, so a shop with three of them saw one and
+ * had to leave the dashboard to find out anything about the other two — and the
+ * hidden ones are exactly where missing footage hides. The default still leads,
+ * because that is who a cabinet shows when nothing is assigned to it.
+ *
+ * The rail is a native scroll container with scroll-snap: trackpad, touch,
+ * shift-wheel and keyboard all work without a line of code, and the arrows are
+ * `scrollBy` over the same mechanism rather than a second source of truth. The
+ * index is read back from scroll position for the same reason — a carousel that
+ * keeps its own idea of which slide is showing is a carousel that disagrees with
+ * itself the first time somebody swipes.
+ */
+function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void }) {
+  const rail = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState(0)
+
+  const showing = cast[Math.min(at, cast.length - 1)]
+  const step = (by: number) => {
+    const el = rail.current
+    if (el) el.scrollBy({ left: by * el.clientWidth, behavior: 'smooth' })
+  }
+
+  if (!cast.length) {
+    return (
+      <section className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => onView('avatars')}
+          className="s-card grid aspect-[9/16] w-full place-items-center p-0 text-[13px]"
+          style={{ color: 'var(--s-faint)' }}
+        >
+          No avatar yet
+        </button>
+        <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+          A cabinet needs somebody to stand in it.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="group relative">
+        <div
+          ref={rail}
+          // `scrollLeft` divided by the slide width, rounded — which is the
+          // index the snap has settled on, and stays right when the container
+          // is resized.
+          onScroll={(e) => {
+            const el = e.currentTarget
+            setAt(Math.round(el.scrollLeft / el.clientWidth))
+          }}
+          className="s-card flex aspect-[9/16] w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {cast.map((member) => (
+            /* A link, not a click handler: the middle-click and the new tab
+               come free, and this is the same address the Avatars screen
+               opens. Deliberately live for an avatar with no poster — it
+               falls back to the placeholder and still talks. */
+            <a
+              key={member.id}
+              href={`/?avatar=${encodeURIComponent(member.id)}`}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Open the showroom screen as ${member.name}`}
+              className="relative w-full shrink-0 snap-start overflow-hidden"
+            >
+              {member.poster ? (
+                <img
+                  src={member.poster}
+                  alt=""
+                  className="h-full w-full object-cover object-top transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
+                />
+              ) : (
+                <span
+                  className="grid h-full w-full place-items-center text-[13px]"
+                  style={{ color: 'var(--s-faint)' }}
+                >
+                  No footage yet
+                </span>
+              )}
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-linear-to-t from-black/70 to-transparent p-3 pt-10 text-white">
+                <span className="font-display text-[17px] leading-none">{member.name}</span>
+                <span className="text-[11.5px] opacity-80">
+                  {member.ready ? 'Ready' : `${member.missing_clips.length} clips missing`}
+                </span>
+              </span>
+            </a>
+          ))}
+        </div>
+
+        {/* Only worth drawing when there is somewhere to go. They appear on
+            hover and on keyboard focus — `focus-within` rather than hover
+            alone, or they are unreachable without a mouse. */}
+        {cast.length > 1 && (
+          <>
+            <Nudge side="left" disabled={at === 0} onClick={() => step(-1)} />
+            <Nudge side="right" disabled={at >= cast.length - 1} onClick={() => step(1)} />
+          </>
+        )}
+      </div>
+
+      {cast.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5">
+          {cast.map((member, i) => (
+            <button
+              key={member.id}
+              type="button"
+              aria-label={member.name}
+              aria-current={i === at ? 'true' : undefined}
+              onClick={() => {
+                const el = rail.current
+                if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+              }}
+              className="h-1.5 rounded-full transition-all duration-300"
+              style={{
+                width: i === at ? 18 : 6,
+                background: i === at ? 'var(--s-accent)' : 'var(--s-line)',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+        {at === 0 ? 'What the cabinet shows at rest. ' : ''}
+        {showing ? `Opens the showroom screen as ${showing.name}.` : ''}
+      </p>
+    </section>
+  )
+}
+
+function Nudge({
+  side,
+  disabled,
+  onClick,
+}: {
+  side: 'left' | 'right'
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={side === 'left' ? 'Previous avatar' : 'Next avatar'}
+      className={`absolute top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow-md backdrop-blur transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 disabled:!opacity-0 ${
+        side === 'left' ? 'left-2' : 'right-2'
+      }`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+        className="size-4"
+      >
+        <path d={side === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
+      </svg>
+    </button>
+  )
+}
+
 function Arrow() {
   return (
     <svg

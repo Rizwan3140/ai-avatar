@@ -840,23 +840,32 @@ def summary(caller: Principal = Depends(principal)):
     """One call for the studio's first paint. Four round trips on load is four
     chances for a spinner on a screen someone opens twenty times a day."""
     avatars = store.list_avatars(caller.org_id)
-    # The one the dashboard leads with, which is the one a cabinet with nothing
-    # assigned to it actually shows — `default_avatar` rather than a second rule
-    # that agrees with it today. Folded in here because this route exists to be
-    # the studio's only call on first paint, and the poster was a second one.
-    stage = store.default_avatar(caller.org_id)
+    # Everyone who could stand in the cabinet, not only whoever is standing in
+    # it now. It was a single `stage` avatar, so a shop with three of them saw
+    # one on its dashboard and had no way to look at the others without leaving
+    # the screen — and the two that were hidden are exactly the two most likely
+    # to be missing footage.
+    #
+    # `default_avatar` still leads, because that is who a cabinet with nothing
+    # assigned to it actually shows. It is the order, not the whole list.
+    # Folded in here because this route exists to be the studio's only call on
+    # first paint, and the poster was a second one.
+    lead = store.default_avatar(caller.org_id)
+    ordered = [lead] + [a for a in avatars if a.id != lead.id] if lead else []
     return {
         "org": accounts.get_org(caller.org_id),
         "role": caller.role,
         "avatars": len(avatars),
-        "stage": stage
-        and {
-            "id": stage.id,
-            "name": stage.name,
-            "poster": stage.poster,
-            "ready": stage.ready,
-            "missing_clips": stage.missing_clips,
-        },
+        "cast": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "poster": a.poster,
+                "ready": a.ready,
+                "missing_clips": a.missing_clips,
+            }
+            for a in ordered
+        ],
         "incomplete": [a.id for a in avatars if a.missing_clips],
         "kiosks": len(store.list_kiosks(caller.org_id)),
         "products": len(catalog.all_products(caller.org_id)),
