@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { type View, pathForView, viewFromPath } from './routes.ts'
 import { LABELS, Shell } from './Shell.tsx'
-import { api, setToken, token, type Org, type Principal } from './api.ts'
+import { api, setToken, token, type Avatar, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
 import { Campaigns } from './Campaigns.tsx'
@@ -41,17 +41,10 @@ const BLURBS: Record<View, string> = {
 }
 
 
-/** Listed on the dashboard as well as in the rail, with a line saying what
- *  each one is for. */
-const ELSEWHERE: { id: View; title: string; blurb: string }[] = [
-  { id: 'documents', title: 'Documents', blurb: 'Policies and brochures he can quote' },
-  { id: 'team', title: 'Team', blurb: 'Who else can change this' },
-  { id: 'insights', title: 'Insights', blurb: 'What visitors asked for, and could not find' },
-]
-
 type Summary = {
   avatars: number
   kiosks: number
+  stage: { id: string; name: string; poster: string; ready: boolean; missing_clips: string[] } | null
   products: number
   documents: { source: string }[]
   incomplete: string[]
@@ -222,9 +215,26 @@ function Home({
   summary: Summary | null
   onView: (view: View) => void
 }) {
+  // The cabinet this dashboard is actually driving.
+  //
+  // It used to open on three counts in three boxes, which is what every admin
+  // panel opens on — and nothing about it said this one controls a two-metre
+  // display with a person standing in it. A showroom manager knows their
+  // cabinet by looking at it, so the screen leads with the thing rather than
+  // with a number describing the thing.
+  // It rides in on the summary rather than a fetch of its own: that route
+  // exists precisely so this screen paints in one call, and it picks the
+  // avatar with `default_avatar` — the same rule a cabinet uses to decide who
+  // stands in it when nothing has been assigned.
+  const onStage = summary?.stage ?? null
+
+  // A ledger, not a row of cards. These are four facts about one machine and
+  // they are read together; three bordered boxes made them look like three
+  // separate dashboards that happened to be adjacent.
   const counts: { label: string; value: number | string; view: View; note: string }[] = [
     { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'he may recommend' },
     { label: 'Avatars', value: summary?.avatars ?? '-', view: 'avatars', note: 'stand in a cabinet' },
+    { label: 'Cabinets', value: summary?.kiosks ?? '-', view: 'avatars', note: 'registered to this org' },
     { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'he can quote' },
   ]
 
@@ -236,30 +246,6 @@ function Home({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* What is on this machine. Four counts, each a way in — and only counts
-          this machine can actually answer for. The reference this follows also
-          showed brightness, temperature and uptime; none of those are measured
-          here, and drawing a dial for a number nobody reads is the interface
-          telling a comfortable lie about how much it knows. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {counts.map(({ label, value, view, note }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => onView(view)}
-            className="s-card group flex flex-col gap-1 p-4 text-left transition-shadow hover:shadow-lg"
-          >
-            <span className="font-display nums text-[34px] leading-none tracking-[-0.01em]">
-              {value}
-            </span>
-            <span className="text-[13px] font-medium">{label}</span>
-            <span className="text-[12px]" style={{ color: 'var(--s-faint)' }}>
-              {note}
-            </span>
-          </button>
-        ))}
-      </div>
-
       {/* The one thing worth interrupting for. An avatar with missing footage
           does not change when spoken to, which reads as broken rather than as
           unfinished. */}
@@ -272,7 +258,68 @@ function Home({
         </Note>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,290px)_1fr]">
+        {/* Shown at the panel's own proportions — 2160x3840, so 9:16 portrait.
+            A landscape thumbnail of a portrait display is a picture of
+            something that does not exist. */}
+        <section className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => onView('avatars')}
+            className="s-card group relative aspect-[9/16] w-full overflow-hidden p-0 text-left"
+          >
+            {onStage?.poster ? (
+              <img
+                src={onStage.poster}
+                alt=""
+                className="h-full w-full object-cover object-top transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
+              />
+            ) : (
+              <span
+                className="grid h-full w-full place-items-center text-[13px]"
+                style={{ color: 'var(--s-faint)' }}
+              >
+                No avatar yet
+              </span>
+            )}
+            {onStage && (
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-linear-to-t from-black/70 to-transparent p-3 pt-10 text-white">
+                <span className="font-display text-[17px] leading-none">{onStage.name}</span>
+                <span className="text-[11.5px] opacity-80">
+                  {onStage.ready ? 'Ready' : `${onStage.missing_clips.length} clips missing`}
+                </span>
+              </span>
+            )}
+          </button>
+          <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+            What the cabinet shows at rest. Opens the showroom screen.
+          </p>
+        </section>
+
+        <div className="flex flex-col gap-6">
+        <section className="s-card px-5 py-1">
+          {counts.map(({ label, value, view, note }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onView(view)}
+              className="group flex w-full items-baseline gap-4 border-t py-3.5 text-left first:border-t-0"
+              style={{ borderColor: 'var(--s-line)' }}
+            >
+              <span className="font-display nums w-[2.4em] shrink-0 text-[30px] leading-none tracking-[-0.01em]">
+                {value}
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[14px] font-medium">{label}</span>
+                <span className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+                  {note}
+                </span>
+              </span>
+              <Arrow />
+            </button>
+          ))}
+        </section>
+
         <section className="s-card flex flex-col p-5">
           <h2 className="font-display text-[20px] leading-none">Start here</h2>
           <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
@@ -292,44 +339,39 @@ function Home({
                   {row.body}
                 </span>
               </span>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-                className="ml-auto size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
-                style={{ color: 'var(--s-faint)' }}
-              >
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
+              <Arrow />
             </button>
           ))}
         </section>
-
-        <section className="s-card flex flex-col p-5">
-          <h2 className="font-display text-[20px] leading-none">Everything else</h2>
-          <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
-            Also in the rail on the left.
-          </p>
-          {ELSEWHERE.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => onView(row.id)}
-              className="group flex items-baseline gap-3 border-t py-2.5 text-left first:border-t-0"
-              style={{ borderColor: 'var(--s-line)' }}
-            >
-              <span className="text-[14px] font-medium">{row.title}</span>
-              <span className="ml-auto text-right text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
-                {row.blurb}
-              </span>
-            </button>
-          ))}
-        </section>
+        </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The same mark on every row that leads somewhere, so "this opens something" is
+ * one shape rather than three copies of one.
+ *
+ * It also replaced a card headed "Everything else" whose own subtitle read
+ * "Also in the rail on the left" — a panel of links admitting in its subtitle
+ * that it duplicated the navigation beside it. Deleting it is most of the
+ * improvement, and the rail it pointed at is unchanged.
+ */
+function Arrow() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="ml-auto size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+      style={{ color: 'var(--s-faint)' }}
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
   )
 }
