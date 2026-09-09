@@ -83,8 +83,12 @@ export function Signage() {
     // `right-0` puts the microphone button on top of the advertisement. The
     // reserved gutter is the rail's own width plus its safe margin.
     //
-    // Asleep: the whole frame. They are not on screen and the controls are not
-    // reachable, so nothing is being covered.
+    // Asleep: the whole frame, and a pixel past it on every side. Exactly the
+    // frame was not enough, because the drift below then moves the advertisement
+    // *off* one edge and reveals a hairline of the near-white poster along the
+    // opposite one — a 3px seam down a 52" shop window, which reads as a
+    // rendering fault rather than as a campaign. Growing the panel by more than
+    // the drift means it can move without uncovering anything.
     //
     // The drift is the same slow cycle the wordmark and the controls use. It
     // matters more here than anywhere else in the app: this is the change that
@@ -92,8 +96,8 @@ export function Signage() {
     // exactly what sleeping was avoiding. Rotating the playlist does most of the
     // work; moving it does the rest. One campaign looping alone will still ghost.
     <div
-      className={`pointer-events-none absolute inset-y-0 right-0 z-10 flex flex-col justify-center gap-5 transition-transform duration-1000 ${
-        asleep ? 'w-full' : 'w-[46%] pl-safe pr-[132px]'
+      className={`pointer-events-none absolute z-10 flex flex-col justify-center gap-5 transition-transform duration-1000 ${
+        asleep ? '-inset-1' : 'inset-y-0 right-0 w-[46%] pl-safe pr-[132px]'
       }`}
       style={{
         animation: `rise var(--duration-calm) var(--ease-human)`,
