@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { type View, pathForView, viewFromPath } from './routes.ts'
 import { LABELS, Shell } from './Shell.tsx'
-import { api, setToken, token, type Avatar, type Org, type Principal } from './api.ts'
+import { api, setToken, token, type Org, type Principal } from './api.ts'
 import { Auth } from './Auth.tsx'
 import { Avatars } from './Avatars.tsx'
 import { Campaigns } from './Campaigns.tsx'
@@ -231,10 +231,15 @@ function Home({
   // A ledger, not a row of cards. These are four facts about one machine and
   // they are read together; three bordered boxes made them look like three
   // separate dashboards that happened to be adjacent.
-  const counts: { label: string; value: number | string; view: View; note: string }[] = [
+  // `view: null` is a fact with nowhere to go, and it renders as a row rather
+  // than a button. Cabinets is one: the screen for it exists and works, but it
+  // was deliberately taken off the rail (see routes.ts), so there is no
+  // destination — and pointing the row at Avatars, which is what it did, is a
+  // link that says one thing and does another.
+  const counts: { label: string; value: number | string; view: View | null; note: string }[] = [
     { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'he may recommend' },
     { label: 'Avatars', value: summary?.avatars ?? '-', view: 'avatars', note: 'stand in a cabinet' },
-    { label: 'Cabinets', value: summary?.kiosks ?? '-', view: 'avatars', note: 'registered to this org' },
+    { label: 'Cabinets', value: summary?.kiosks ?? '-', view: null, note: 'registered to this org' },
     { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'he can quote' },
   ]
 
@@ -297,52 +302,68 @@ function Home({
         </section>
 
         <div className="flex flex-col gap-6">
-        <section className="s-card px-5 py-1">
-          {counts.map(({ label, value, view, note }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onView(view)}
-              className="group flex w-full items-baseline gap-4 border-t py-3.5 text-left first:border-t-0"
-              style={{ borderColor: 'var(--s-line)' }}
-            >
-              <span className="font-display nums w-[2.4em] shrink-0 text-[30px] leading-none tracking-[-0.01em]">
-                {value}
-              </span>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[14px] font-medium">{label}</span>
-                <span className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
-                  {note}
-                </span>
-              </span>
-              <Arrow />
-            </button>
-          ))}
-        </section>
+          <section className="s-card px-5 py-1">
+            {counts.map(({ label, value, view, note }) => {
+              const row = (
+                <>
+                  <span className="font-display nums w-[2.4em] shrink-0 text-[30px] leading-none tracking-[-0.01em]">
+                    {value}
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-[14px] font-medium">{label}</span>
+                    <span className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
+                      {note}
+                    </span>
+                  </span>
+                  {view && <Arrow />}
+                </>
+              )
+              const shared = 'group flex w-full items-baseline gap-4 border-t py-3.5 text-left first:border-t-0'
+              // A row with nowhere to go is a row, not a button. Rendering it as
+              // one would give it a hover state and a pointer for a click that
+              // does nothing, which is how an interface teaches people to stop
+              // trusting it.
+              return view ? (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onView(view)}
+                  className={shared}
+                  style={{ borderColor: 'var(--s-line)' }}
+                >
+                  {row}
+                </button>
+              ) : (
+                <div key={label} className={shared} style={{ borderColor: 'var(--s-line)' }}>
+                  {row}
+                </div>
+              )
+            })}
+          </section>
 
-        <section className="s-card flex flex-col p-5">
-          <h2 className="font-display text-[20px] leading-none">Start here</h2>
-          <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
-            The three things a new cabinet needs, in the order it needs them.
-          </p>
-          {start.map((row) => (
-            <button
-              key={row.view}
-              type="button"
-              onClick={() => onView(row.view)}
-              className="group flex items-center gap-4 border-t py-3.5 text-left first:border-t-0"
-              style={{ borderColor: 'var(--s-line)' }}
-            >
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[14.5px] font-medium">{row.title}</span>
-                <span className="text-[13px]" style={{ color: 'var(--s-muted)' }}>
-                  {row.body}
+          <section className="s-card flex flex-col p-5">
+            <h2 className="font-display text-[20px] leading-none">Start here</h2>
+            <p className="mb-1 text-[13px]" style={{ color: 'var(--s-muted)' }}>
+              The three things a new cabinet needs, in the order it needs them.
+            </p>
+            {start.map((row) => (
+              <button
+                key={row.view}
+                type="button"
+                onClick={() => onView(row.view)}
+                className="group flex items-center gap-4 border-t py-3.5 text-left first:border-t-0"
+                style={{ borderColor: 'var(--s-line)' }}
+              >
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[14.5px] font-medium">{row.title}</span>
+                  <span className="text-[13px]" style={{ color: 'var(--s-muted)' }}>
+                    {row.body}
+                  </span>
                 </span>
-              </span>
-              <Arrow />
-            </button>
-          ))}
-        </section>
+                <Arrow />
+              </button>
+            ))}
+          </section>
         </div>
       </div>
     </div>

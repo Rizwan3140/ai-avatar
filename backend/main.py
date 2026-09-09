@@ -57,7 +57,17 @@ _SECURITY_HEADERS = {
         # React writes inline style attributes and Tailwind emits a style
         # element, so this cannot be tightened without a nonce pipeline.
         "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob:; "
+        # `https:` because a catalog's photographs live on the customer's own
+        # CDN, not on this machine. All 250 products in this install point at
+        # cdn.shopify.com, and `img-src 'self'` blocked every one — the cabinet
+        # rendered a grey placeholder for every garment in the shop, which is
+        # the whole screen. The host cannot be enumerated: each customer arrives
+        # with a different storefront.
+        #
+        # An image is not a script. The residual risk is a remote host learning
+        # a cabinet's IP when it fetches a picture the shop itself supplied,
+        # which is the same request that shop's own website already makes.
+        "img-src 'self' data: blob: https:; "
         "media-src 'self' blob:; "
         "font-src 'self'; "
         "connect-src 'self'; "

@@ -153,6 +153,66 @@ try:
 except accounts.AuthError:
     check("an unknown account does not log in", True)
 
+# --- changing a password ends the sessions opened with the old one ------------
+
+pat = accounts.signup("pat@northwind.com", "the-old-password", "Pat Co")
+pat_token = accounts.issue_token(pat)
+check("a fresh session verifies", accounts.verify_token(pat_token).user_id == pat.user_id)
+
+for current, new_pw, why in [
+    ("the-wrong-one", "a-brand-new-one", "the wrong current password is refused"),
+    ("the-old-password", "short", "a short new password is refused"),
+]:
+    try:
+        accounts.change_password(pat.user_id, current, new_pw)
+        check(why, False)
+    except accounts.AuthError:
+        check(why, True)
+
+check("a refused change leaves the session alone",
+      accounts.verify_token(pat_token).user_id == pat.user_id)
+check("and leaves the old password working",
+      accounts.login("pat@northwind.com", "the-old-password").user_id == pat.user_id)
+
+accounts.change_password(pat.user_id, "the-old-password", "the-new-password")
+check("the new password logs in",
+      accounts.login("pat@northwind.com", "the-new-password").user_id == pat.user_id)
+try:
+    accounts.login("pat@northwind.com", "the-old-password")
+    check("the old password no longer logs in", False)
+except accounts.AuthError:
+    check("the old password no longer logs in", True)
+
+# The point of the whole exercise. A signed token is valid for a fortnight to
+# whoever holds it, so a password changed because somebody else knew it changed
+# nothing until this.
+try:
+    accounts.verify_token(pat_token)
+    check("a session opened with the old password is over", False)
+except accounts.AuthError:
+    check("a session opened with the old password is over", True)
+
+check("a token issued after the change works",
+      accounts.verify_token(accounts.issue_token(pat)).user_id == pat.user_id)
+
+# Nobody else is signed out by it — the version is per account, not per install.
+check("another account's session survives",
+      accounts.verify_token(accounts.issue_token(alice)).user_id == alice.user_id)
+
+# `principal()` hands a loopback caller an owner with no users row behind it.
+# A version check that failed closed there would lock every single-kiosk
+# install out of its own studio.
+local = accounts.Principal("local", "", accounts.DEFAULT_ORG, "owner")
+check("a machine-local principal still verifies",
+      accounts.verify_token(accounts.issue_token(local)).user_id == "local")
+
+try:
+    accounts.change_password("no-such-user", "anything-at-all", "a-brand-new-one")
+    check("an unknown account cannot change a password", False)
+except accounts.AuthError:
+    check("an unknown account cannot change a password", True)
+
+
 contoso = accounts.create_org("Contoso")
 carol = accounts.add_member(contoso, "carol@contoso.com", "another-long-one", "editor")
 check("a member can be added", carol.role == "editor")
@@ -481,7 +541,6 @@ check(
 
 section("providers")
 
-import importlib  # noqa: E402
 
 from backend import config as _config  # noqa: E402
 

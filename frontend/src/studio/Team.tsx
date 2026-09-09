@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, type Org, type Principal } from './api.ts'
+import { api, setToken, type Org, type Principal } from './api.ts'
 import { Button, ConfirmAction, Empty, Field, Note, Section, useLoad } from './ui.tsx'
 
 type Member = { id: string; email: string; role: string }
@@ -18,6 +18,8 @@ export function Team({ who, org }: { who: Principal; org: Org | null }) {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('editor')
   const [vertical, setVertical] = useState(org?.vertical ?? '')
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
@@ -58,6 +60,21 @@ export function Team({ who, org }: { who: Principal; org: Org | null }) {
     act(async () => {
       await api('/api/studio/org', { method: 'PATCH', body: { vertical } })
       return 'Saved.'
+    })
+
+  // The new token replaces the stored one before anything else is drawn. The
+  // change signs out every other session this account has open, and without
+  // this the browser that did it is one of them.
+  const changePassword = () =>
+    act(async () => {
+      const { token } = await api<{ token: string }>('/api/auth/password', {
+        method: 'POST',
+        body: { current, new: next },
+      })
+      setToken(token)
+      setCurrent('')
+      setNext('')
+      return 'Password changed. Anywhere else you were signed in has been signed out.'
     })
 
   const exportAll = () =>
@@ -137,6 +154,35 @@ export function Team({ who, org }: { who: Principal; org: Org | null }) {
             ))}
           </ul>
         )}
+      </Section>
+
+      <Section
+        title="Your password"
+        hint="Changing it signs out every other browser this account is open in — which is the point, if somebody else knows it."
+      >
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <Field label="Current password">
+            <input
+              className="input"
+              type="password"
+              autoComplete="current-password"
+              value={current}
+              onChange={(event) => setCurrent(event.target.value)}
+            />
+          </Field>
+          <Field label="New password" hint="At least ten characters.">
+            <input
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              value={next}
+              onChange={(event) => setNext(event.target.value)}
+            />
+          </Field>
+          <Button onClick={changePassword} disabled={busy || !current || next.length < 10}>
+            Change
+          </Button>
+        </div>
       </Section>
 
       {isOwner && (

@@ -6,15 +6,6 @@ import { useStore } from '../state/store.ts'
 import { TryOn } from './TryOn.tsx'
 
 /**
- * How much of the panel the products take when they are up, leaving the rest to
- * him. Exported because `Prompts` has to end where this begins: both sit at
- * `z-20` and the suggestions are painted second, so a full-width row of them
- * ran straight under this panel and over the QR card in its bottom corner —
- * a code a visitor is being asked to scan, with a button on top of it.
- */
-export const SHOWCASE_WIDTH = '62%'
-
-/**
  * Products, when asked for.
  *
  * Nothing appears until a visitor asks — he is the experience, and a grid of
