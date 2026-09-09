@@ -202,6 +202,27 @@ def me(caller: Principal = Depends(principal)):
     return {**asdict(caller), "org": accounts.get_org(caller.org_id)}
 
 
+class PasswordRequest(BaseModel):
+    current: str
+    new: str
+
+
+@router.post("/auth/password")
+def change_password(req: PasswordRequest, caller: Principal = Depends(principal)):
+    """Any signed-in account, on its own password only — the id comes from the
+    token, never from the body, or an owner could rewrite a colleague's.
+
+    It ends every other session and returns a replacement for this one, because
+    the alternative is signing somebody out for the crime of securing their own
+    account, which teaches them not to.
+    """
+    try:
+        accounts.change_password(caller.user_id, req.current, req.new)
+    except AuthError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"token": accounts.issue_token(caller)}
+
+
 @router.get("/studio/members")
 def members(caller: Principal = Depends(editor)):
     """Editor and above. The Team screen tells an owner that "a viewer can read
@@ -819,10 +840,23 @@ def summary(caller: Principal = Depends(principal)):
     """One call for the studio's first paint. Four round trips on load is four
     chances for a spinner on a screen someone opens twenty times a day."""
     avatars = store.list_avatars(caller.org_id)
+    # The one the dashboard leads with, which is the one a cabinet with nothing
+    # assigned to it actually shows — `default_avatar` rather than a second rule
+    # that agrees with it today. Folded in here because this route exists to be
+    # the studio's only call on first paint, and the poster was a second one.
+    stage = store.default_avatar(caller.org_id)
     return {
         "org": accounts.get_org(caller.org_id),
         "role": caller.role,
         "avatars": len(avatars),
+        "stage": stage
+        and {
+            "id": stage.id,
+            "name": stage.name,
+            "poster": stage.poster,
+            "ready": stage.ready,
+            "missing_clips": stage.missing_clips,
+        },
         "incomplete": [a.id for a in avatars if a.missing_clips],
         "kiosks": len(store.list_kiosks(caller.org_id)),
         "products": len(catalog.all_products(caller.org_id)),

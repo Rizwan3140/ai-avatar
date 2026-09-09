@@ -111,7 +111,8 @@ def init() -> None:
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 password_hash TEXT NOT NULL,
-                created_at TEXT
+                created_at TEXT,
+                token_version INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS members (
                 org_id TEXT NOT NULL,
@@ -120,6 +121,14 @@ def init() -> None:
                 PRIMARY KEY (org_id, user_id)
             );
         """)
+        # An install that predates session revocation. Plain ADD COLUMN: every
+        # existing row starts at 0, which is what their tokens already claim, so
+        # nobody is signed out by the upgrade itself.
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+        if "token_version" not in columns:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"
+            )
         conn.execute(
             "INSERT OR IGNORE INTO orgs (id, name, vertical, created_at) VALUES (?,?,?,?)",
             (DEFAULT_ORG, "Dhiyona", "", _now()),
@@ -165,12 +174,29 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
+def token_version(user_id: str) -> int:
+    """The generation this account's sessions belong to.
+
+    An account nobody has ever heard of is 0 rather than an error: `principal()`
+    hands a loopback caller an owner with no row behind it, and a token minted
+    for one has nothing to revoke. Membership decides whether that caller may do
+    anything; this decides only whether their session survived a password change.
+    """
+    init()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT token_version FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+    return row["token_version"] if row else 0
+
+
 def issue_token(principal: Principal, ttl: int = TOKEN_TTL) -> str:
     payload = {
         "u": principal.user_id,
         "e": principal.email,
         "o": principal.org_id,
         "r": principal.role,
+        "v": token_version(principal.user_id),
         "exp": int(time.time()) + ttl,
     }
     body = _b64(json.dumps(payload, separators=(",", ":")).encode())
@@ -194,6 +220,14 @@ def verify_token(token: str) -> Principal:
 
     if payload.get("exp", 0) < time.time():
         raise AuthError("session expired — sign in again")
+
+    # Expiry says how old a token is; this says whether it is still wanted. A
+    # signed token is otherwise valid for a fortnight to whoever holds it, so a
+    # password changed because it was known to somebody else changed nothing
+    # for the person who knew it. Now it ends every session but the one being
+    # issued in its place.
+    if payload.get("v", 0) != token_version(payload["u"]):
+        raise AuthError("session ended — sign in again")
 
     return Principal(
         user_id=payload["u"],
@@ -316,6 +350,38 @@ def login(email: str, password: str) -> Principal:
     return Principal(row["id"], row["email"], member["org_id"], member["role"])
 
 
+def change_password(user_id: str, current: str, new: str) -> None:
+    """Change a password, and end every session that was opened with the old one.
+
+    There was no way to do this at all. `add_member` creates an account *by*
+    handing somebody a password an owner chose and therefore knows, and the
+    docstring calls that a feature — which it is, once the person handed it can
+    change it. Until then "your own account" was an account its author could
+    still sign into.
+
+    Bumping the version is the half that makes it worth doing. A password
+    changed because somebody else learned it is not changed at all while the
+    session that person already holds keeps working for a fortnight.
+    """
+    init()
+    if len(new) < 10:
+        raise AuthError("password must be at least 10 characters")
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        # Same shape as `login`: hash regardless, so an unknown id and a wrong
+        # password cost the same and cannot be told apart by timing.
+        stored = row["password_hash"] if row else hash_password("no-such-user")
+        if not check_password(current, stored) or row is None:
+            raise AuthError("your current password is incorrect")
+        conn.execute(
+            "UPDATE users SET password_hash = ?, token_version = token_version + 1 "
+            "WHERE id = ?",
+            (hash_password(new), user_id),
+        )
+
+
 def add_member(org_id: str, email: str, password: str, role: str = "editor") -> Principal:
     """Invite by creating. A showroom team is three people, not three hundred, so
     an email round trip buys nothing an owner handing over a password does not."""
@@ -361,10 +427,9 @@ def membership(user_id: str, org_id: str) -> str | None:
     token, rights from the database. Role changes take effect immediately, and
     offboarding works because it is the same fact both places.
 
-    Not full revocation — a stolen token still works while its holder remains a
-    member. That needs a `token_version` bumped on password change, which is a
-    column and a migration; this is the part that makes the People screen mean
-    what it says.
+    This is the part that makes the People screen mean what it says. The other
+    half — a stolen token that works while its holder is still a member — is
+    `token_version`, bumped by `change_password` and checked in `verify_token`.
     """
     init()
     with _connect() as conn:

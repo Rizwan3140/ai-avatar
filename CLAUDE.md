@@ -24,13 +24,13 @@ Full scope: `Docs/`, and the plan at
 
 ```bash
 (cd frontend && npm test)                   # 90 checks
-./.venv/bin/python -m backend.test_catalog  # 85 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 188 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 109 — the same through the real routes
+./.venv/bin/python -m backend.test_catalog  # 89 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 200 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 119 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-472 checks total. **Never run the Python suites through `unittest`** — they are
+498 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -144,8 +144,22 @@ company's prices out loud.
 - **A token proves identity; the database decides rights.** `principal()` reads
   the role from `members` on every request. A signed token's role is as true a
   fortnight later as the day it was minted, so removing somebody used to leave
-  their browser working until it expired. Not full revocation - a stolen token
-  still works while its holder is a member; that wants a `token_version`.
+  their browser working until it expired. The other half is `users.token_version`,
+  stamped into the token and re-read on every request: changing a password ends
+  every session opened with the old one, which is what makes changing it after
+  somebody learned it mean anything. Per account, so it signs out one person and
+  not an install.
+- **A cabinet follows release tags, not the branch.** `update.ps1` runs at
+  every logon, so whatever `master` pointed at when a cabinet woke up was
+  executed on it - which made "can push to master" and "can run code in every
+  showroom" one sentence. A tag is a deliberate act; a push is not. It picks the
+  highest version tag (version order, not alphabetical: `v1.10.0` beats
+  `v1.9.0`, and `-SelfTest` checks that without touching the network), ignores
+  anything that is not a plain version, and falls back to the branch **only**
+  while no tag exists - not when GitHub is unreachable, because a blip that
+  puts a cabinet back on `master` is the behaviour being removed. Cut a tag to
+  ship. This is not signature verification; the remaining half is a protected
+  branch and signed tags, which is a GitHub setting rather than a patch.
 - **Consent is a nonce, not a flag.** `?consent=1` was a constant the browser
   typed into every request: the check was real and the value proved nothing,
   and there was no record tying an agreement to a photograph. The token is

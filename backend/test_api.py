@@ -365,6 +365,52 @@ check(
     == 403,
 )
 
+# Changing a password ends the other sessions. The module is checked in
+# test_platform; what is checked here is that the route reads the account from
+# the token rather than the body, and hands back a replacement session so the
+# caller is not signed out for securing their own account.
+_pw = accounts.add_member(NORTH, "pw@northwind.com", "another-long-one", "editor")
+_pw_auth = {"Authorization": f"Bearer {accounts.issue_token(_pw)}"}
+_pw_other = {"Authorization": f"Bearer {accounts.issue_token(_pw)}"}
+
+check(
+    "the wrong current password is refused",
+    client.post(
+        "/api/auth/password", headers=_pw_auth,
+        json={"current": "not-the-one", "new": "a-brand-new-one"},
+    ).status_code == 400,
+)
+check(
+    "an anonymous caller cannot change anybody's password",
+    client.post(
+        "/api/auth/password",
+        json={"current": "another-long-one", "new": "a-brand-new-one"},
+    ).status_code == 401,
+)
+
+r = client.post(
+    "/api/auth/password", headers=_pw_auth,
+    json={"current": "another-long-one", "new": "a-brand-new-one"},
+)
+check("a password changes", r.status_code == 200, r.text[:160])
+check(
+    "the caller keeps working on the token it returned",
+    client.get(
+        "/api/studio/avatars",
+        headers={"Authorization": f"Bearer {r.json()['token']}"},
+    ).status_code == 200,
+)
+check(
+    "their other session is over",
+    client.get("/api/studio/avatars", headers=_pw_other).status_code == 401,
+)
+check(
+    "and an owner's is untouched",
+    client.get("/api/studio/avatars", headers=north).status_code == 200,
+)
+accounts.remove_member(NORTH, _pw.user_id)
+
+
 SOUTH = accounts.create_org("Contoso")
 rival = accounts.add_member(SOUTH, "rival@contoso.com", "another-long-one", "owner")
 south = {"Authorization": f"Bearer {accounts.issue_token(rival)}"}
@@ -529,6 +575,23 @@ r = client.get("/api/studio/summary", headers=north)
 s = r.json()
 check("summary counts this org's things", (s["avatars"], s["kiosks"], s["products"]) == (1, 1, 2), json.dumps(s))
 check("and lists its documents", s["documents"][0]["source"] == "policy.txt")
+
+# The dashboard leads with a picture of the cabinet, and gets it from here
+# rather than a second call — this route exists to be the studio's only one on
+# first paint. It must be the same avatar a cabinet with nothing assigned to it
+# would show, or the dashboard is a picture of somebody else.
+check("summary carries the avatar on stage", s["stage"]["id"] == AVATAR, json.dumps(s["stage"]))
+check(
+    "and it is the one an unassigned cabinet shows",
+    s["stage"]["id"] == store.default_avatar(NORTH).id,
+)
+check("with what the dashboard draws", set(s["stage"]) >= {"name", "poster", "ready", "missing_clips"})
+# An org with no avatars has nobody on stage, and the dashboard must draw that
+# rather than crash on it — a new account sees this screen before anything else.
+check(
+    "an org with no avatars has nobody on stage",
+    client.get("/api/studio/summary", headers=south).json()["stage"] is None,
+)
 
 r = client.get("/api/studio/export", headers=north)
 check("an owner can export everything", len(r.json()["products"]) == 2)
