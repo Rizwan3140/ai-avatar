@@ -12,6 +12,11 @@ import { useStore } from '../state/store.ts'
 export function Subtitle() {
   const { status, subtitle, greeting, error } = useStore()
 
+  // Asleep the cabinet says nothing, so there is nothing to make readable — and
+  // the scrim is a 120px white gradient held on an OLED all night. `Controls`
+  // already leaves for the same reason.
+  if (status === 'sleeping') return null
+
   return (
     // Floats over the lower part of the frame rather than sitting below it, so
     // they can stand on the bottom edge. The scrim keeps a caption readable where

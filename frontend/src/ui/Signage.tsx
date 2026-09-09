@@ -83,6 +83,12 @@ export function Signage() {
     // `right-0` puts the microphone button on top of the advertisement. The
     // reserved gutter is the rail's own width plus its safe margin.
     //
+    // Asleep it also outranks everything else on the stage, rather than sharing
+    // `z-10` with them. Sharing meant DOM order decided, and `Subtitle` comes
+    // later in `App` — so its 120px white scrim was painted across the bottom of
+    // a full-screen advertisement. Whole-screen has to be a rule the layer obeys,
+    // not an inventory of which siblings happen to be quiet.
+    //
     // Asleep: the whole frame, and a pixel past it on every side. Exactly the
     // frame was not enough, because the drift below then moves the advertisement
     // *off* one edge and reveals a hairline of the near-white poster along the
@@ -96,8 +102,8 @@ export function Signage() {
     // exactly what sleeping was avoiding. Rotating the playlist does most of the
     // work; moving it does the rest. One campaign looping alone will still ghost.
     <div
-      className={`pointer-events-none absolute z-10 flex flex-col justify-center gap-5 transition-transform duration-1000 ${
-        asleep ? '-inset-1' : 'inset-y-0 right-0 w-[46%] pl-safe pr-[132px]'
+      className={`pointer-events-none absolute flex flex-col justify-center gap-5 transition-transform duration-1000 ${
+        asleep ? '-inset-1 z-30' : 'inset-y-0 right-0 z-10 w-[46%] pl-safe pr-[132px]'
       }`}
       style={{
         animation: `rise var(--duration-calm) var(--ease-human)`,
