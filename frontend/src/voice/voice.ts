@@ -93,18 +93,18 @@ function stopEverything() {
  */
 function onFinal(text: string) {
   if (!active) return
-  // His own voice coming back through the microphone is not a question.
+  // Their own voice coming back through the microphone is not a question.
   //
   // No `isSpeaking()` guard. That guard is why a cabinet spent four minutes
   // answering itself every five seconds: a turn ends on 700ms of silence and
   // then waits on transcription, so the echo of a sentence arrives well after
   // that sentence finished — `isSpeaking()` was false, and the filter it guarded
   // was never called once. The check now stands on its own, against everything
-  // he has said recently rather than against the sentence in flight.
+  // they have said recently rather than against the sentence in flight.
   if (isEcho(text, tts.recentlySpoken())) {
     return bus.emit('USER_DISCARDED', { text, reason: 'echo' })
   }
-  // Let the sentence he is on finish rather than clipping it. The reply itself
+  // Let the sentence they are on finish rather than clipping it. The reply itself
   // is already being abandoned upstream — this is only about the audio.
   tts.finishThenStop()
   bus.emit('USER_UTTERANCE', { text })
@@ -120,8 +120,8 @@ function onInterim(text: string) {
  * Energy crossed the barge-in floor. Acting on loudness rather than on words is
  * what makes an interruption feel instant — a transcript is a second too late.
  *
- * It stops him queueing anything further, but does not cut the current sentence.
- * Loudness is a crude signal: a cough, a passer-by, or his own voice coming back
+ * It stops them queueing anything further, but does not cut the current sentence.
+ * Loudness is a crude signal: a cough, a passer-by, or their own voice coming back
  * through the microphone all cross the same floor, and none of them are worth
  * chopping a word in half for.
  */

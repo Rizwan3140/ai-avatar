@@ -25,7 +25,7 @@ let speaking = false
 /** SPEECH_STARTED already announced for the reply in progress. */
 let announced = false
 /**
- * Everything he has said in the last few seconds, newest first.
+ * Everything they have said in the last few seconds, newest first.
  *
  * The echo filter used to compare against the sentence in flight alone, which
  * is empty the moment that sentence ends — and an echo comes back more than a
@@ -42,14 +42,14 @@ const ECHO_MEMORY_MS = 20000
 /**
  * Bumped by `cancel()`. A cancelled utterance still fires its `onend`, and
  * that callback used to announce SPEECH_ENDED — so ending a conversation set
- * the renderer to idle and then immediately back to listening, and he stood
+ * the renderer to idle and then immediately back to listening, and they stood
  * there leaning attentively at an empty room. Callbacks from a superseded
  * utterance check this and stay quiet.
  */
 let epoch = 0
 
 /**
- * Resolve voices before she is ever asked to talk. getVoices() is async in
+ * Resolve voices before they are ever asked to talk. getVoices() is async in
  * Chrome and returns [] on first call; skipping this wait is why browser TTS so
  * often speaks its first sentence in the wrong voice.
  */
@@ -111,11 +111,11 @@ export function closeStream(): void {
  *
  * `cancel()` cuts the synthesiser off mid-word, which is what barge-in used to
  * do. In a real room that is worse than the problem it solves: any cough, any
- * "mm-hm", any bit of his own voice returning through the microphone chopped him
+ * "mm-hm", any bit of their own voice returning through the microphone chopped them
  * off in the middle of a word, and a half-said sentence reads as a crash rather
  * than as attentiveness.
  *
- * So the queue is dropped and the stream closed — he will not start another
+ * So the queue is dropped and the stream closed — they will not start another
  * sentence — but the one already leaving the speaker finishes. `next()` then
  * finds an empty queue on a closed stream and emits SPEECH_ENDED on its own.
  *
@@ -278,7 +278,7 @@ function pump(): void {
 
   utterance.onstart = () => {
     // Recorded on start rather than on end: an echo of the first half of a
-    // sentence can be transcribed before he has finished saying the second.
+    // sentence can be transcribed before they have finished saying the second.
     recent.unshift({ text, at: Date.now() })
     bus.emit('SPEECH_SENTENCE', { text })
   }
@@ -301,7 +301,7 @@ function pump(): void {
     speaking = false
     if (queue.length) return pump()
     // Silence between chunks is not the end of a reply — only a drained queue
-    // on a closed stream is, or she stops mid-thought.
+    // on a closed stream is, or they stop mid-thought.
     if (!streamOpen) {
       announced = false
       bus.emit('SPEECH_ENDED')

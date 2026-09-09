@@ -3,7 +3,7 @@ import type { Emotion } from '../bus/events.ts'
 /**
  * The Digital Human Renderer contract.
  *
- * The rest of the system depends on this, never on how she is drawn. MP4
+ * The rest of the system depends on this, never on how they are drawn. MP4
  * crossfading is the v1 implementation; LivePortrait, MuseTalk, Audio2Face,
  * HeyGen or Tavus can replace it without any other module changing.
  *
@@ -11,7 +11,7 @@ import type { Emotion } from '../bus/events.ts'
  * bug, not a shortcut.
  */
 export interface DigitalHumanRenderer {
-  /** Resolve only when she is genuinely ready to be seen. */
+  /** Resolve only when they are genuinely ready to be seen. */
   initialize(): Promise<void>
   idle(): void
   listen(): void

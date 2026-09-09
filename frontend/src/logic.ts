@@ -1,8 +1,8 @@
 /**
  * Pure functions. No DOM, no bus, no state — so they are directly testable with
  * `node --test` and nothing else. Both are load-bearing for the illusion:
- * splitSentences decides how fast she starts talking, isEcho decides whether she
- * talks to herself.
+ * splitSentences decides how fast they start talking, isEcho decides whether they
+ * talks to themselves.
  */
 
 /** Words that end in a period without ending a sentence. */
@@ -87,17 +87,17 @@ function endsWithAbbreviation(buffer: string, dot: number): boolean {
  *
  * The caller used to ask this only while `isSpeaking()` was true. A turn ends
  * after 700ms of silence and then waits on transcription, so a transcript arrives
- * more than a second after he stopped talking — by which point he is not
+ * more than a second after they stopped talking — by which point they are not
  * speaking, the guard was false, and this function was never called at all. That
  * is the whole bug: not a weak filter, an unreached one.
  *
  * And an exact match cannot catch it even when reached, because Whisper does not
  * hear an echo cleanly. "I'll be here" came back as "I'll be there", "I'll be
- * good", "I'll be it". So this compares word overlap against everything he said
+ * good", "I'll be it". So this compares word overlap against everything they said
  * recently, not a substring against the sentence in flight.
  *
  * Cost of a false positive: one utterance ignored, and the visitor repeats
- * themselves. Cost of a false negative: he answers himself every five seconds
+ * themselves. Cost of a false negative: they answer themselves every five seconds
  * until someone walks away. The threshold leans accordingly.
  */
 export function isEcho(transcript: string, spoken: string | string[]): boolean {
@@ -112,9 +112,9 @@ export function isEcho(transcript: string, spoken: string | string[]): boolean {
   const said = new Set(recent.join(' ').split(' '))
   const overlap = words.filter((w) => said.has(w)).length / words.length
 
-  // A long transcript sharing most of its words with what he just said is still
-  // him; a short one needs to be nearly all his, because "the linen shirt" is a
-  // thing a visitor genuinely says right after he has said it.
+  // A long transcript sharing most of its words with what they just said is still
+  // them; a short one needs to be nearly all their, because "the linen shirt" is a
+  // thing a visitor genuinely says right after they have said it.
   return words.length <= 3 ? overlap === 1 : overlap >= 0.7
 }
 

@@ -3,7 +3,7 @@ import { useStore } from '../state/store.ts'
 /**
  * One typographic slot, used by every state so nothing shifts position when a
  * conversation begins. It shows the greeting at rest, the sentence leaving the
- * speaker while she talks, and motion instead of words while she listens or
+ * speaker while they talk, and motion instead of words while they listen or
  * thinks.
  *
  * The user's own speech is never shown. No bubbles, no transcript, no history —
@@ -14,8 +14,8 @@ export function Subtitle() {
 
   return (
     // Floats over the lower part of the frame rather than sitting below it, so
-    // he can stand on the bottom edge. The scrim keeps a caption readable where
-    // it crosses him, without becoming a panel.
+    // they can stand on the bottom edge. The scrim keeps a caption readable where
+    // it crosses them, without becoming a panel.
     // Reserves the floor when the prompt rail is up, rather than sharing it.
     //
     // Both components are anchored to `bottom-0` and neither knew about the
@@ -44,9 +44,9 @@ export function Subtitle() {
 
   function content() {
     if (error) {
-      // In the same card everything else he says arrives in. It was bare text
+      // In the same card everything else they say arrives in. It was bare text
       // on the panel, which at display size printed "Microphone access is
-      // blocked." straight across his chest — the one moment the interface is
+      // blocked." straight across their chest — the one moment the interface is
       // admitting a fault is the worst moment to also look broken.
       return (
         <Card>
@@ -76,7 +76,7 @@ export function Subtitle() {
       // the cabinet shows through mid-sentence, and a passing shopper or a
       // shelf edge lands in the middle of a line. An opaque card is the one
       // place the design deliberately blocks the see-through effect, because
-      // legibility of what he is saying outranks it.
+      // legibility of what they are saying outranks it.
       return (
         <Card key={subtitle}>
           <p
@@ -89,7 +89,7 @@ export function Subtitle() {
       )
     }
 
-    // The greeting in the same card his speech arrives in, rather than bare
+    // The greeting in the same card their speech arrives in, rather than bare
     // type on the panel.
     //
     // It was set directly on the background, which is fine on a monitor and
@@ -112,7 +112,7 @@ export function Subtitle() {
 }
 
 /**
- * What he is saying, in a card that sits on the panel rather than in it.
+ * What they are saying, in a card that sits on the panel rather than in it.
  *
  * One component because the greeting, the speech and an error are the same
  * object wearing different words — they used to be three treatments, and the
@@ -144,7 +144,7 @@ function Dots() {
 
 
 /**
- * A small mark beside what he is saying, so a card of text reads as speech
+ * A small mark beside what they are saying, so a card of text reads as speech
  * rather than as a notice taped to the glass.
  *
  * Drawn, not an emoji. The reference used one, and an emoji here would render

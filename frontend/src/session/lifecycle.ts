@@ -133,7 +133,7 @@ function watchForSleep() {
   // the case the screensaver exists for, and it is also the state a showroom
   // leaves the panel in all day.
   //
-  // Thinking and speaking are excluded because he is mid-answer, and a panel
+  // Thinking and speaking are excluded because they are mid-answer, and a panel
   // that goes dark while a sentence is still coming out of the speaker is not a
   // screensaver, it is a crash.
   const WAITING = new Set(['idle', 'listening'])

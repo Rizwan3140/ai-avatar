@@ -239,6 +239,17 @@ REPLICATE_API_TOKEN = _get("REPLICATE_API_TOKEN")
 # --- try-on ------------------------------------------------------------------
 # local | replicate | fal. Local keeps a member of the public's photograph inside
 # the cabinet, which is the strongest argument for it and is independent of cost.
+#: Whether this cabinet may offer to photograph a visitor at all.
+#:
+#: Off unless somebody turned it on. Availability used to mean "a provider has
+#: credentials", and `FAL_KEY` is set on this install for avatar clips — so the
+#: camera armed itself as a side effect of an unrelated key, and the panel
+#: offered "see it on you" for a path nothing has ever run end to end.
+#:
+#: A camera pointed at the public is the one capability in this product that
+#: should have to be asked for out loud.
+TRYON_ENABLED = _get("LUXORA_TRYON", "").strip().lower() in ("1", "on", "true", "yes")
+
 TRYON_PROVIDER = _get("TRYON_PROVIDER", "local")
 # Pinned model versions, overridable: a hash goes stale, and a vendor's 422 then
 # reads as our bug rather than as a model that moved.

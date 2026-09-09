@@ -50,7 +50,7 @@ export const mp4Renderer: DigitalHumanRenderer = {
   async initialize() {
     await preloadClips(Object.values(avatarMedia().clips))
   },
-  // idle() means "no conversation" — but he keeps moving. `live: false` here is
+  // idle() means "no conversation" — but they keep moving. `live: false` here is
   // what kept idle.mp4 from ever playing: it zeroes every clip and shows the
   // poster, so an avatar with all four clips never showed its idle footage and
   // one with only idle showed it exclusively while speaking. A still photograph
@@ -95,7 +95,7 @@ export function Mp4VideoRenderer() {
   useEffect(() => onAvatarMedia(setMedia), [])
 
   // Any pose without footage falls back to idle, so a half-finished avatar still
-  // moves rather than freezing the moment someone speaks to him.
+  // moves rather than freezing the moment someone speaks to them.
   const shown: Pose = visiblePose(media.clips, pose, missing)
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function Mp4VideoRenderer() {
         opacity: present ? 1 : 0,
         transitionDuration: `${config.crossfadeDuration * 2}ms`,
         animation: `breathe ${config.breathingPeriod}ms ease-in-out infinite`,
-        // Breathe from the floor, so his feet stay planted while his chest moves.
+        // Breathe from the floor, so their feet stay planted while their chest moves.
         transformOrigin: 'bottom center',
       }}
     >

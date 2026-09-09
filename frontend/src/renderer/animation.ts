@@ -33,7 +33,7 @@ export function startIdlePresence(video: HTMLVideoElement): () => void {
 /**
  * Warm the cache so the real <video> elements mount without a decode stall.
  *
- * Never rejects. A missing clip must leave her on the poster, not stuck on a
+ * Never rejects. A missing clip must leave them on the poster, not stuck on a
  * loading screen — and during development none of the clips exist yet.
  */
 export function preloadClips(urls: string[], timeoutMs = 15000): Promise<void> {

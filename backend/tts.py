@@ -1,4 +1,4 @@
-"""The voice, in his own voice.
+"""The voice, in their own voice.
 
 The third seam, and deliberately the same shape as `llm.py` and `stt.py`:
 `speak(text, avatar) -> bytes` is the whole contract, and nothing above it knows

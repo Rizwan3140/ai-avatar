@@ -588,7 +588,7 @@ def styles(org_id: str = DEFAULT_ORG) -> list[str]:
 # "mechanical" — the kind of result that looks broken in a showroom.
 STOPWORDS = frozenset("""
 a an and any are as at be but by can could do does for from get give got has have
-he her him his how i if in is it its like looking me my need of on or our out
+he her him his they them their how i if in is it its like looking me my need of on or our out
 please see she show some something that the their them then there these they this
 those to us want was we what when where which who will with would you your
 """.split())

@@ -31,7 +31,7 @@ test('an exact voice name overrides the gender', () => {
   assert.equal(picked!.name, 'Microsoft Zira - English (United States)')
 })
 
-test('an unknown exact name does not silence him', () => {
+test('an unknown exact name does not silence them', () => {
   const picked = pickVoice(WINDOWS, { gender: 'male', voice: 'Nobody At All' })
   assert.match(picked!.name, /Guy|David/)
 })

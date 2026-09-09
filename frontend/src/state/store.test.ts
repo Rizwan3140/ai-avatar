@@ -13,7 +13,7 @@ const product = (id: string, name: string): Product => ({
   description: '', url: '', image: '', availability: 'in_stock', attributes: {},
 })
 
-/** Walk her to the point where a reply is being spoken. */
+/** Walk them to the point where a reply is being spoken. */
 function untilSpeaking() {
   bus.emit('SYSTEM_READY')
   bus.emit('SESSION_STARTED')
@@ -63,24 +63,24 @@ test('the subtitle carries only the sentence being spoken right now', () => {
   assert.equal(subtitle(), '')
 })
 
-test('barge-in returns her to listening and clears the caption', () => {
+test('barge-in returns them to listening and clears the caption', () => {
   untilSpeaking()
   bus.emit('USER_STARTED_SPEAKING')
   assert.equal(status(), 'listening')
   assert.equal(subtitle(), '')
 })
 
-test('a superseding question does not knock her out of thinking', () => {
+test('a superseding question does not knock them out of thinking', () => {
   // Regression: run() used to announce REPLY_ABORTED while aborting the previous
-  // request, which fired after USER_UTTERANCE had already put her in thinking —
-  // so she dropped straight back out of it for the question she was answering.
+  // request, which fired after USER_UTTERANCE had already put them in thinking —
+  // so they dropped straight back out of it for the question they were answering.
   bus.emit('SYSTEM_READY')
   bus.emit('SESSION_STARTED')
   bus.emit('USER_UTTERANCE', { text: 'and the battery?' })
   assert.equal(status(), 'thinking')
 })
 
-test('an aborted reply never strands her mid-thought', () => {
+test('an aborted reply never strands them mid-thought', () => {
   bus.emit('SYSTEM_READY')
   bus.emit('SESSION_STARTED')
   bus.emit('USER_UTTERANCE', { text: 'hello' })
@@ -89,7 +89,7 @@ test('an aborted reply never strands her mid-thought', () => {
   assert.equal(status(), 'listening')
 })
 
-test('REPLY_ABORTED while speaking does not interrupt her', () => {
+test('REPLY_ABORTED while speaking does not interrupt them', () => {
   untilSpeaking()
   bus.emit('REPLY_ABORTED')
   assert.equal(status(), 'speaking')
@@ -102,7 +102,7 @@ test('ending a session returns to a clean idle', () => {
   assert.equal(subtitle(), '')
 })
 
-test('muting parks him at idle without ending the conversation', () => {
+test('muting parks them at idle without ending the conversation', () => {
   untilSpeaking()
   bus.emit('MIC_MUTED', { muted: true })
   assert.equal(status(), 'idle')

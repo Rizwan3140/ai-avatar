@@ -7,9 +7,9 @@ import config from '../voice/voice.config.ts'
  * Diagnostic overlay. Not part of the installation.
  *
  * The commandments say the visitor never sees a message list, and that still
- * holds — this exists to answer one question while building: is she hearing what
+ * holds — this exists to answer one question while building: is they hearing what
  * you actually said? It shows live partials, what was accepted, what the echo
- * filter threw away, what she replied, and whether the recogniser is even
+ * filter threw away, what they replied, and whether the recogniser is even
  * running.
  *
  * Hidden by default in production builds. The small toggle keeps it available
@@ -167,7 +167,7 @@ export function Transcript() {
 
 function label(kind: Line['kind'], name: string) {
   if (kind === 'you') return 'you'
-  // Whoever the backend says he or she is — never a name baked into the UI.
+  // Whoever the backend says they or they are — never a name baked into the UI.
   if (kind === 'avatar') return name.toLowerCase() || 'avatar'
   if (kind === 'echo') return 'echo'
   return '!'
@@ -177,7 +177,7 @@ function style(kind: Line['kind']) {
   if (kind === 'you') return 'text-white'
   if (kind === 'avatar') return 'text-white/70'
   if (kind === 'system') return 'text-amber-300'
-  // Discarded as her own voice returning through the mic. If your real words
+  // Discarded as their own voice returning through the mic. If your real words
   // keep landing here, the filter is too aggressive for this room.
   return 'text-white/30 line-through'
 }

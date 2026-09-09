@@ -9,17 +9,17 @@ import { Subtitle } from './Subtitle.tsx'
 import { Transcript } from './Transcript.tsx'
 
 /**
- * He is the stage; the merchandise sits beneath him.
+ * They are the stage; the merchandise sits beneath them.
  *
  * Products used to slide in from the right and take 62% of the panel, shrinking
- * him to 42% in the corner — so asking to see a saree cost you most of the
+ * them to 42% in the corner — so asking to see a saree cost you most of the
  * person you were asking, and the two halves fought over the same edge. The
  * panel is 2160x3840, nearly twice as tall as it is wide, and a portrait screen
- * wants a column: him above, what he is showing below, both full width.
+ * wants a column: them above, what they are showing below, both full width.
  *
- * The stage still reserves no space under his feet. He stands on the floor of
- * his own frame and the shelf begins below it, rather than a caption row
- * leaving him hovering — which is the one thing a standing person never does.
+ * The stage still reserves no space under their feet. They stands on the floor of
+ * their own frame and the shelf begins below it, rather than a caption row
+ * leaving them hovering — which is the one thing a standing person never does.
  */
 export function App() {
   const sleeping = useStore((s) => s.status === 'sleeping')
@@ -28,7 +28,7 @@ export function App() {
 
   return (
     <main className="kiosk-root bg-canvas flex h-full flex-col overflow-hidden">
-      {/* The stage. Everything that is *him* floats inside this, so the shelf
+      {/* The stage. Everything that is *them* floats inside this, so the shelf
           below can never be painted over by a caption or a control — which is
           what the whole `z-20` argument between the prompt rail and the QR card
           was about when both were absolutely positioned on one plane. */}

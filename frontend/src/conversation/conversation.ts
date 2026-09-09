@@ -9,7 +9,7 @@ import { context, resolve } from './navigation.ts'
  * The Conversation Engine.
  *
  * It hears an utterance and publishes a reply. It does not know what model
- * answers, how the answer is spoken, or what she looks like while answering.
+ * answers, how the answer is spoken, or what they look like while answering.
  */
 const provider: AiProvider = httpProvider
 
@@ -24,7 +24,7 @@ bus.on('USER_UTTERANCE', ({ text }) => {
   if (nav.kind === 'select') bus.emit('PRODUCT_SELECTED', { product: nav.product })
   if (nav.kind === 'clear') bus.emit('PRODUCTS_CLEARED')
   if (nav.kind === 'tryon') {
-    // Select it too, so what he says next is about the garment they asked to
+    // Select it too, so what they say next is about the garment they asked to
     // wear rather than about whatever was chosen before.
     bus.emit('PRODUCT_SELECTED', { product: nav.product })
     bus.emit('TRYON_REQUESTED', { product: nav.product })
@@ -44,8 +44,8 @@ bus.on('SESSION_SLEEP', () => abort())
 
 async function run(message: string, onScreen = '') {
   // Silently — a new question supersedes the old request, it does not abandon
-  // it. Announcing here would fire REPLY_ABORTED while she is already in
-  // THINKING for this very question and drop her straight back out of it.
+  // it. Announcing here would fire REPLY_ABORTED while they are already in
+  // THINKING for this very question and drop them straight back out of it.
   abort(false)
   const controller = new AbortController()
   inFlight = controller
@@ -79,7 +79,7 @@ async function run(message: string, onScreen = '') {
     if (inFlight === controller) inFlight = null
   }
 
-  // An empty reply must not strand her mid-thought.
+  // An empty reply must not strand them mid-thought.
   if (!reply.trim()) return bus.emit('REPLY_ABORTED')
   bus.emit('REPLY_COMPLETE', { text: reply })
 }

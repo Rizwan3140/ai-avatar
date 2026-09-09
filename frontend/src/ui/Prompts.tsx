@@ -16,7 +16,7 @@ import { useStore } from '../state/store.ts'
  * version worth having, because the alternative is a second code path that
  * answers questions differently depending on how they were asked.
  *
- * They disappear the moment he is doing anything, and while the visitor is
+ * They disappear the moment they are doing anything, and while the visitor is
  * talking. A row of suggestions under a person mid-sentence reads as an
  * interface interrupting them.
  */
@@ -32,7 +32,7 @@ export function Prompts() {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
 
-  // Only while he is genuinely waiting. `idle` covers a muted cabinet too,
+  // Only while they are genuinely waiting. `idle` covers a muted cabinet too,
   // which is the one case where these are the only way in at all.
   const offer = status === 'idle' || status === 'listening'
   if (!offer) return null

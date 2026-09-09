@@ -5,7 +5,7 @@
  */
 export const KIOSK_ID = import.meta.env?.VITE_KIOSK_ID || 'default'
 
-/** Every tunable in one place. Nothing about his presence is hardcoded. */
+/** Every tunable in one place. Nothing about their presence is hardcoded. */
 export default {
   /** Media is filled in at boot from /api/kiosk/{id}. See renderer.avatar.ts. */
   posterFallback: '/poster.svg',
@@ -14,12 +14,12 @@ export default {
   crossfadeDuration: 250,
 
   /**
-   * Contact shadow at his feet. The only thing that stops a cut-out figure
+   * Contact shadow at their feet. The only thing that stops a cut-out figure
    * reading as a sticker on a white page — an object touching a floor darkens
    * it, and the eye notices the absence long before it names the cause.
    *
-   * Sized in vh so it tracks him: the footage is height-limited on any screen
-   * wider than 9:16, so his scale follows viewport height, not width.
+   * Sized in vh so it tracks them: the footage is height-limited on any screen
+   * wider than 9:16, so their scale follows viewport height, not width.
    */
   shadowWidth: 26,
   shadowHeight: 5,
@@ -28,22 +28,22 @@ export default {
   /**
    * How the footage meets the screen.
    *
-   * 'contain' shows him whole, whatever the screen is. On the cabinet this is
+   * 'contain' shows them whole, whatever the screen is. On the cabinet this is
    * indistinguishable from 'cover' — poster, clips and panel are all exactly
    * 9:16 (1080x1920, 2160x3840), so there is nothing to crop and nothing to
    * letterbox. It only differs off the target hardware.
    *
    * That difference is the reason for this setting. 'cover' fills the width and
-   * crops the overflow off the top, so a landscape monitor scales him to well
+   * crops the overflow off the top, so a landscape monitor scales them to well
    * over twice its height and shows the bottom slice: a screen of knees. Anyone
    * running this on a laptop sees that and reasonably concludes it is broken.
    *
-   * The margin of page-white beside him in landscape is not a compromise — the
-   * background is white on purpose, so he simply reads as a person standing in
+   * The margin of page-white beside them in landscape is not a compromise — the
+   * background is white on purpose, so they simply reads as a person standing in
    * a wide white room.
    *
    * Switch back to 'cover' only for a panel whose ratio is far from 9:16 and
-   * where edge-to-edge matters more than his head. Panels vary; this is meant
+   * where edge-to-edge matters more than their head. Panels vary; this is meant
    * to be tuned on the glass.
    */
   fit: 'contain' as 'cover' | 'contain',
@@ -66,14 +66,14 @@ export default {
    *
    * Zero on purpose. This existed to stop an instant answer feeling robotic, but
    * local transcription already costs the best part of a second — the pause is
-   * real now, and adding more on top just makes her slow.
+   * real now, and adding more on top just makes them slow.
    */
   thinkingDelay: 0,
   /** After the crossfade lands, before the first phoneme. */
   speechDelay: 120,
 
   /**
-   * Idle this long and he sleeps, and the campaigns take the screen.
+   * Idle this long and they sleep, and the campaigns take the screen.
    *
    * Ten minutes, not three. Sleep is now the screensaver rather than a blank
    * panel, so this is the gap after which a cabinet stops presenting a person

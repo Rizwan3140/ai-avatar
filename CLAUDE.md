@@ -123,7 +123,7 @@ company's prices out loud.
   the tracks and closes the AudioContext, so the browser's recording indicator goes
   out and a visitor can *check* the cabinet is not listening rather than trusting a
   caption. In a room full of strangers that is the only version worth shipping.
-  Muting parks him at idle — standing attentively at someone who just switched the
+  Muting parks them at idle — standing attentively at someone who just switched the
   microphone off is the unsettling version.
 - **No auth library, no ORM, no HTTP client.** `hashlib.scrypt`, `hmac` and
   `secrets` are the parts of auth that matter and are stdlib; `sqlite3` holds a
@@ -228,9 +228,9 @@ company's prices out loud.
   runaway.
 - **Barge-in must not cut mid-word.** The original note said talking over the
   visitor was the most human-breaking failure, so interruption called
-  `speechSynthesis.cancel()`. In a real room a cough, a passer-by or his own
+  `speechSynthesis.cancel()`. In a real room a cough, a passer-by or their own
   echo all cross the loudness floor, and being chopped mid-word reads as a crash.
-  He now finishes the sentence in flight and starts no more. Reversed after being
+  They now finishes the sentence in flight and starts no more. Reversed after being
   used, not after being reasoned about.
 - **Small models need prohibitions, not policies.** "Say plainly that we do not
   carry it" was answered with "we do carry washing machines" three times in four.
@@ -279,7 +279,7 @@ company's prices out loud.
    Local — the one that keeps the photo in the cabinet — is declared and refuses.
 5. **Clips are complete for one avatar, not the other.** `satya` has all four —
    idle, listen, think, speak — and changes as the conversation moves. `krish`
-   has only `idle.mp4` and falls back to it for every pose, so he does not change
+   has only `idle.mp4` and falls back to it for every pose, so they do not change
    when spoken to. That gap needs footage, not code.
 
 ## How to work here

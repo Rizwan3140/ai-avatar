@@ -7,7 +7,7 @@ type Handlers = {
   onInterim(text: string): void
   /** The finished turn. */
   onFinal(text: string): void
-  /** Voice energy crossed the barge-in floor while she was talking. */
+  /** Voice energy crossed the barge-in floor while they were talking. */
   onVoiceStart(): void
   onError(message: string): void
 }
@@ -84,7 +84,7 @@ const partialSampleCap = (config.sampleRate * config.maxPartialMs) / 1000
  * one it costs an upload of the entire turn so far, every 1.2 seconds — about
  * forty seconds of audio for a ten-second sentence, across eight billed
  * requests — to feed a caption that only ever reaches the dev-only transcript.
- * The visitor-facing subtitle shows nothing at all while he is listening.
+ * The visitor-facing subtitle shows nothing at all while they are listening.
  *
  * Defaults to true, so a failed or slow check behaves exactly as before. The
  * final transcript, which is the one that gets answered, never depends on this.
@@ -226,7 +226,7 @@ function onSamples(block: Float32Array) {
     //
     // Once per turn, on the edge. This ran on every 128-sample block above the
     // floor — ~125 USER_STARTED_SPEAKING events a second for as long as someone
-    // talked over her, each one re-entering cancel and re-clearing the caption.
+    // talked over them, each one re-entering cancel and re-clearing the caption.
     if (
       level >=
       speechFloor(config.bargeInThreshold, noiseFloor, config.bargeInOverNoise)

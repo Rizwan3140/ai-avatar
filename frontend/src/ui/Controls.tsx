@@ -29,7 +29,7 @@ export function Controls() {
   // floating over it all night are interface with no job: they cannot be used,
   // because any touch wakes the cabinet before it reaches them.
   if (status === 'sleeping') return null
-  // Muting parks him at idle, so `status` alone would report the conversation
+  // Muting parks them at idle, so `status` alone would report the conversation
   // over and disable the very button needed to switch the microphone back on.
   const inConversation = live && (status !== 'idle' || muted)
 

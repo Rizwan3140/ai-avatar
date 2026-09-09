@@ -349,7 +349,20 @@ def provider() -> TryOnProvider:
 
 
 def available() -> bool:
-    return provider().available()
+    """Whether a cabinet may offer to photograph the person standing at it.
+
+    Two conditions, and the second is the one that was missing. A provider with
+    credentials is not consent to point a camera at the public: `FAL_KEY` is
+    described in config as "try-on, avatar clips", so a key present in order to
+    generate footage silently armed a camera on a showroom floor — and put a
+    "see it on you" button on screen for a path that has never once produced an
+    image.
+
+    `LUXORA_TRYON=on` is that consent, given deliberately by whoever installed
+    the cabinet, and it defaults to off. The provider still has to be reachable;
+    this only stops the reachable case from being automatic.
+    """
+    return config.TRYON_ENABLED and provider().available()
 
 
 def status() -> dict:

@@ -87,8 +87,8 @@ test('holding a turn is easier than starting one', () => {
   assert.ok(start * config.holdRatio < start)
 })
 
-test('interrupting her needs more than starting a turn', () => {
-  // The speaker feeds the microphone, so her own voice must never interrupt her.
+test('interrupting them needs more than starting a turn', () => {
+  // The speaker feeds the microphone, so their own voice must never interrupt them.
   const speech = speechFloor(config.voiceThreshold, 0.03, config.speechOverNoise)
   const barge = speechFloor(config.bargeInThreshold, 0.03, config.bargeInOverNoise)
   assert.ok(barge > speech)

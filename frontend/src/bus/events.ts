@@ -15,8 +15,8 @@ export type Events = {
   SESSION_ENDED: void
   SESSION_SLEEP: void
   SESSION_WAKE: void
-  /** The visitor took the microphone away from him, without ending the
-   *  conversation. True means he cannot hear the room. */
+  /** The visitor took the microphone away from them, without ending the
+   *  conversation. True means they cannot hear the room. */
   MIC_MUTED: { muted: boolean }
 
   USER_STARTED_SPEAKING: void

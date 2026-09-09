@@ -14,7 +14,7 @@ export type Status =
 type State = {
   status: Status
   emotion: Emotion
-  /** The one line under her — the sentence leaving the speaker right now. */
+  /** The one line under them — the sentence leaving the speaker right now. */
   subtitle: string
   /** The avatar's id — its folder name, not its display name. */
   avatarId: string
@@ -23,10 +23,10 @@ type State = {
   initStep: string
   error: string | null
   /** The visitor has taken the microphone away. The session is still open;
-   *  he simply cannot hear the room until it comes back. */
+   *  they simply cannot hear the room until it comes back. */
   muted: boolean
 
-  /** Products on screen. Empty means he has the whole display to himself. */
+  /** Products on screen. Empty means they have the whole display to themselves. */
   products: Product[]
   /** The one being discussed — what "this" and "that one" refer to. */
   selected: Product | null
@@ -114,9 +114,9 @@ bus.on('SESSION_ENDED', () =>
 )
 bus.on('SESSION_SLEEP', () => set({ status: 'sleeping', subtitle: '', muted: false }))
 
-// Muting drops him to idle rather than leaving him poised to listen. Standing
+// Muting drops them to idle rather than leaving them poised to listen. Standing
 // attentively at someone who has just switched the microphone off is the
-// unsettling version — idle is him waiting, which is what is actually true.
+// unsettling version — idle is them waiting, which is what is actually true.
 //
 // The status is the same 'idle' as no-conversation, so the sleep timer arms and
 // a cabinet left muted eventually sleeps. That is the right outcome for the
@@ -134,8 +134,8 @@ bus.on('SPEECH_SENTENCE', ({ text }) => set({ subtitle: text }))
 bus.on('SPEECH_ENDED', () => set({ status: 'listening', subtitle: '' }))
 bus.on('SPEECH_CANCELLED', () => set({ subtitle: '' }))
 
-// A reply that produced no speech (empty or aborted) must not strand her in
-// thinking — she would stand there considering forever.
+// A reply that produced no speech (empty or aborted) must not strand them in
+// thinking — they would stand there considering forever.
 bus.on('REPLY_ABORTED', () => {
   if (useStore.getState().status === 'thinking') set({ status: 'listening' })
 })
@@ -169,7 +169,7 @@ bus.on('PRODUCT_SELECTED', ({ product }) => {
 })
 bus.on('PRODUCT_DESELECTED', () => set({ selected: null }))
 bus.on('PRODUCTS_CLEARED', () => set({ products: [], selected: null }))
-// Ending the conversation returns the screen to him alone.
+// Ending the conversation returns the screen to them alone.
 bus.on('SESSION_ENDED', () => set({ products: [], selected: null }))
 
 export function setIdentity(avatarId: string, name: string, greeting: string) {

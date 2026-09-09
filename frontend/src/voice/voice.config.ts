@@ -72,7 +72,7 @@ export default {
   adaptiveFloor: true,
   /** Speech must be this many times the measured ambient level. */
   speechOverNoise: 2.6,
-  /** Interrupting her needs more, because the speaker feeds the microphone. */
+  /** Interrupting them needs more, because the speaker feeds the microphone. */
   bargeInOverNoise: 4.5,
   /**
    * How fast the measured floor moves, per audio block at ~125 a second.
@@ -91,8 +91,8 @@ export default {
    */
   holdRatio: 0.6,
   /**
-   * Higher bar to interrupt her, because the speaker feeds the microphone.
-   * Browser echo cancellation removes most of her voice but not all of it.
+   * Higher bar to interrupt them, because the speaker feeds the microphone.
+   * Browser echo cancellation removes most of their voice but not all of it.
    */
   bargeInThreshold: 0.05,
 
@@ -102,7 +102,7 @@ export default {
    *
    * Barge-in used to fire on a single 128-sample block — roughly a millisecond.
    * A cough, a door, a chair, someone talking across the room: anything that
-   * momentarily crossed the line stopped him, and he appeared to give up
+   * momentarily crossed the line stopped them, and they appeared to give up
    * mid-answer for no reason a visitor could see.
    *
    * The end-of-turn logic already refuses to treat a transient as speech
@@ -118,10 +118,10 @@ export default {
   minSpeechMs: 200,
 
   /**
-   * Silence that ends a turn. Too short and she cuts off someone still
-   * thinking; too long and she feels slow.
+   * Silence that ends a turn. Too short and they cut off someone still
+   * thinking; too long and they feel slow.
    *
-   * This sits on top of transcription, so the real wait before she reacts is
+   * This sits on top of transcription, so the real wait before they react is
    * this plus roughly a second. Budget the whole path, not this number alone.
    */
   endOfTurnSilence: 700,

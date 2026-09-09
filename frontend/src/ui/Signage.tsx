@@ -10,7 +10,7 @@ import { useBurnInShift } from './useBurnInShift.ts'
  * time becomes signage — and unlike a normal display, this one can invite you in,
  * because there is someone standing next to the campaign who will answer.
  *
- * He stays visible throughout. The moment anyone taps the microphone the
+ * They stays visible throughout. The moment anyone taps the microphone the
  * campaign is gone, because the conversation is the product and the advertising
  * is what fills the gaps.
  */
@@ -30,13 +30,13 @@ export function Signage() {
   const [index, setIndex] = useState(0)
 
   // Only asleep. This ran during `idle` too, which is the state a cabinet is in
-  // before anybody has said a word to it — so the advertising was up beside him
+  // before anybody has said a word to it — so the advertising was up beside them
   // from the moment the page loaded, competing with the person who is supposed
   // to be the first thing you notice.
   //
   // Sleep is different: ten minutes with nobody there, no avatar on screen, and
   // a dark shop window on a concourse reads as broken. Then it is a screensaver,
-  // it takes the whole frame, and a touch brings him back.
+  // it takes the whole frame, and a touch brings them back.
   const asleep = status === 'sleeping'
   const idle = asleep
 
@@ -78,12 +78,12 @@ export function Signage() {
   const campaign = campaigns[index % campaigns.length]
 
   return (
-    // While he is present: right of him, and clear of the control rail — which
+    // While they are present: right of them, and clear of the control rail — which
     // is also anchored right and also vertically centred, so a panel running to
     // `right-0` puts the microphone button on top of the advertisement. The
     // reserved gutter is the rail's own width plus its safe margin.
     //
-    // Asleep: the whole frame. He is not on screen and the controls are not
+    // Asleep: the whole frame. They are not on screen and the controls are not
     // reachable, so nothing is being covered.
     //
     // The drift is the same slow cycle the wordmark and the controls use. It
@@ -106,8 +106,8 @@ export function Signage() {
         letterboxes — a 52" shop window running an advertisement with white bars
         down two sides, which reads as a mistake rather than a campaign.
 
-        Beside him it stays `contain`, and that is not an inconsistency. The
-        panel is 2160x3840 — portrait — so his gutter is a tall narrow column,
+        Beside them it stays `contain`, and that is not an inconsistency. The
+        panel is 2160x3840 — portrait — so their gutter is a tall narrow column,
         and `cover` there would crop a landscape advert to a vertical slice
         through its middle. Filling the frame is right when the frame is the
         whole screen and wrong when it is a sliver.

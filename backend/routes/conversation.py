@@ -135,7 +135,7 @@ def chat(req: ChatRequest, request: Request):
         #
         # The cost is first-audio latency, and it is paid only on turns that
         # matched no product, where there is nothing to put on screen and nothing
-        # to look at while he thinks. Turns that found something still stream.
+        # to look at while they think. Turns that found something still stream.
         withhold = not products
 
         for chunk in llm.stream_reply(

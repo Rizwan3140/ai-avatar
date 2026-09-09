@@ -37,7 +37,7 @@ DEFAULT_ORG = "default"
 #:
 #: `canvas` and `ink` are deliberately absent. The panel is transparent and the
 #: footage is a dark subject lit against a light field — invert those two and the
-#: avatar dissolves into his own background, which is a broken cabinet rather
+#: avatar dissolves into their own background, which is a broken cabinet rather
 #: than a festive one. Everything a season actually wants is here: the accent
 #: that carries the mood, the rules and secondary text that tint with it, and the
 #: face the showroom's name is set in.
@@ -199,7 +199,7 @@ def demo() -> None:
     # Only whitelisted tokens survive, and only if they parse.
     dirty = _clean({
         "--color-accent": "#c2410c",
-        "--color-canvas": "#000000",                  # not themeable: would hide him
+        "--color-canvas": "#000000",                  # not themeable: would hide them
         "--color-line": "red",                        # not a hex value
         "--font-display": "'Playfair Display', serif",
         "--color-ink-soft": "#fff; } html { display:none",   # injection attempt

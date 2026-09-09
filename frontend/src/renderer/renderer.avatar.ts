@@ -50,7 +50,7 @@ export function onAvatarMedia(fn: (media: AvatarMedia) => void): () => void {
  *
  * The second case is the normal one for a half-finished avatar, and checking only
  * `missing` left it showing an empty video element at full opacity while the idle
- * clip sat behind it at zero. He froze the instant anyone spoke to him.
+ * clip sat behind it at zero. They froze the instant anyone spoke to them.
  */
 export function visiblePose(
   clips: Partial<Record<Pose, string>>,

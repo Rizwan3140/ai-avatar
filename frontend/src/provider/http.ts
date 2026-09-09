@@ -38,7 +38,7 @@ async function showProducts(ids: string): Promise<void> {
     const products = found.filter(Boolean) as Product[]
     if (products.length) bus.emit('PRODUCTS_SHOWN', { products })
   } catch {
-    // A failed lookup must not interrupt the conversation. He keeps talking;
+    // A failed lookup must not interrupt the conversation. They keeps talking;
     // the screen just does not change.
   }
 }

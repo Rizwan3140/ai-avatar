@@ -9,7 +9,7 @@ import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
  * A showroom kiosk is idle most of its life, and idle used to mean a man
  * standing still on the most expensive screen in the room. Campaigns fill that,
  * and the invitation line is the thing an ordinary advertising screen cannot do —
- * he can look up and ask a passer-by in.
+ * they can look up and ask a passer-by in.
  *
  * Windows crossing midnight are handled server-side: 21:00–06:00 is the evening
  * promotion, and it is the case a naive start-to-end comparison silently drops.
@@ -134,7 +134,7 @@ export function Campaigns({ who }: { who: Principal }) {
         {campaigns.error && <Note tone="warn">{campaigns.error}</Note>}
         {items.length === 0 ? (
           <Empty>
-            Nothing scheduled. Until something is, the screen shows him standing there — which is
+            Nothing scheduled. Until something is, the screen shows them standing there — which is
             the whole reason this exists.
           </Empty>
         ) : (

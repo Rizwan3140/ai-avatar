@@ -77,7 +77,7 @@ test('context tells the model what is on screen', () => {
   assert.ok(text.includes('"this", "that" and "it" mean that one'))
 })
 
-test('context is empty when he has the screen to himself', () => {
+test('context is empty when they have the screen to themselves', () => {
   assert.equal(context([], null), '')
 })
 

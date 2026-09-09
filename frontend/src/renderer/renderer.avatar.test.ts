@@ -12,8 +12,8 @@ test('a pose with footage plays its own clip', () => {
 
 test('a pose that was never filmed falls back to idle', () => {
   // The bug this guards: only `missing` was checked, and a clip that does not
-  // exist never errors — the element simply gets no src. He froze the moment
-  // anyone spoke to him, showing an empty video over a hidden idle clip.
+  // exist never errors — the element simply gets no src. They froze the moment
+  // anyone spoke to them, showing an empty video over a hidden idle clip.
   const clips = { idle: '/idle.mp4' }
   assert.equal(visiblePose(clips, 'speak', none), 'idle')
   assert.equal(visiblePose(clips, 'think', none), 'idle')

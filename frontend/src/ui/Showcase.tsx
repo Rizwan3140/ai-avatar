@@ -8,9 +8,9 @@ import { TryOn } from './TryOn.tsx'
 /**
  * Products, when asked for.
  *
- * Nothing appears until a visitor asks — he is the experience, and a grid of
+ * Nothing appears until a visitor asks — they are the experience, and a grid of
  * cards on arrival would make this a website with a face on it. When products do
- * appear he does not leave; he moves aside and keeps talking, so the visitor is
+ * appear they do not leave; they move aside and keeps talking, so the visitor is
  * still being helped by someone rather than browsing alone.
  */
 export function Showcase() {
@@ -18,8 +18,8 @@ export function Showcase() {
   if (!products.length) return null
 
   return (
-    // A shelf under him, not a panel beside him. It takes the full width of a
-    // portrait panel and claims only the height it needs, so he keeps the whole
+    // A shelf under them, not a panel beside them. It takes the full width of a
+    // portrait panel and claims only the height it needs, so they keep the whole
     // frame above it instead of being scaled into a corner.
     <aside className="lay-down bg-canvas shrink-0 px-safe pb-safe flex flex-col gap-[clamp(10px,1.1vh,40px)] pt-[clamp(12px,1.3vh,48px)]">
       {selected ? (
@@ -74,7 +74,7 @@ function Rail({ products }: { products: Product[] }) {
           >
             <Image
               product={product}
-              className="aspect-[3/4] transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
+              className="aspect-[3/4] w-full transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
               fit="cover"
             />
             <span className="flex flex-col gap-[0.25em] p-[clamp(8px,0.9vh,32px)]">
@@ -123,43 +123,53 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
     // gives up the part they do not.
     <div
       key={product.id}
-      // A band, not a full-height panel. The garment is the widest thing on a
-      // shelf that is only as tall as it needs to be, so this is landscape now
-      // — and `cover` keeps the neckline and the fabric rather than the hem.
-      className="lay-down bg-line/20 relative aspect-[16/7] overflow-hidden rounded-xl"
+      // The garment beside the words, not behind them.
+      //
+      // This was one landscape frame with the photograph cropped to fill it and
+      // the text scrimmed over the bottom. A garment photograph is portrait, so
+      // cropping it to 16:7 and anchoring the top showed a face and a neckline
+      // and cut the dress off — on the one screen whose entire job is showing
+      // somebody a dress. The shelf is wide and short, so the picture takes a
+      // column of it and keeps its own shape.
+      className="lay-down bg-line/20 relative flex gap-[clamp(12px,1.4vh,52px)] overflow-hidden rounded-xl p-[clamp(12px,1.4vh,52px)]"
     >
-      {/* The one still on the panel that moves. A garment photograph held
-          perfectly steady for a minute is a poster; this is slow enough that
-          nobody catches it moving and enough that the frame stays alive. */}
-      <Image product={product} className="drifting absolute inset-0 h-full" fit="cover" />
+      {/* `contain`, and no crop. Whatever the shape of the photograph, the whole
+          garment is on screen — which is the difference between a product page
+          and a shop window. */}
+      <Image
+        product={product}
+        className="h-[clamp(200px,26vh,900px)] w-auto shrink-0"
+        fit="contain"
+      />
 
-      <button
-        type="button"
-        onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
-        className="absolute top-[clamp(12px,1.4vh,50px)] left-[clamp(12px,1.4vh,50px)] rounded-full bg-black/35 px-[1em] py-[0.5em] text-label text-white backdrop-blur-md transition-colors hover:bg-black/50"
-      >
-        {toResults ? `Back to ${siblings} results` : 'Back'}
-      </button>
-
-      {/* One scrim, from the foot of the frame, doing nothing above the words
-          it exists for. The garment keeps its light. */}
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-[2em] bg-linear-to-t from-black/85 via-black/45 to-transparent p-[clamp(16px,1.8vh,64px)] pt-[22%] text-white">
-        <div className="flex min-w-0 flex-col gap-[0.3em]">
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-[1em]">
+        <div className="flex min-w-0 flex-col items-start gap-[0.3em]">
+          {/* The only way back to the results. It was positioned against the
+              full-bleed frame this replaced, so restructuring the layout took
+              it off the screen entirely — leaving a selected product with no
+              exit but asking out loud. */}
+          <button
+            type="button"
+            onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
+            className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink mb-[0.4em] rounded-full border px-[1em] py-[0.45em] transition-colors"
+          >
+            {toResults ? `Back to ${siblings} results` : 'Back'}
+          </button>
           <h2
-            className="font-display lay-down text-display leading-[1.02] tracking-[-0.015em] text-balance"
+            className="font-display lay-down text-ink text-display leading-[1.02] tracking-[-0.015em] text-balance"
             style={{ animationDelay: '90ms' }}
           >
             {product.name}
           </h2>
           <p
-            className="lay-down text-title leading-none tabular-nums"
+            className="lay-down text-ink-soft text-title leading-none tabular-nums"
             style={{ animationDelay: '160ms' }}
           >
             {product.spoken_price}
           </p>
           {facts.length > 0 && (
             <p
-              className="lay-down text-label tracking-[0.08em] uppercase opacity-75"
+              className="lay-down text-ink-soft text-label tracking-[0.08em] uppercase opacity-75"
               style={{ animationDelay: '220ms' }}
             >
               {facts.join('   ·   ')}
@@ -172,7 +182,7 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
           // than filed in a footer under it. Arriving last, after the name and
           // the price, because it is the thing to do once you have decided.
           <div
-            className="text-ink lay-down flex shrink-0 flex-col items-center gap-[0.5em] rounded-lg bg-white/95 p-[clamp(8px,0.9vh,32px)] shadow-float backdrop-blur-md"
+            className="text-ink lay-down border-line/70 flex shrink-0 flex-col items-center gap-[0.5em] self-start rounded-lg border bg-white p-[clamp(8px,0.9vh,32px)]"
             style={{ animationDelay: '300ms' }}
           >
             {/* Ours, not a QR web service — otherwise this is the one element on
@@ -261,7 +271,7 @@ function Image({
     // beats a broken icon, and the name is what the visitor is reading anyway.
     return (
       <div
-        className={`bg-line/30 text-ink-soft grid w-full place-items-center rounded text-xs ${className}`}
+        className={`bg-line/30 text-ink-soft grid place-items-center rounded text-xs ${className}`}
         aria-hidden
       >
         {product.category || 'No image'}
@@ -274,7 +284,7 @@ function Image({
     // there is no moment where the cell is empty. A grid that reflows as each
     // photograph arrives is the single most website-like thing this panel could
     // do, and the aspect ratio is already fixed by the caller for that reason.
-    <span className={`relative block w-full overflow-hidden rounded ${className}`}>
+    <span className={`relative block overflow-hidden rounded ${className}`}>
       {!loaded && <span aria-hidden className="bg-line/25 shimmering absolute inset-0" />}
       <img
         src={product.image}

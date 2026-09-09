@@ -398,7 +398,7 @@ async def upload_voice(
     About thirty seconds of clear speech from whoever this avatar should sound
     like. The model clones from it directly — there is no training step and no
     per-voice setup, so the recording *is* the voice and replacing the file
-    replaces how he sounds.
+    replaces how they sound.
 
     **MP3 is the format people actually have.** They record on a phone, they
     are sent a voice note, they download a clip. Anything PyAV can read is

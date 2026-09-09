@@ -20,7 +20,7 @@ from backend.catalog import Product
 
 HOST = config.OLLAMA_HOST
 
-# Small on purpose. She has to answer inside a conversation, and a 7B model on a
+# Small on purpose. They have to answer inside a conversation, and a 7B model on a
 # 4 GB card spills into system RAM and takes seconds per reply — which reads as
 # a broken kiosk, not a thoughtful one. Two or three sentences do not need a big
 # model; they need a fast one.
@@ -40,7 +40,7 @@ KEEP_ALIVE = -1
 # style setting that anyone with a studio login can rewrite; scope is a property
 # of the product — a kiosk on a public showroom floor is not a general assistant,
 # and a persona edit that happened to drop these lines would quietly turn it into
-# one. The persona says who he is; this says what he is for.
+# one. The persona says who they are; this says what they are for.
 #
 # Flat prohibitions, not a principle, for the same measured reason as the
 # empty-catalog block: a small model told "stay on topic" wrote the poem anyway.
@@ -85,10 +85,10 @@ BREVITY = (
     "asked about. Do not end with a question. Do not offer further help. "
     "Never list products in bullets or numbers. Never use markdown, asterisks "
     "or emoji. Never read a web address aloud. "
-    # He does not get to leave. A cabinet stands in a mall and greets whoever is
-    # in front of it; there is no door for him to show anyone out of, and a
-    # farewell mid-conversation reads as the machine having given up. He said
-    # goodbye because he was answering echoes of himself — but the echo fix does
+    # They do not get to leave. A cabinet stands in a mall and greets whoever is
+    # in front of it; there is no door for them to show anyone out of, and a
+    # farewell mid-conversation reads as the machine having given up. They said
+    # goodbye because they were answering echoes of themselves — but the echo fix does
     # not make a farewell correct, it only stops it being triggered by noise.
     "Never say goodbye. Never say the conversation is over, that you will be "
     "here, that you will leave them to it, or that they should come back. "
@@ -108,7 +108,7 @@ _CLAIMS_STOCK = re.compile(
     re.I,
 )
 
-#: What he says instead. Fixed words, because the whole point is that the model
+#: What they say instead. Fixed words, because the whole point is that the model
 #: does not get a say in this one.
 REFUSAL = "I'm afraid we don't carry those."
 
@@ -197,16 +197,16 @@ def _turn_prompt(
         # five, with all five prices, in one breath, describing a grid the visitor
         # was already looking at. Same lesson as the example price in the persona
         # — a small model repeats what it is given, so the fix is to stop giving
-        # it. The screen shows the names and the prices in pictures; he only needs
+        # it. The screen shows the names and the prices in pictures; they only needs
         # to know what is up there. Ask about one and navigation selects it, which
         # takes the branch below with the full detail.
-        # Prices stay IN, even though the list is what makes him ramble.
+        # Prices stay IN, even though the list is what makes them ramble.
         #
-        # Taking them out did shorten him — and then he was asked what one cost,
+        # Taking them out did shorten them — and then they were asked what one cost,
         # had no number, and invented $245 for a $60 dress. A recited list is a
         # cosmetic problem; a fabricated price is a lie told to a customer in a
         # shop. So the list keeps its prices and the prohibition does the work,
-        # and the last line covers the case where he is asked about one of them.
+        # and the last line covers the case where they are asked about one of them.
         listing = "\n".join(f"- {p.name} {p.spoken_price()}".rstrip() for p in products)
         grounding = (
             f"{len(products)} products matching that request are NOW ON SCREEN in "

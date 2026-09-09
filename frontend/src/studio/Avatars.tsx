@@ -378,11 +378,11 @@ export function Avatars({ who }: { who: Principal }) {
                   </div>
                 </div>
 
-                {/* A voice of his own, cloned from a recording. Beside the
+                {/* A voice of their own, cloned from a recording. Beside the
                     footage because it is the same kind of thing: content that
                     belongs to this avatar and travels with it. */}
                 <Field
-                  label="His own voice"
+                  label="Their own voice"
                   hint="About thirty seconds of clear speech from whoever this avatar should sound like — an MP3 off a phone is fine. It is cloned directly: there is no training step, and replacing the file replaces the voice."
                 >
                   <div className="flex flex-wrap items-center gap-3">
@@ -458,9 +458,9 @@ export function Avatars({ who }: { who: Principal }) {
                 </div>
                 {avatar.missing_clips.length > 0 && (
                   <span className="text-ink-soft text-xs">
-                    Missing poses fall back to idle, so he does not change when spoken to — and with
+                    Missing poses fall back to idle, so they do not change when spoken to — and with
                     no <code className="bg-line/50 rounded px-1">speak</code> clip the mouth stays
-                    shut while his voice comes out of the speaker, which is the loudest tell in the
+                    shut while their voice comes out of the speaker, which is the loudest tell in the
                     whole product.
                   </span>
                 )}
