@@ -167,6 +167,22 @@ def main() -> int:
     check("keeps vertical attributes", crawled.attributes.get("material"), "Silk")
     check("collects links to follow", parser.links, ["/p/2"])
 
+    # Every photograph, not the first. A storefront publishes six or seven shots
+    # of one garment and the crawler kept one — which is most of what a customer
+    # wants to see before buying, discarded at the door.
+    check("keeps every image on the node", crawled.images,
+          ["https://cdn/a.jpg", "https://cdn/b.jpg"])
+    check("and still reports a primary", crawled.image, "https://cdn/a.jpg")
+
+    from backend.crawl import _images
+
+    # schema.org allows all three shapes and storefronts use all three.
+    check("a bare string is one image", _images("https://cdn/x.jpg"), ["https://cdn/x.jpg"])
+    check("ImageObjects are unwrapped",
+          _images([{"url": "https://cdn/x.jpg"}, {"contentUrl": "https://cdn/y.jpg"}]),
+          ["https://cdn/x.jpg", "https://cdn/y.jpg"])
+    check("nothing is not an error", _images(None), [])
+
     for unsafe in ("ftp://example.com/shop", "http://127.0.0.1:8000", "http://user:pass@example.com"):
         try:
             _public_url(unsafe)
@@ -372,6 +388,28 @@ def main() -> int:
         check(f"{absent!r} matches no category", catalog.resolve_category(absent), "")
 
     # It only runs on a miss, so it can never override a real result.
+    # The gallery survives a write and a read, and the primary leads it without
+    # being repeated — a caller wanting one picture reads `image` and never
+    # learns this exists.
+    catalog.upsert(
+        [
+            catalog.Product(
+                id="G1", name="Banarasi Silk", category="Sarees",
+                image="https://cdn/1.jpg",
+                images=["https://cdn/1.jpg", "https://cdn/2.jpg", "https://cdn/3.jpg"],
+            )
+        ]
+    )
+    stored = catalog.get("G1")
+    check("a gallery round-trips", stored.images,
+          ["https://cdn/1.jpg", "https://cdn/2.jpg", "https://cdn/3.jpg"])
+    check("the primary is not duplicated", stored.images.count("https://cdn/1.jpg"), 1)
+
+    catalog.upsert([catalog.Product(id="G2", name="One Shot", image="https://cdn/only.jpg")])
+    check("one photograph is still a gallery of one",
+          catalog.get("G2").images, ["https://cdn/only.jpg"])
+    check("and a product with none has none", catalog.gallery(catalog.Product(id="x", name="x")), [])
+
     check("a real match is not second-guessed",
           catalog.search("Banarasi")[0].name, "Banarasi Silk")
 

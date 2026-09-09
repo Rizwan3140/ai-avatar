@@ -152,6 +152,27 @@ def _first(value):
     return value
 
 
+def _images(value) -> list[str]:
+    """Every image URL on a JSON-LD node, in order.
+
+    schema.org allows `image` to be a string, a list, or a list of ImageObjects,
+    and storefronts use all three. `_text` collapses whichever it is to one
+    string — correct for a name, wrong here, and it is why a garment with six
+    photographs arrived with one.
+    """
+    if not value:
+        return []
+    items = value if isinstance(value, list) else [value]
+    out = []
+    for item in items:
+        if isinstance(item, dict):
+            item = item.get("url") or item.get("contentUrl") or item.get("@id") or ""
+        text = re.sub(r"\s+", " ", str(item or "")).strip()
+        if text:
+            out.append(text)
+    return out
+
+
 def _text(value) -> str:
     value = _first(value)
     if isinstance(value, dict):
@@ -206,6 +227,7 @@ def product_from_jsonld(node: dict, page_url: str) -> Product | None:
         description=_text(node.get("description"))[:600],
         url=_text(node.get("url")) or page_url,
         image=_text(node.get("image")),
+        images=_images(node.get("image")),
         availability=availability,
         attributes=extras,
     )
@@ -386,6 +408,7 @@ def _shopify_product(node: dict, base: str, currency: str) -> Product:
         description=_plain(node.get("body_html", ""))[:600],
         url=f"{base}/products/{_text(node.get('handle'))}",
         image=images[0] if images else "",
+        images=[i for i in images if i],
         availability="in_stock" if any(v.get("available") for v in variants) else "out_of_stock",
         attributes=extras,
     )

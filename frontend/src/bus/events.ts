@@ -72,6 +72,9 @@ export type Product = {
   description: string
   url: string
   image: string
+  /** Every photograph, primary first. A storefront publishes six or seven of a
+   *  garment — front, back, fabric, worn — and only the first was ever kept. */
+  images?: string[]
   availability: string
   attributes: Record<string, string>
 }

@@ -47,6 +47,7 @@ FIELDS = (
     "description",
     "url",
     "image",
+    "images",
     "availability",
     "attributes",
 )
@@ -71,6 +72,13 @@ def export() -> dict:
             item["attributes"] = json.loads(item["attributes"] or "{}")
         except (TypeError, ValueError):
             item["attributes"] = {}
+        # Stored as JSON text, carried as a list. Without this the other machine
+        # receives the string "[...]" and every product arrives with a gallery
+        # of one very long filename.
+        try:
+            item["images"] = json.loads(item["images"] or "[]")
+        except (TypeError, ValueError):
+            item["images"] = []
         products.setdefault(row["org_id"], []).append(item)
 
     payload = {"orgs": orgs, "products": products}
@@ -133,6 +141,7 @@ def apply(force: bool = False) -> str:
                 description=r.get("description") or "",
                 url=r.get("url") or "",
                 image=r.get("image") or "",
+                images=r.get("images") or [],
                 availability=r.get("availability") or "in_stock",
                 attributes=r.get("attributes") or {},
             )

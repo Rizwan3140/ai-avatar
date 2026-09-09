@@ -133,14 +133,7 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
       // column of it and keeps its own shape.
       className="lay-down bg-line/20 relative flex gap-[clamp(12px,1.4vh,52px)] overflow-hidden rounded-xl p-[clamp(12px,1.4vh,52px)]"
     >
-      {/* `contain`, and no crop. Whatever the shape of the photograph, the whole
-          garment is on screen — which is the difference between a product page
-          and a shop window. */}
-      <Image
-        product={product}
-        className="h-[clamp(200px,26vh,900px)] w-auto shrink-0"
-        fit="contain"
-      />
+      <Gallery product={product} />
 
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-[1em]">
         <div className="flex min-w-0 flex-col items-start gap-[0.3em]">
@@ -216,6 +209,74 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
  * heading is read off the products themselves rather than the query, so it can
  * only ever describe what is actually underneath it.
  */
+/**
+ * Every photograph of the garment, one large and the rest as a strip.
+ *
+ * A storefront publishes six or seven shots — front, back, the fabric close up,
+ * worn — and the catalog kept the first and threw the others away. Those are
+ * most of what somebody wants before they decide, and on a shop window they are
+ * the difference between a picture and a look at the thing.
+ *
+ * The thumbnails are only drawn when there is more than one, so a product with
+ * a single photograph looks exactly as it did rather than growing an empty rail
+ * that says something is missing.
+ */
+function Gallery({ product }: { product: Product }) {
+  const shots = (product.images?.length ? product.images : [product.image]).filter(Boolean)
+  const [shown, setShown] = useState(0)
+
+  // A different product in the same slot starts at its own first photograph.
+  // Without this, selecting a second garment opens on whichever index the last
+  // one was left at — which is a picture of the wrong thing, briefly.
+  useEffect(() => setShown(0), [product.id])
+
+  const current = shots[Math.min(shown, shots.length - 1)] ?? ''
+
+  return (
+    <div className="flex shrink-0 gap-[clamp(8px,0.9vh,32px)]">
+      {shots.length > 1 && (
+        <div className="flex flex-col gap-[clamp(6px,0.7vh,24px)] overflow-y-auto">
+          {shots.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => setShown(i)}
+              aria-label={`Photograph ${i + 1} of ${shots.length}`}
+              aria-current={i === shown}
+              className={`w-[clamp(44px,5vh,180px)] shrink-0 overflow-hidden rounded-lg border transition-[border-color,opacity] duration-300 ease-(--ease-human) ${
+                i === shown ? 'border-ink/40 opacity-100' : 'border-line/60 opacity-60 hover:opacity-100'
+              }`}
+            >
+              <img src={src} alt="" className="aspect-[3/4] w-full object-cover object-top" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* `contain`, and no crop. Whatever the shape of the photograph, the whole
+          garment is on screen — which is the difference between a product page
+          and a shop window. */}
+      <span className="relative block h-[clamp(200px,26vh,900px)] overflow-hidden rounded">
+        {current ? (
+          <img
+            key={current}
+            src={current}
+            alt=""
+            className="animate-[rise_var(--duration-calm)_var(--ease-human)] h-full w-auto object-contain"
+          />
+        ) : (
+          <span
+            className="bg-line/30 text-ink-soft grid h-full w-[clamp(150px,20vh,700px)] place-items-center text-xs"
+            aria-hidden
+          >
+            {product.category || 'No image'}
+          </span>
+        )}
+      </span>
+    </div>
+  )
+}
+
 function Heading({ shelf, count }: { shelf: string; count: number }) {
   const piece = count === 1 ? 'piece' : 'pieces'
 

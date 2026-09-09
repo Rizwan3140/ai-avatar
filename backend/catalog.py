@@ -137,6 +137,14 @@ class Product:
     description: str = ""
     url: str = ""
     image: str = ""
+    #: Every photograph of this product, in the order the shop published them.
+    #:
+    #: `image` stays the primary and is what a grid cell shows, so nothing that
+    #: reads one picture has to learn about a list. This is the rest of them.
+    #: A storefront publishes five or six shots of a garment — front, back,
+    #: fabric, worn — and the crawler was keeping the first and discarding the
+    #: others, which is most of what a customer wants to see before buying.
+    images: list[str] = field(default_factory=list)
     availability: str = "in_stock"
     #: Whatever this vertical needs — size, colour, RAM, fabric, bed type.
     attributes: dict[str, Any] = field(default_factory=dict)
@@ -189,6 +197,10 @@ _SCHEMA = """
         -- to answer it.
         color TEXT,
         style TEXT,
+        -- JSON, like `attributes`, because it is a list and SQLite has no array.
+        -- Not a second table: a handful of URLs per row is not a relation, and a
+        -- join would be paid on every read of the one query that feeds a panel.
+        images TEXT,
         -- Composite, not `id` alone. Two customers exporting a product called
         -- "Titan Pro 16" both slug to `titan-pro-16`, and with a single-column
         -- key the second ingest silently overwrites the first company's row.
@@ -257,12 +269,14 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     if "products" not in tables:
         return
     columns = {r["name"] for r in conn.execute("PRAGMA table_info(products)")}
-    missing = [c for c in ("color", "style") if c not in columns]
+    missing = [c for c in ("color", "style", "images") if c not in columns]
     for column in missing:
         conn.execute(f"ALTER TABLE products ADD COLUMN {column} TEXT")
     if not missing:
         return
 
+    if "color" in columns and "style" in columns:
+        return  # only `images` was added; there is nothing to backfill for it
     rows = conn.execute("SELECT org_id, id, name, description, attributes FROM products").fetchall()
     updates = []
     for row in rows:
@@ -287,21 +301,40 @@ def init() -> None:
 def _row_to_product(row: sqlite3.Row) -> Product:
     data = {key: row[key] for key in CORE}
     data["attributes"] = json.loads(row["attributes"] or "{}")
+    # `images` arrived after the first installs, so a row written before it
+    # simply has none — read defensively rather than migrating every catalog.
+    try:
+        data["images"] = json.loads(row["images"] or "[]")
+    except (IndexError, KeyError, TypeError, ValueError):
+        data["images"] = []
     return Product(**data)
 
 
 _UPSERT_SQL = """
     INSERT INTO products (org_id, id, name, category, price, currency, description,
-                          url, image, availability, attributes, color, style)
+                          url, image, availability, attributes, color, style, images)
     VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
-            :url, :image, :availability, :attributes, :color, :style)
+            :url, :image, :availability, :attributes, :color, :style, :images)
     ON CONFLICT(org_id, id) DO UPDATE SET
         name=excluded.name, category=excluded.category, price=excluded.price,
         currency=excluded.currency, description=excluded.description,
         url=excluded.url, image=excluded.image,
         availability=excluded.availability, attributes=excluded.attributes,
-        color=excluded.color, style=excluded.style
+        color=excluded.color, style=excluded.style, images=excluded.images
 """
+
+
+def gallery(product: Product) -> list[str]:
+    """Every photograph of a product, primary first and no repeats.
+
+    The primary is stored in `image` and repeated at the head of this list, so a
+    caller wanting the whole gallery does not have to prepend one to the other —
+    and a caller wanting one picture keeps reading `image` and never learns this
+    exists. Order is the shop's own: a storefront leads with the shot it wants
+    seen first, and reordering that is an opinion we do not have.
+    """
+    everything = ([product.image] if product.image else []) + list(product.images)
+    return list(dict.fromkeys(u for u in everything if u))
 
 
 def _bind(products: list[Product], org_id: str) -> list[dict]:
@@ -312,6 +345,7 @@ def _bind(products: list[Product], org_id: str) -> list[dict]:
             # Attribute values are indexed as text so "cotton" or "16GB"
             # are searchable without the caller knowing the key.
             "attributes": json.dumps(p.attributes, ensure_ascii=False),
+            "images": json.dumps(gallery(p), ensure_ascii=False),
             # Derived here, once, rather than at every read. An ingest
             # is rare and a search is not.
             **dict(
