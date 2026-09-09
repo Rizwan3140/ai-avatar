@@ -355,12 +355,11 @@ function Home({
  * hidden ones are exactly where missing footage hides. The default still leads,
  * because that is who a cabinet shows when nothing is assigned to it.
  *
- * No dots and no arrows. A dashboard is not a marketing page, and carousel
- * furniture parked under the one picture on it is chrome competing with the
- * thing it decorates. The rail is a native scroll container with scroll-snap,
- * so trackpad, touch, shift-wheel and keyboard already move it — the controls
- * were duplicating gestures the browser provides. The caption underneath names
- * who is showing, which is the only part of a dot row that carried information.
+ * Dots, and nothing else. The rail is a native scroll container with
+ * scroll-snap, so trackpad, touch, shift-wheel and keyboard move it for free —
+ * but on Windows that container draws a scrollbar, and a grey trough pinned
+ * under the picture is the browser's furniture rather than ours. The scrollbar
+ * is hidden (`.rail-plain`) and the dots are the visible control.
  *
  * The index is read back from scroll position rather than kept alongside it,
  * because a carousel with its own idea of which slide is showing disagrees with
@@ -402,7 +401,7 @@ function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void 
             const el = e.currentTarget
             setAt(Math.round(el.scrollLeft / el.clientWidth))
           }}
-          className="s-card flex aspect-[9/16] w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="s-card rail-plain flex aspect-[9/16] w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden p-0"
         >
           {cast.map((member) => (
             /* A link, not a click handler: the middle-click and the new tab
@@ -441,6 +440,28 @@ function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void 
           ))}
         </div>
       </div>
+
+      {cast.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5">
+          {cast.map((member, i) => (
+            <button
+              key={member.id}
+              type="button"
+              aria-label={member.name}
+              aria-current={i === at ? 'true' : undefined}
+              onClick={() => {
+                const el = rail.current
+                if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+              }}
+              className="h-1.5 rounded-full transition-all duration-300"
+              style={{
+                width: i === at ? 18 : 6,
+                background: i === at ? 'var(--s-accent)' : 'var(--s-line)',
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
         {at === 0 ? 'What the cabinet shows at rest. ' : ''}

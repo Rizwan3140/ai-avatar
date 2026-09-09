@@ -319,6 +319,23 @@ body {
 }
 .studio ::-webkit-scrollbar-thumb:hover { background: var(--s-faint); }
 
+/* Except a rail somebody else drives. The dashboard's avatar carousel has its
+   own dots, so a scrollbar is a second control for the same axis — and on
+   Windows it is a permanent grey trough pinned under the picture.
+
+   Scoped under `.studio` on purpose: the rules directly above are `.studio *`
+   and `.studio ::-webkit-scrollbar`, so a bare `.rail-plain` ties on
+   specificity and loses on order. Written as CSS rather than as a Tailwind
+   arbitrary variant because Tailwind emits nothing for `::-webkit-scrollbar`,
+   which is why the utility looked applied and did nothing. */
+.studio .rail-plain {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.studio .rail-plain::-webkit-scrollbar {
+  display: none;
+}
+
 .studio input,
 .studio textarea { caret-color: var(--s-accent); }
 
