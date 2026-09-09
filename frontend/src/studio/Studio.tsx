@@ -355,11 +355,15 @@ function Home({
  * hidden ones are exactly where missing footage hides. The default still leads,
  * because that is who a cabinet shows when nothing is assigned to it.
  *
- * The rail is a native scroll container with scroll-snap: trackpad, touch,
- * shift-wheel and keyboard all work without a line of code, and the arrows are
- * `scrollBy` over the same mechanism rather than a second source of truth. The
- * index is read back from scroll position for the same reason — a carousel that
- * keeps its own idea of which slide is showing is a carousel that disagrees with
+ * No dots and no arrows. A dashboard is not a marketing page, and carousel
+ * furniture parked under the one picture on it is chrome competing with the
+ * thing it decorates. The rail is a native scroll container with scroll-snap,
+ * so trackpad, touch, shift-wheel and keyboard already move it — the controls
+ * were duplicating gestures the browser provides. The caption underneath names
+ * who is showing, which is the only part of a dot row that carried information.
+ *
+ * The index is read back from scroll position rather than kept alongside it,
+ * because a carousel with its own idea of which slide is showing disagrees with
  * itself the first time somebody swipes.
  */
 function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void }) {
@@ -367,10 +371,6 @@ function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void 
   const [at, setAt] = useState(0)
 
   const showing = cast[Math.min(at, cast.length - 1)]
-  const step = (by: number) => {
-    const el = rail.current
-    if (el) el.scrollBy({ left: by * el.clientWidth, behavior: 'smooth' })
-  }
 
   if (!cast.length) {
     return (
@@ -440,80 +440,13 @@ function Stage({ cast, onView }: { cast: Member[]; onView: (view: View) => void 
             </a>
           ))}
         </div>
-
-        {/* Only worth drawing when there is somewhere to go. They appear on
-            hover and on keyboard focus — `focus-within` rather than hover
-            alone, or they are unreachable without a mouse. */}
-        {cast.length > 1 && (
-          <>
-            <Nudge side="left" disabled={at === 0} onClick={() => step(-1)} />
-            <Nudge side="right" disabled={at >= cast.length - 1} onClick={() => step(1)} />
-          </>
-        )}
       </div>
-
-      {cast.length > 1 && (
-        <div className="flex items-center justify-center gap-1.5">
-          {cast.map((member, i) => (
-            <button
-              key={member.id}
-              type="button"
-              aria-label={member.name}
-              aria-current={i === at ? 'true' : undefined}
-              onClick={() => {
-                const el = rail.current
-                if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
-              }}
-              className="h-1.5 rounded-full transition-all duration-300"
-              style={{
-                width: i === at ? 18 : 6,
-                background: i === at ? 'var(--s-accent)' : 'var(--s-line)',
-              }}
-            />
-          ))}
-        </div>
-      )}
 
       <p className="text-[12.5px]" style={{ color: 'var(--s-faint)' }}>
         {at === 0 ? 'What the cabinet shows at rest. ' : ''}
         {showing ? `Opens the showroom screen as ${showing.name}.` : ''}
       </p>
     </section>
-  )
-}
-
-function Nudge({
-  side,
-  disabled,
-  onClick,
-}: {
-  side: 'left' | 'right'
-  disabled: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={side === 'left' ? 'Previous avatar' : 'Next avatar'}
-      className={`absolute top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow-md backdrop-blur transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 disabled:!opacity-0 ${
-        side === 'left' ? 'left-2' : 'right-2'
-      }`}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-        className="size-4"
-      >
-        <path d={side === 'left' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
-      </svg>
-    </button>
   )
 }
 

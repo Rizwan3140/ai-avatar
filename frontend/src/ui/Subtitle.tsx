@@ -74,7 +74,10 @@ export function Subtitle() {
     if (status === 'thinking') return <Dots />
 
     if (status === 'speaking') {
-      // A card rather than text lying on the floor of the panel.
+      // A card rather than text lying on the floor of the panel, and at
+      // `text-body` — which the scale in `index.css` defines as "what he is
+      // saying". It had drifted two steps up to `text-display`, so a single
+      // spoken sentence took a slab most of the panel wide across their chest.
       //
       // The words used to sit directly on the background, which is fine on a
       // monitor and poor on a transparent panel: whatever is physically behind
@@ -86,7 +89,7 @@ export function Subtitle() {
         <Card key={subtitle}>
           <p
             aria-live="polite"
-            className="text-ink text-title leading-relaxed font-normal text-balance"
+            className="text-ink text-body leading-relaxed font-normal text-balance"
           >
             {subtitle}
           </p>
@@ -105,10 +108,13 @@ export function Subtitle() {
     //
     // Still the display serif, and still two deliberate lines — that is the
     // shop's voice at rest rather than a status line, and it is why `greeting`
-    // keeps its newline.
+    // keeps its newline. `text-title` rather than `text-display`: the scale
+    // reserves display for the product being looked at, and a greeting set
+    // larger than the merchandise is a caption shouting over the thing it
+    // introduces. One step above speech is the whole distinction it needs.
     return (
       <Card>
-        <p className="font-display text-ink text-display leading-[1.12] whitespace-pre-line">
+        <p className="font-display text-ink text-title leading-[1.12] whitespace-pre-line">
           {greeting}
         </p>
       </Card>
@@ -125,7 +131,7 @@ export function Subtitle() {
  */
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 shadow-float mx-auto flex max-w-[80%] items-start gap-[0.8em] rounded-[1.1em] px-[1.3em] py-[1.05em] text-left backdrop-blur-md">
+    <div className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 shadow-float mx-auto flex max-w-[70%] items-start gap-[0.8em] rounded-[1.1em] px-[1.15em] py-[0.9em] text-left backdrop-blur-md">
       <Spark />
       {children}
     </div>
