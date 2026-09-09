@@ -22,7 +22,13 @@ export function scope(): string | null {
 /** Fetch the matched products and put them on screen. */
 async function showProducts(ids: string): Promise<void> {
   const wanted = ids.split(',').filter(Boolean)
-  if (!wanted.length) return bus.emit('PRODUCTS_CLEARED')
+  // A turn that matched nothing leaves the screen alone. It used to empty it,
+  // which meant every sentence that was not itself a product search swept the
+  // merchandise away: "what is it made of", "how much is that one", "thanks" —
+  // a visitor asking about the saree in front of them watched it disappear
+  // while they were asking. The shelf is cleared deliberately, by saying so or
+  // by the Back button, and those two paths still do it.
+  if (!wanted.length) return
 
   const asking = scope()
   if (asking === null) return

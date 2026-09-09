@@ -637,6 +637,52 @@ check(
     "a category we do not stock is still caught",
     llm.ungrounded_claim("We do carry washing machines.", [], SHELVES),
 )
+# The allowance is matched on whole words. As a substring it handed the guard
+# back the fabrication it exists to stop: this shop stocks Tops, "laptops"
+# contains "tops", so "We have a selection of Computers and Laptops here" read
+# as grounded in a real shelf and was spoken to a visitor asking for a laptop.
+check(
+    "a shelf inside a longer word does not ground a claim",
+    llm.ungrounded_claim(
+        "We have a selection of Computers and Laptops here.", [], SHELVES + ["Tops"]
+    ),
+)
+check(
+    "but the shelf itself still does",
+    not llm.ungrounded_claim("We have a range of tops.", [], SHELVES + ["Tops"]),
+)
+# Punctuation and possessives are word boundaries too, so the two-word and
+# apostrophed shelves this catalog actually has keep working.
+check(
+    "an apostrophed shelf grounds a claim",
+    not llm.ungrounded_claim("We stock men's kurtas.", [], ["Men's Kurtas"]),
+)
+
+# Naming a real shelf does not license the rest of the sentence. Asked "do you
+# sell shoes", llama3.2:3b answered "We do sell shoes, including Accessories,
+# Bangles, and others in this category" — two real shelves, so the whole reply
+# read as grounded while affirming the one thing we do not stock. The visitor's
+# own noun, repeated inside a claim, has to be a shelf or a retrieved product.
+check(
+    "a real shelf does not launder the visitor's own noun",
+    llm.ungrounded_claim(
+        "We do sell shoes, including Sarees and Earrings.", [], SHELVES, "do you sell shoes"
+    ),
+)
+check(
+    "and the shelf they actually asked for still passes",
+    not llm.ungrounded_claim("We do carry earrings.", [], SHELVES, "do you have earrings"),
+)
+check(
+    "singular and plural are the same shelf",
+    not llm.ungrounded_claim("Yes, we have sarees.", [], SHELVES, "do you have a saree"),
+)
+# Nothing to echo, so the shelf allowance still does its job — this is the "what
+# do you sell" case that the allowance was added for.
+check(
+    "a question with no noun of its own is unaffected",
+    not llm.ungrounded_claim("We sell sarees and lehengas.", [], SHELVES, "what do you sell"),
+)
 check(
     "and an invented range with it",
     llm.ungrounded_claim("We have a wide selection of laptops.", [], SHELVES),

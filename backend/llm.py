@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 
-from backend import analytics, config
+from backend import analytics, catalog, config
 from backend.catalog import Product
 
 HOST = config.OLLAMA_HOST
@@ -113,8 +113,14 @@ _CLAIMS_STOCK = re.compile(
 REFUSAL = "I'm afraid we don't carry those."
 
 
+def _stem(word: str) -> str:
+    """Crude singular, so "saree" and "sarees" compare equal. Nothing cleverer is
+    needed — this compares a shopper's noun against a shelf name."""
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
 def ungrounded_claim(
-    reply: str, products: list, categories: list[str] | None = None
+    reply: str, products: list, categories: list[str] | None = None, asked: str = ""
 ) -> bool:
     """True when the reply asserts stock we cannot stand behind.
 
@@ -143,6 +149,13 @@ def ungrounded_claim(
     built for — "we carry washing machines" matches no category and is refused
     exactly as before.
 
+    That allowance is matched on whole words, because as a substring it let the
+    fabrication straight back through the guard built to stop it. This shop
+    stocks Tops; "lap-tops" contains "tops"; so "We have a selection of
+    Computers and Laptops here" read as grounded in a real shelf and was spoken
+    to the visitor. The same shape as "one" being registered as an ordinal —
+    a match without a word boundary is not a match.
+
     ponytail: a phrase list, checked once per reply. It is deliberately narrow
     and will miss a paraphrase; the day a larger model makes the whole guard
     unnecessary, delete it rather than growing it.
@@ -150,7 +163,30 @@ def ungrounded_claim(
     if products or not _CLAIMS_STOCK.search(reply):
         return False
     lowered = reply.lower()
-    return not any(c.lower() in lowered for c in (categories or []) if c.strip())
+    shelves = [c.lower() for c in (categories or []) if c.strip()]
+
+    # The visitor's own noun, handed straight back to them as stock.
+    #
+    # The allowance below is generous by design, and a small model found the gap
+    # in it. Asked "do you sell shoes", `llama3.2:3b` answered "We do sell shoes,
+    # including Accessories, Bangles, and others in this category." It names two
+    # real shelves, so the whole reply read as grounded — while affirming the one
+    # thing in the sentence we do not stock.
+    #
+    # A word the visitor supplied, repeated inside a claim of stock, is only true
+    # if we can point at it: a shelf with that name, or a product retrieved for
+    # this turn. Otherwise the model is agreeing rather than answering, which is
+    # the single most reliable thing a 3B model does.
+    safe = {_stem(w) for shelf in shelves for w in re.findall(r"[a-z]+", shelf)}
+    for product in products:
+        safe.update(_stem(w) for w in re.findall(r"[a-z]+", product.name.lower()))
+    for word in re.findall(r"[a-z]+", asked.lower()):
+        if len(word) < 3 or word in catalog.STOPWORDS or _stem(word) in safe:
+            continue
+        if re.search(rf"\b{re.escape(word)}", lowered):
+            return True
+
+    return not any(re.search(rf"\b{re.escape(c)}\b", lowered) for c in shelves)
 
 
 def _shop_sells(categories: list[str]) -> str:

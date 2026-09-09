@@ -507,6 +507,26 @@ CATEGORY_ALIASES = {
 _CATEGORY_CUTOFF = 0.7
 
 
+def _closest(word: str, known: list[str]) -> str:
+    """The nearest category name to a word, or "" — first letter required to agree.
+
+    difflib scores on characters shared anywhere in the string, which on short
+    words lets ordinary English rhyme its way onto a shelf. Both of these clear
+    the cutoff at 0.727: "laptops" against "Tops", and "things" against "Rings".
+    So "show me laptops" filled the panel with linen tops while the avatar was
+    saying out loud that we do not sell laptops, and "what kind of things do you
+    have" answered with three rings.
+
+    A typo or a mishearing almost never moves the first letter — "lehnga",
+    "earing", "dupata", "palazo" all keep theirs. A word that merely rhymes
+    usually does not. That single condition removes every collision this catalog
+    has without costing a real match, which raising the cutoff does not do as
+    reliably: the next rhyme along will sit above whatever number is chosen.
+    """
+    match = difflib.get_close_matches(word, known, n=1, cutoff=_CATEGORY_CUTOFF)
+    return match[0] if match and match[0][:1] == word[:1] else ""
+
+
 def resolve_category(text: str, org_id: str = DEFAULT_ORG) -> str:
     """The category someone meant, or "" if nothing is close enough.
 
@@ -529,9 +549,9 @@ def resolve_category(text: str, org_id: str = DEFAULT_ORG) -> str:
             return known[target.lower()]
 
     for word in words:
-        match = difflib.get_close_matches(word, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
+        match = _closest(word, list(known))
         if match:
-            return known[match[0]]
+            return known[match]
     return ""
 
 
@@ -574,9 +594,9 @@ def parse_category(text: str, org_id: str = DEFAULT_ORG) -> tuple[str, str]:
         phrase = f"{a} {b}"
         if phrase in known:
             return lift(known[phrase], {a, b})
-        match = difflib.get_close_matches(phrase, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
+        match = _closest(phrase, list(known))
         if match:
-            return lift(known[match[0]], {a, b})
+            return lift(known[match], {a, b})
 
     for word in words:
         if word in STOPWORDS:
@@ -584,8 +604,8 @@ def parse_category(text: str, org_id: str = DEFAULT_ORG) -> tuple[str, str]:
         target = CATEGORY_ALIASES.get(word, "")
         hit = known.get(target.lower()) if target else None
         if not hit:
-            match = difflib.get_close_matches(word, list(known), n=1, cutoff=_CATEGORY_CUTOFF)
-            hit = known[match[0]] if match else None
+            match = _closest(word, list(known))
+            hit = known[match] if match else None
         if hit:
             return lift(hit, {word})
     return text, ""
@@ -620,11 +640,50 @@ def styles(org_id: str = DEFAULT_ORG) -> list[str]:
 # Words that carry no product meaning. Without this list a visitor saying
 # "show me laptops" matches a keyboard, because the prefix "me*" hits
 # "mechanical" — the kind of result that looks broken in a showroom.
+#: Words that are never merchandise, so they never belong in a search — or in
+#: the grounding guard's judgement of what a visitor asked for.
+#:
+#: This is not a generic English stopword list — it is the words a person uses
+#: to *ask* in a clothing showroom, and every one of them appears somewhere in
+#: marketing copy. Because `_fts_query` ORs its terms, a single incidental hit
+#: on one of them returns a product, and the panel then contradicts the answer
+#: being spoken over it. Measured, not guessed:
+#:
+#:   "What are your opening hours?"  matched a garment on "hours"
+#:   "Help me choose something."     matched three on "help" and "choose"
+#:   "I want to buy a mobile phone"  matched a belt on "buy separately"
+#:   "what kind of things do you have"  matched a jacket on "small things"
+#:
+#: Two of those four are the kiosk's own prompt chips. Words that could ever be
+#: a thing somebody shops for stay out: "party" and "wedding" are occasions,
+#: "new" is a real question about stock, "gold" is a colour.
+#:
+#: The last group is the words a follow-up is made of — "what is it made of",
+#: "how much is the first one", "anything cheaper". None of them is a thing on a
+#: rail, and each was searching: "made" put a shawl and two shararas in front of
+#: somebody asking what their saree was woven from.
+#:
+#: The group before it is the shop's own vocabulary for itself — "category", "range",
+#: "clothing", "wear". They are never a thing on a rail, and `ungrounded_claim`
+#: reads this list too: without them "what categories do you have" was answered
+#: with a refusal, because the reply repeated the visitor's word "categories"
+#: and no shelf is called that.
 STOPWORDS = frozenset("""
 a an and any are as at be but by can could do does for from get give got has have
 he her him his they them their how i if in is it its like looking me my need of on or our out
 please see she show some something that the their them then there these they this
 those to us want was we what when where which who will with would you your
+about all another available buy buying carry choose does doing hello help here hey
+hi hours just kind kinds know many morning much nice one ones opening other really
+sell selling sells stock tell thank thanks thing things today very
+ain aren couldn didn doesn don hadn hasn haven isn mustn needn shan shouldn wasn
+weren won wouldn
+apparel categories category clothes clothing collection collections fashion item
+items option options product products range ranges section sections selection
+selections stuff type types wear
+anything anyone best better cheap cheaper cheapest cost costs everything
+expensive first fifth fourth last less made next previous price priced prices
+second third
 """.split())
 
 
@@ -634,6 +693,14 @@ def _fts_query(text: str) -> str:
     Visitors speak in sentences, and raw punctuation is a syntax error in FTS5.
     Meaningful words are OR-ed together so a partial phrase still returns its best
     matches rather than nothing.
+
+    Splitting on non-alphanumerics cuts contractions in half, and the front half
+    is a word nobody said: "isn't" becomes "isn", which is three characters long,
+    is in no stopword list, and matched "Dressing up isn't a hassle" in a product
+    description. So "nice weather today isn't it" put a pair of harem pants on
+    the panel. The `n't` stems are a closed set and sit in STOPWORDS with the
+    rest; the other halves — "ll", "ve", "re", "t", "s" — are already too short
+    to survive.
     """
     words = [w.lower() for w in "".join(c if c.isalnum() else " " for c in text).split()]
     kept = [w for w in words if w not in STOPWORDS and len(w) > 2]
@@ -641,6 +708,41 @@ def _fts_query(text: str) -> str:
     # Prefix matching only from four characters. "car*" would hit "cardigan" and
     # "carton"; "lapt*" only ever means laptop.
     return " OR ".join(f"{w}*" if len(w) > 3 else w for w in kept)
+
+
+def _fts_terms(text: str) -> list[str]:
+    """The words of a query that FTS will actually search on."""
+    words = [w.lower() for w in "".join(c if c.isalnum() else " " for c in text).split()]
+    return [w for w in words if w not in STOPWORDS and len(w) > 2]
+
+
+def _corroborated(terms: list[str], found: list[Product]) -> list[Product]:
+    """Drop rows that match only one of several things the visitor said.
+
+    `_fts_query` ORs its terms, so one incidental hit anywhere in a product's
+    copy is enough to return it. That is right for a single word — somebody who
+    says "party" means the pieces whose description says party — and wrong the
+    moment they say two. Asked for a "mobile phone", this shop offered a potli
+    and a jacket: neither is a phone, both blurbs happen to mention keeping your
+    phone in them, and each matched exactly one term out of two.
+
+    So a row has to corroborate: with two or more terms in play it must carry at
+    least two of them. Nothing is required of a single-term query, because there
+    is no second word to agree with.
+
+    Facets and shelves are lifted out before this, so by here the terms really
+    are two separate nouns rather than a colour and its garment.
+    """
+    if len(terms) < 2:
+        return found
+    kept = []
+    for product in found:
+        haystack = " ".join(
+            [product.name, product.category, product.description or ""]
+        ).lower()
+        if sum(1 for t in terms if t in haystack) >= 2:
+            kept.append(product)
+    return kept
 
 
 def search(
@@ -690,6 +792,20 @@ def search(
             # bm25 favours rarer terms, so a specific model name beats a generic
             # category word — which is what someone naming a product expects.
             order = "bm25(products_fts)"
+        elif not (category or color or style or max_price is not None):
+            # Somebody said something, and none of it was about merchandise.
+            #
+            # An empty `query` means "show me what you have" and browses the
+            # catalog, which is right. A query that is *not* empty but whose
+            # every word is a stopword is a different thing entirely — and it
+            # was taking the same path, because the only test was whether an
+            # FTS expression came out. So "hi there how are you" put eight
+            # unrelated products on the panel, and every greeting a visitor
+            # opened with was answered by the merchandise wall the thinning
+            # exists to prevent.
+            #
+            # Nothing to search for is not the same as nothing to search by.
+            return []
 
     if category:
         clauses.append("LOWER(p.category) = LOWER(?)")
@@ -714,7 +830,13 @@ def search(
     # A colour is the same kind of narrowing: "show me the red ones" is a request
     # for the red ones, and thinning it to one red product per category answers a
     # question nobody asked.
-    thin = per_category and not category and not color
+    #
+    # So is an occasion, and it was missing from this list. Every one of this
+    # shop's twenty wedding pieces is a lehenga, so "something for a wedding"
+    # narrowed correctly to twenty and then thinned to *one* — the thinning that
+    # stops a browse looking like a warehouse was emptying the one rail somebody
+    # had actually asked to see.
+    thin = per_category and not category and not color and not style
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT p.* FROM {joined} {where} ORDER BY {order} LIMIT ?"
@@ -725,7 +847,7 @@ def search(
 
     with _connect() as conn:
         rows = conn.execute(sql, params).fetchall()
-    found = [_row_to_product(r) for r in rows]
+    found = _corroborated(_fts_terms(query), [_row_to_product(r) for r in rows])
 
     # The words left over after lifting a shelf are a ranking hint, not a second
     # filter. "What's the best laptop?" leaves "best", which appears in no

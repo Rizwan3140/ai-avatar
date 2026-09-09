@@ -151,7 +151,7 @@ def chat(req: ChatRequest, request: Request):
                 yield chunk
 
         if withhold:
-            if llm.ungrounded_claim(reply, products, shelves):
+            if llm.ungrounded_claim(reply, products, shelves, req.message):
                 analytics.record(
                     "ungrounded_claim", session=session, avatar=avatar.id,
                     org=org_id, text=req.message, said=reply[:200],

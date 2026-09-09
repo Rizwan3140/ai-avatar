@@ -320,6 +320,25 @@ def main() -> int:
     check("filters by style", names(catalog.search(style="Festive")), ["Ruby Silk Saree"])
     check("colour and category together", len(catalog.search(category="Sarees", color="White")), 1)
 
+    # An occasion narrows exactly as a colour does, so it must switch the
+    # one-per-category thinning off the same way. It did not, and every one of
+    # this shop's wedding pieces is a lehenga — so "something for a wedding"
+    # filtered correctly to twenty and then thinned to one. The thinning that
+    # stops a browse looking like a warehouse was emptying the rail somebody had
+    # asked to see.
+    catalog.upsert(
+        from_rows(
+            [
+                {"sku": f"W{i}", "title": f"Wedding Lehenga {i}", "type": "Lehengas",
+                 "mrp": "5000", "details": "Sequinned net", "tags": "Lehengas, Wedding"}
+                for i in range(5)
+            ]
+        ),
+        org_id="occasion",
+    )
+    check("an occasion is not thinned to one per category",
+          len(catalog.search(style="Wedding", org_id="occasion")), 5)
+
     # Offered from the rows, so a shop that stocks nothing turquoise is never
     # shown a turquoise filter that comes back empty.
     check("lists only stocked colours", "Red" in catalog.colors(), True)
@@ -386,6 +405,66 @@ def main() -> int:
     # these particular words are unmatchable everywhere.
     for absent in ("washing machine", "refrigerator", "motorcycle", "television"):
         check(f"{absent!r} matches no category", catalog.resolve_category(absent), "")
+
+    # A rhyme is not a typo. Both of these clear the 0.7 cutoff at 0.727 against
+    # a real Dhiyona shelf, so "show me laptops" filled the panel with linen
+    # tops while the avatar was saying out loud that we do not sell laptops, and
+    # "what kind of things do you have" answered with three rings.
+    #
+    # A separate org, because the fixture above deliberately stocks Laptops and
+    # "laptops" must go on matching those.
+    rhyme = "rhymes"
+    catalog.upsert(
+        [
+            catalog.Product(id="T1", name="Linen Sleeveless Top", category="Tops"),
+            catalog.Product(id="R1", name="Circles Big Ring", category="Rings"),
+        ],
+        org_id=rhyme,
+    )
+    check("'laptops' does not rhyme its way onto Tops",
+          catalog.resolve_category("laptops", org_id=rhyme), "")
+    check("'things' does not rhyme its way onto Rings",
+          catalog.resolve_category("things", org_id=rhyme), "")
+    # And the guard costs nothing real: a mishearing keeps its first letter.
+    check("a mishearing still lands",
+          catalog.resolve_category("tpos", org_id=rhyme), "Tops")
+    check("and the shelf itself still lands",
+          catalog.resolve_category("rings", org_id=rhyme), "Rings")
+
+    # Nothing to search for is not the same as nothing to search by. An empty
+    # query browses the catalog; a sentence whose every word is a stopword is a
+    # greeting, and it was taking the browse path — so "hi there how are you"
+    # put eight unrelated products on the panel.
+    check("a greeting shows nothing", catalog.search("hi there how are you"), [])
+    check("and so does a question about the shop",
+          catalog.search("What are your opening hours?"), [])
+    check("but an empty query still browses", len(catalog.search("")) > 0, True)
+    check("and a real request still finds its shelf",
+          {p.category for p in catalog.search("show me dresses")}, {"Dresses"})
+
+    # One incidental hit is enough to return a row, because the terms are OR-ed.
+    # That is right for a single word and wrong the moment somebody says two:
+    # asked for a "mobile phone", this shop offered a potli and a jacket, each
+    # matching one term of two because both blurbs mention keeping a phone.
+    catalog.upsert(
+        from_rows(
+            [
+                {"sku": "P1", "title": "Casino Stripe Potli", "type": "Ethnic Bags",
+                 "mrp": "900", "details": "Where to keep your phone and money?"},
+                {"sku": "P2", "title": "Mobile Charging Dress", "type": "Dresses",
+                 "mrp": "900", "details": "A pocket for your mobile phone"},
+            ]
+        ),
+        org_id="corroborate",
+    )
+    both = [p.id for p in catalog.search("mobile phone", org_id="corroborate",
+                                         per_category=False)]
+    check("a row carrying one term of two is dropped", "P1" not in both, True)
+    check("and one carrying both is kept", both, ["P2"])
+    # A single word has no second word to agree with, so nothing is required of
+    # it — "party" must go on returning the pieces whose copy says party.
+    check("a single term is never held to it",
+          len(catalog.search("phone", org_id="corroborate", per_category=False)), 2)
 
     # It only runs on a miss, so it can never override a real result.
     # The gallery survives a write and a read, and the primary leads it without
