@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { type View, VIEWS, pathForView } from './routes.ts'
 
 /**
@@ -97,6 +98,40 @@ function Icon({ view }: { view: View }) {
   )
 }
 
+/**
+ * The shop's mark on the dashboard, or its initial and name set in type.
+ *
+ * Same file and same fallback as the cabinet's masthead, so the two surfaces
+ * cannot disagree about what this company looks like. `logo.png` is customer
+ * artwork and is not in this repository — an install without one keeps the
+ * lettered square, which is what was there before.
+ */
+function StudioWordmark({ brand }: { brand: string }) {
+  const [missing, setMissing] = useState(false)
+
+  if (missing) {
+    return (
+      <>
+        <span
+          className="grid size-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
+          style={{ background: 'var(--s-accent)' }}
+        >
+          {brand.slice(0, 1).toUpperCase()}
+        </span>
+        <span className="font-display text-[19px] tracking-[0.1em] uppercase">{brand}</span>
+      </>
+    )
+  }
+  return (
+    <img
+      src="/logo.png"
+      alt={brand}
+      onError={() => setMissing(true)}
+      className="h-8 w-auto object-contain object-left"
+    />
+  )
+}
+
 export function Shell({
   view,
   onView,
@@ -174,13 +209,7 @@ export function Shell({
             }}
             className="flex items-center gap-2.5"
           >
-            <span
-              className="grid size-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
-              style={{ background: 'var(--s-accent)' }}
-            >
-              {brand.slice(0, 1).toUpperCase()}
-            </span>
-            <span className="font-display text-[19px] tracking-[0.1em] uppercase">{brand}</span>
+            <StudioWordmark brand={brand} />
           </a>
 
           <div className="flex items-center gap-3 text-[13px]" style={{ color: 'var(--s-muted)' }}>

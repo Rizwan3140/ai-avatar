@@ -47,14 +47,10 @@ export function Masthead({ name }: { name?: string }) {
       >
         {studioReachable ? (
           <a href="/studio" aria-label={`${name ?? 'Dhiyona'} — back to the studio`}>
-            <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
-              {name ?? 'Dhiyona'}
-            </span>
+            <Wordmark name={name} />
           </a>
         ) : (
-          <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
-            {name ?? 'Dhiyona'}
-          </span>
+          <Wordmark name={name} />
         )}
         <span className="text-ink-soft text-label tracking-[0.24em] uppercase opacity-70">
           Showroom assistant
@@ -66,6 +62,39 @@ export function Masthead({ name }: { name?: string }) {
         <Clock />
       </div>
     </header>
+  )
+}
+
+/**
+ * The shop's own mark, or its name set in type.
+ *
+ * `logo.png` is a customer's artwork and is not in this repository — the file
+ * is dropped into `frontend/public/` by whoever installs the cabinet. So it is
+ * loaded optimistically and the typeset name stays as the fallback: an install
+ * without one looks exactly as it did, rather than showing a broken image on a
+ * shop window.
+ *
+ * Height is bound to the type scale it replaces, so a logo lands at the size
+ * the wordmark occupied on a 3840px panel rather than at whatever pixel height
+ * the file happens to have.
+ */
+function Wordmark({ name }: { name?: string }) {
+  const [missing, setMissing] = useState(false)
+
+  if (missing) {
+    return (
+      <span className="font-display text-title leading-none tracking-[0.14em] uppercase">
+        {name ?? 'Dhiyona'}
+      </span>
+    )
+  }
+  return (
+    <img
+      src="/logo.png"
+      alt={name ?? 'Dhiyona'}
+      onError={() => setMissing(true)}
+      className="h-[clamp(28px,3vh,116px)] w-auto object-contain object-left"
+    />
   )
 }
 
