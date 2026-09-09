@@ -44,7 +44,17 @@ export function Subtitle() {
 
   function content() {
     if (error) {
-      return <p role="alert" className="text-ink-soft text-body">{error}</p>
+      // In the same card everything else he says arrives in. It was bare text
+      // on the panel, which at display size printed "Microphone access is
+      // blocked." straight across his chest — the one moment the interface is
+      // admitting a fault is the worst moment to also look broken.
+      return (
+        <Card>
+          <p role="alert" className="text-ink-soft text-body leading-relaxed text-balance">
+            {error}
+          </p>
+        </Card>
+      )
     }
 
     // Boot shows motion, never a progress log. The step name is in the event
@@ -68,32 +78,55 @@ export function Subtitle() {
       // place the design deliberately blocks the see-through effect, because
       // legibility of what he is saying outranks it.
       return (
-        <div
-          key={subtitle}
-          className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 mx-auto flex max-w-[80%] items-start gap-[0.8em] rounded-[1.1em] px-[1.3em] py-[1.05em] text-left shadow-float backdrop-blur-md"
-        >
-          <Spark />
-          <p aria-live="polite" className="text-ink text-title leading-relaxed font-normal text-balance">{subtitle}</p>
-        </div>
+        <Card key={subtitle}>
+          <p
+            aria-live="polite"
+            className="text-ink text-title leading-relaxed font-normal text-balance"
+          >
+            {subtitle}
+          </p>
+        </Card>
       )
     }
 
+    // The greeting in the same card his speech arrives in, rather than bare
+    // type on the panel.
+    //
+    // It was set directly on the background, which is fine on a monitor and
+    // poor on a transparent one: whatever is physically behind the cabinet
+    // shows through the shop's own opening line. The card is the one place this
+    // design deliberately blocks the see-through effect, and the first sentence
+    // a visitor reads deserves it at least as much as the fifth.
+    //
+    // Still the display serif, and still two deliberate lines — that is the
+    // shop's voice at rest rather than a status line, and it is why `greeting`
+    // keeps its newline.
     return (
-      // The greeting is two deliberate lines, so its newline is honoured.
-      //
-      // Set in the display serif rather than the interface grotesk. It is what a
-      // visitor reads before anyone has spoken — the shop's own voice at rest,
-      // not a status line — and it is the only other display-scale sentence on
-      // the panel, so it belongs to the same voice as the garment names.
-      // What he actually says stays in the grotesk: speech is transient and
-      // read at a glance, and a serif caption changing every few seconds is
-      // decoration on top of a person.
-      <p className="font-display text-ink animate-[rise_var(--duration-calm)_var(--ease-human)] text-display leading-[1.12] whitespace-pre-line">
-        {greeting}
-      </p>
+      <Card>
+        <p className="font-display text-ink text-display leading-[1.12] whitespace-pre-line">
+          {greeting}
+        </p>
+      </Card>
     )
   }
 }
+
+/**
+ * What he is saying, in a card that sits on the panel rather than in it.
+ *
+ * One component because the greeting, the speech and an error are the same
+ * object wearing different words — they used to be three treatments, and the
+ * two that were not the speech bubble were bare text printed over the person.
+ */
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 shadow-float mx-auto flex max-w-[80%] items-start gap-[0.8em] rounded-[1.1em] px-[1.3em] py-[1.05em] text-left backdrop-blur-md">
+      <Spark />
+      {children}
+    </div>
+  )
+}
+
 
 function Dots() {
   return (

@@ -9,11 +9,17 @@ import { Subtitle } from './Subtitle.tsx'
 import { Transcript } from './Transcript.tsx'
 
 /**
- * He gets the whole screen. Everything else floats on top of it.
+ * He is the stage; the merchandise sits beneath him.
  *
- * The layout deliberately reserves no space of its own — a row for captions
- * under his feet would leave him hovering above the floor of the cabinet, which
- * is the one thing a standing person never does.
+ * Products used to slide in from the right and take 62% of the panel, shrinking
+ * him to 42% in the corner — so asking to see a saree cost you most of the
+ * person you were asking, and the two halves fought over the same edge. The
+ * panel is 2160x3840, nearly twice as tall as it is wide, and a portrait screen
+ * wants a column: him above, what he is showing below, both full width.
+ *
+ * The stage still reserves no space under his feet. He stands on the floor of
+ * his own frame and the shelf begins below it, rather than a caption row
+ * leaving him hovering — which is the one thing a standing person never does.
  */
 export function App() {
   const sleeping = useStore((s) => s.status === 'sleeping')
@@ -21,22 +27,24 @@ export function App() {
   const hasCampaigns = useStore((s) => s.hasCampaigns)
 
   return (
-    <main className="kiosk-root relative h-full overflow-hidden bg-canvas">
-      {/* He shrinks aside rather than leaving. The visitor is still being helped
-          by someone, not left browsing a website. */}
+    <main className="kiosk-root bg-canvas flex h-full flex-col overflow-hidden">
+      {/* The stage. Everything that is *him* floats inside this, so the shelf
+          below can never be painted over by a caption or a control — which is
+          what the whole `z-20` argument between the prompt rail and the QR card
+          was about when both were absolutely positioned on one plane. */}
       <div
-        className="absolute inset-0 origin-bottom-left transition-transform duration-500 ease-(--ease-human)"
-        style={{ transform: showcase ? 'scale(0.42)' : 'scale(1)' }}
+        className="relative min-h-0 flex-1 transition-[flex-grow] duration-700 ease-(--ease-human)"
+        style={{ flexGrow: showcase ? 0.85 : 1 }}
       >
         <Mp4VideoRenderer />
+        <Masthead />
+        <Signage />
+        <Subtitle />
+        <Prompts />
+        <Controls />
       </div>
 
-      <Masthead />
-      <Signage />
       <Showcase />
-      <Subtitle />
-      <Prompts />
-      <Controls />
       <Transcript />
 
       {/* Sleep fades to true black, not white — an OLED panel showing black is

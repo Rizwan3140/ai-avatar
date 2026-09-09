@@ -27,14 +27,14 @@ export function Showcase() {
   if (!products.length) return null
 
   return (
-    <aside
-      style={{ width: SHOWCASE_WIDTH }}
-      className="animate-[rise_var(--duration-calm)_var(--ease-human)] bg-canvas/95 absolute inset-y-0 right-0 z-20 flex flex-col gap-[clamp(14px,1.6vh,56px)] px-safe py-safe backdrop-blur-sm"
-    >
+    // A shelf under him, not a panel beside him. It takes the full width of a
+    // portrait panel and claims only the height it needs, so he keeps the whole
+    // frame above it instead of being scaled into a corner.
+    <aside className="lay-down bg-canvas shrink-0 px-safe pb-safe flex flex-col gap-[clamp(10px,1.1vh,40px)] pt-[clamp(12px,1.3vh,48px)]">
       {selected ? (
         <Detail product={selected} siblings={products.length} />
       ) : (
-        <Grid products={products} />
+        <Rail products={products} />
       )}
     </aside>
   )
@@ -54,21 +54,22 @@ function sharedCategory(products: Product[]): string {
   return products.every((p) => p.category?.trim() === first) ? first : ''
 }
 
-function Grid({ products }: { products: Product[] }) {
+function Rail({ products }: { products: Product[] }) {
   const shelf = sharedCategory(products)
 
   return (
     <>
       <Heading shelf={shelf} count={products.length} />
 
-      {/* A contact sheet, not a row of cards.
-          The card was the problem — a bordered box with a small picture inside a
-          lot of padding, which at this scale reads as a spreadsheet of
-          thumbnails. Removing the box is the fix; captioning the photograph is
-          not, because a caption burnt over a garment is a thumbnail treatment.
-          So the image runs edge to edge and the name sits quietly beneath it,
-          the way a gallery labels what is on the wall. */}
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-[clamp(14px,1.4vh,52px)] gap-y-[clamp(18px,1.9vh,68px)] overflow-y-auto">
+      {/* One row, scrolled sideways, rather than a two-column grid in a tall
+          panel. A portrait screen has width to spare and height that belongs to
+          the person standing in it, so the shelf runs across rather than down —
+          and a row that continues past the edge says "there is more" without a
+          control saying it.
+          Snap points, because this is a touch panel: a flick that lands
+          half-way through a garment reads as a page that failed to finish
+          moving. */}
+      <div className="-mx-safe px-safe flex snap-x snap-mandatory gap-[clamp(10px,1.1vh,40px)] overflow-x-auto pb-[0.4em]">
         {products.map((product, i) => (
           <button
             key={product.id}
@@ -77,18 +78,20 @@ function Grid({ products }: { products: Product[] }) {
             // Laid out one after another rather than all at once. Capped at
             // eight steps so a longer list never turns the wait into a queue —
             // past that they arrive together, which nobody reads as a fault.
-            className="lay-down group flex flex-col gap-[0.55em] text-left"
+            className="lay-down border-line/70 bg-canvas group flex w-[26%] shrink-0 snap-start flex-col overflow-hidden rounded-xl border text-left shadow-sm transition-shadow duration-500 ease-(--ease-human) hover:shadow-float"
             style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
           >
             <Image
               product={product}
-              className="aspect-[3/4] transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.02] group-active:scale-[0.99]"
+              className="aspect-[3/4] transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
               fit="cover"
             />
-            <span className="font-display line-clamp-2 text-body leading-[1.15] text-balance">
-              {product.name}
+            <span className="flex flex-col gap-[0.25em] p-[clamp(8px,0.9vh,32px)]">
+              <span className="font-display line-clamp-2 text-body leading-[1.15] text-balance">
+                {product.name}
+              </span>
+              <span className="text-ink-soft text-label tabular-nums">{product.spoken_price}</span>
             </span>
-            <span className="text-ink-soft text-label tabular-nums">{product.spoken_price}</span>
           </button>
         ))}
       </div>
@@ -129,7 +132,10 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
     // gives up the part they do not.
     <div
       key={product.id}
-      className="lay-down bg-line/20 relative min-h-0 flex-1 overflow-hidden rounded-xl"
+      // A band, not a full-height panel. The garment is the widest thing on a
+      // shelf that is only as tall as it needs to be, so this is landscape now
+      // — and `cover` keeps the neckline and the fabric rather than the hem.
+      className="lay-down bg-line/20 relative aspect-[16/7] overflow-hidden rounded-xl"
     >
       {/* The one still on the panel that moves. A garment photograph held
           perfectly steady for a minute is a poster; this is slow enough that
