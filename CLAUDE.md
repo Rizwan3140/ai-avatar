@@ -23,14 +23,14 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 90 checks
-./.venv/bin/python -m backend.test_catalog  # 89 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 200 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 119 — the same through the real routes
+(cd frontend && npm test)                   # 96 checks
+./.venv/bin/python -m backend.test_catalog  # 110 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 207 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 121 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-498 checks total. **Never run the Python suites through `unittest`** — they are
+534 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -253,6 +253,34 @@ company's prices out loud.
   about the linen shirt" opened the detail view and bounced straight back to the
   grid, because `PRODUCTS_SHOWN` reset the selection navigation had just made. A
   selection now survives if the product is still in the new list.
+- **A rhyme is not a typo.** difflib scores on characters shared anywhere, so
+  "laptops" hit `Tops` and "things" hit `Rings`, both at 0.727 against a 0.7
+  cutoff. A fuzzy shelf match now has to share its first letter — a mishearing
+  keeps one, a rhyme does not. Raising the cutoff only moves the next collision.
+- **Nothing to search for is not nothing to search by.** An empty query browses
+  the catalog, which is right; a sentence whose every word is a stopword was
+  taking the same path, so "hi there how are you" put eight products on screen.
+- **STOPWORDS is not a generic English list** — it is the words people ask
+  *with* in a showroom, and every one of them appears in marketing copy. Terms
+  are OR-ed, so one incidental hit returns a product: "What are your opening
+  hours?" put a garment on the panel, and both offenders were prompt chips.
+  Words that could ever be shopped for stay out ("party", "wedding", "new").
+- **Contractions split into words nobody said.** "isn't" becomes "isn" — three
+  characters, in no stopword list, and it matched "Dressing up isn't a hassle".
+- **One term of several is not a match.** Asked for a "mobile phone" the shop
+  offered a potli and a jacket, each matching one word because both blurbs
+  mention keeping your phone in them. A single-term query is still exempt.
+- **A shelf inside a longer word is not a shelf.** `ungrounded_claim` matched
+  category names as substrings, so "lap-tops" contained "tops" and a fabricated
+  claim read as grounded. Same shape as `one` being registered as an ordinal.
+- **Naming a real shelf does not license the whole sentence.** "Do you sell
+  shoes" was answered "We do sell shoes, including Accessories, Bangles" — two
+  real shelves and one lie. A noun the visitor supplied, repeated inside a claim
+  of stock, has to be a shelf or a product retrieved that turn.
+- **An empty result must not empty the screen.** A turn matching nothing emitted
+  `PRODUCTS_CLEARED`, so every sentence that was not itself a search swept the
+  merchandise away — a visitor asking "what is it made of" watched the saree
+  vanish while they asked. Clearing is deliberate: a spoken "clear", or Back.
 
 ## Open risks
 
