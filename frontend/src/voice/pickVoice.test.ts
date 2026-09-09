@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pickVoice } from './pickVoice.ts'
+import { pickVoice, voicesFor } from './pickVoice.ts'
 
 const v = (name: string, lang = 'en-US') => ({ name, lang })
 
@@ -58,4 +58,46 @@ test('a gender with no match still speaks', () => {
   // Silence is worse than the wrong accent.
   const only = [v('Google Nederlands', 'nl-NL')]
   assert.equal(pickVoice(only, { gender: 'male' })!.name, 'Google Nederlands')
+})
+
+/**
+ * The Studio's voice list, narrowed by the gender chosen beside it.
+ *
+ * It offered every installed voice whatever was selected, so "Female" plus a
+ * voice called David was a reachable combination — and an exact name overrides
+ * the gender outright, so the control that looked like a refinement silently
+ * won.
+ */
+test('a gender narrows the list to voices that fit it', () => {
+  const male = voicesFor(WINDOWS, 'male').map((v) => v.name)
+  assert.ok(male.length > 0)
+  assert.ok(!male.some((n) => /aria|jenny|zira/i.test(n)), `female voices survived: ${male}`)
+})
+
+test('and the other way round', () => {
+  const female = voicesFor(WINDOWS, 'female').map((v) => v.name)
+  assert.ok(female.length > 0)
+  assert.ok(!female.some((n) => /david|guy|ryan/i.test(n)), `male voices survived: ${female}`)
+})
+
+test('"either" is a real answer and keeps everything', () => {
+  assert.equal(voicesFor(WINDOWS, '').length, WINDOWS.length)
+})
+
+test('a machine whose voices cannot be classified still offers them', () => {
+  // Never an empty list: a control with nothing in it reads as broken, and
+  // every one of these is still a voice somebody may legitimately want.
+  const odd = [{ name: 'Voix 3', lang: 'fr-FR' }, { name: 'Stimme 7', lang: 'de-DE' }]
+  assert.equal(voicesFor(odd, 'male').length, 2)
+})
+
+test('what the list offers is what pickVoice would choose', () => {
+  // One rule, not two. A separate opinion about what sounds male would drift
+  // from this one, and the drift would be a cabinet speaking in a voice nobody
+  // picked from a list that never offered it.
+  for (const gender of ['male', 'female']) {
+    const offered = voicesFor(WINDOWS, gender).map((v) => v.name)
+    const chosen = pickVoice(WINDOWS, { gender })
+    assert.ok(chosen && offered.includes(chosen.name), `${gender}: ${chosen?.name} not offered`)
+  }
 })

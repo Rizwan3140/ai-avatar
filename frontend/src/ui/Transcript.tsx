@@ -16,7 +16,7 @@ import config from '../voice/voice.config.ts'
  * for staff without making a visitor discover a keyboard shortcut.
  */
 type Line = {
-  kind: 'you' | 'her' | 'echo' | 'system'
+  kind: 'you' | 'avatar' | 'echo' | 'system'
   text: string
   /** Repeats of the same line collapse — one fault should read as one fault. */
   count: number
@@ -55,7 +55,7 @@ export function Transcript() {
         add('you', text)
       }),
       bus.on('USER_DISCARDED', ({ text }) => add('echo', text)),
-      bus.on('REPLY_COMPLETE', ({ text }) => add('her', text)),
+      bus.on('REPLY_COMPLETE', ({ text }) => add('avatar', text)),
       bus.on('SESSION_ENDED', () => setInterim('')),
       bus.on('SYSTEM_ERROR', ({ message }) => add('system', message)),
       bus.on('RECOGNITION_STATE', ({ running, error }) => {
@@ -168,14 +168,14 @@ export function Transcript() {
 function label(kind: Line['kind'], name: string) {
   if (kind === 'you') return 'you'
   // Whoever the backend says he or she is — never a name baked into the UI.
-  if (kind === 'her') return name.toLowerCase() || 'avatar'
+  if (kind === 'avatar') return name.toLowerCase() || 'avatar'
   if (kind === 'echo') return 'echo'
   return '!'
 }
 
 function style(kind: Line['kind']) {
   if (kind === 'you') return 'text-white'
-  if (kind === 'her') return 'text-white/70'
+  if (kind === 'avatar') return 'text-white/70'
   if (kind === 'system') return 'text-amber-300'
   // Discarded as her own voice returning through the mic. If your real words
   // keep landing here, the filter is too aggressive for this room.

@@ -35,7 +35,7 @@ const BLURBS: Record<View, string> = {
   products: 'What the avatar may recommend',
   ads: 'What plays while nobody is talking',
   avatars: 'Who stands in the cabinet',
-  documents: 'Policies and brochures he can quote',
+  documents: 'Policies and brochures they can quote',
   team: 'Who else can change this',
   insights: 'What visitors asked for, and could not find',
 }
@@ -237,10 +237,10 @@ function Home({
   // destination — and pointing the row at Avatars, which is what it did, is a
   // link that says one thing and does another.
   const counts: { label: string; value: number | string; view: View | null; note: string }[] = [
-    { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'he may recommend' },
+    { label: 'Products', value: summary?.products ?? '-', view: 'products', note: 'they may recommend' },
     { label: 'Avatars', value: summary?.avatars ?? '-', view: 'avatars', note: 'stand in a cabinet' },
     { label: 'Cabinets', value: summary?.kiosks ?? '-', view: null, note: 'registered to this org' },
-    { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'he can quote' },
+    { label: 'Documents', value: summary?.documents?.length ?? '-', view: 'documents', note: 'they can quote' },
   ]
 
   const start: { view: View; title: string; body: string }[] = [

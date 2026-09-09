@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, upload, type Avatar, type Principal, POSES } from './api.ts'
 import { Button, ConfirmAction, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
+import { voicesFor } from '../voice/pickVoice.ts'
 
 /**
  * Avatars — list, create, configure, delete.
@@ -111,7 +112,7 @@ export function Avatars({ who }: { who: Principal }) {
     act('photo', async () => {
       if (!avatar) return
       replace(await upload<Avatar>(`/api/studio/avatars/${avatar.id}/photo`, file))
-      setNote('Poster rebuilt. He still needs clips before he moves.')
+      setNote(`Poster rebuilt. ${avatar.name} still needs clips before moving.`)
     })
 
   const voiceClip = (file: File) =>
@@ -252,7 +253,7 @@ export function Avatars({ who }: { who: Principal }) {
                 />
               </Field>
 
-              <Field label="Greeting" hint="Shown and spoken when nobody is talking to him.">
+              <Field label="Greeting" hint="Shown and spoken when nobody is talking to this avatar.">
                 <textarea
                   className="input min-h-[64px]"
                   disabled={!mayWrite}
@@ -291,7 +292,20 @@ export function Avatars({ who }: { who: Principal }) {
                       className="input w-32"
                       disabled={!mayWrite}
                       value={value('gender') ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, gender: e.target.value }))}
+                      onChange={(e) => {
+                        const gender = e.target.value
+                        setDraft((d) => {
+                          // Drop a voice the new gender no longer offers.
+                          // Without this the name stays in the draft while the
+                          // list stops containing it: the control renders blank
+                          // and the avatar keeps speaking in the old voice,
+                          // because an exact name outranks a gender.
+                          const kept =
+                            d.voice &&
+                            voicesFor(installedVoices, gender).some((v) => v.name === d.voice)
+                          return { ...d, gender, voice: kept ? d.voice : '' }
+                        })
+                      }}
                     >
                       <option value="">Either</option>
                       <option value="male">Male</option>
@@ -308,7 +322,11 @@ export function Avatars({ who }: { who: Principal }) {
                       onChange={(e) => setDraft((d) => ({ ...d, voice: e.target.value }))}
                     >
                       <option value="">Choose by gender</option>
-                      {installedVoices.map((v) => (
+                      {/* Narrowed by the gender chosen beside this. The full
+                          list was offered whatever was selected, so picking
+                          "Female" and then a voice called David set an exact
+                          name — which overrides the gender outright. */}
+                      {voicesFor(installedVoices, value('gender') ?? '').map((v) => (
                         <option key={v.name} value={v.name}>
                           {v.name}
                         </option>
@@ -383,7 +401,7 @@ export function Avatars({ who }: { who: Principal }) {
                     )}
                     <span className="text-ink-soft text-xs">
                       {voiceState?.has_reference
-                        ? 'Speaking in his own voice.'
+                        ? 'Speaking in their own voice.'
                         : voiceState?.model_installed === false
                           ? 'This machine has no voice model — the stock voice above is used.'
                           : 'No recording yet, so the stock voice above is used.'}
@@ -441,7 +459,7 @@ export function Avatars({ who }: { who: Principal }) {
                 {avatar.missing_clips.length > 0 && (
                   <span className="text-ink-soft text-xs">
                     Missing poses fall back to idle, so he does not change when spoken to — and with
-                    no <code className="bg-line/50 rounded px-1">speak</code> clip his mouth stays
+                    no <code className="bg-line/50 rounded px-1">speak</code> clip the mouth stays
                     shut while his voice comes out of the speaker, which is the loudest tell in the
                     whole product.
                   </span>

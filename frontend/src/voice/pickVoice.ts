@@ -37,6 +37,38 @@ const HINTS: Record<string, RegExp> = {
 
 export type VoiceLike = { name: string; lang: string }
 
+/**
+ * The voices that plausibly belong to a gender, for a person choosing one.
+ *
+ * The Studio's voice list showed every voice the machine had, whatever gender
+ * was selected beside it — so picking "Female" and then opening the list
+ * offered Microsoft David and Google UK English Male, and choosing one sets an
+ * exact name that overrides the gender entirely. The two controls contradicted
+ * each other and the second one won.
+ *
+ * Deliberately the same two rules `pickVoice` selects by, in the same order:
+ * our preference list first, then the name hints. A second opinion about what
+ * sounds male would eventually disagree with the first, and that disagreement
+ * would be a cabinet speaking in a voice nobody picked.
+ *
+ * An empty gender returns everything, because "Either" is a real answer.
+ */
+export function voicesFor<T extends { name: string }>(
+  voices: readonly T[],
+  gender: string,
+): readonly T[] {
+  const wanted = (gender || '').toLowerCase()
+  const hint = HINTS[wanted]
+  if (!hint) return voices
+
+  const preferred = new Set(config.voicesByGender[wanted] ?? [])
+  const matched = voices.filter((v) => preferred.has(v.name) || hint.test(v.name))
+  // Never hand back an empty list. A machine whose voice names this cannot
+  // classify would otherwise offer nothing at all, which reads as a broken
+  // control — and every one of them is still a voice somebody may want.
+  return matched.length ? matched : voices
+}
+
 export function pickVoice<T extends VoiceLike>(
   voices: readonly T[],
   options: { gender?: string; voice?: string; lang?: string } = {},
