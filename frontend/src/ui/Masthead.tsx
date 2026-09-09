@@ -68,11 +68,11 @@ export function Masthead({ name }: { name?: string }) {
 /**
  * The shop's own mark, or its name set in type.
  *
- * `logo.png` is a customer's artwork and is not in this repository — the file
- * is dropped into `frontend/public/` by whoever installs the cabinet. So it is
- * loaded optimistically and the typeset name stays as the fallback: an install
- * without one looks exactly as it did, rather than showing a broken image on a
- * shop window.
+ * `logo.png` in `frontend/public/` is the shop's artwork, and this install
+ * ships Dhiyona's. It is still loaded optimistically with the typeset name as
+ * the fallback, because the next customer's install replaces that file with
+ * theirs — and one that forgets should look exactly as it did rather than show
+ * a broken image on a shop window.
  *
  * Height is bound to the type scale it replaces, so a logo lands at the size
  * the wordmark occupied on a 3840px panel rather than at whatever pixel height

@@ -102,9 +102,9 @@ function Icon({ view }: { view: View }) {
  * The shop's mark on the dashboard, or its initial and name set in type.
  *
  * Same file and same fallback as the cabinet's masthead, so the two surfaces
- * cannot disagree about what this company looks like. `logo.png` is customer
- * artwork and is not in this repository — an install without one keeps the
- * lettered square, which is what was there before.
+ * cannot disagree about what this company looks like. `logo.png` is the shop's
+ * artwork and is replaced per install — one without it keeps the lettered
+ * square, which is what was there before.
  */
 function StudioWordmark({ brand }: { brand: string }) {
   const [missing, setMissing] = useState(false)
