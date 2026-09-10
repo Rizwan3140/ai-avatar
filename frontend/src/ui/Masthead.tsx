@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { bus } from '../bus/bus.ts'
 import { useStore } from '../state/store.ts'
 
 /**
@@ -15,7 +16,6 @@ import { useStore } from '../state/store.ts'
  */
 export function Masthead({ name }: { name?: string }) {
   const status = useStore((s) => s.status)
-  const studioReachable = useStore((s) => s.studioReachable)
   const sleeping = status === 'sleeping'
 
   return (
@@ -29,29 +29,29 @@ export function Masthead({ name }: { name?: string }) {
       style={{ opacity: sleeping ? 0 : 1 }}
     >
       {/*
-        The wordmark is a way back to the dashboard — but only on a machine that
-        has one. On a cabinet it stays exactly what it was: text, unclickable,
-        because a member of the public standing at a shop window must not be one
-        tap from the studio. `pointer-events` is re-enabled on this element
-        alone; the header itself stays transparent to touch so the panel behind
-        it still wakes.
+        The wordmark is a way home, like every other logo in this app —
+        `Shell.tsx` does the same for the studio. It never points at `/studio`
+        itself: a member of the public standing at a shop window must not be
+        one tap from the studio, and going home instead of to the studio
+        satisfies that automatically rather than needing a `studioReachable`
+        check. `pointer-events` is re-enabled on this element alone; the
+        header itself stays transparent to touch so the panel behind it still
+        wakes.
       */}
       <div
         // `min-w-0` so the name yields first. With the products up this band is
         // a third of its width, the wordmark wraps to two lines, and without
         // this the status was pushed past the panel edge and sliced to "Lis".
         // Of the two, the one a visitor needs is whether it is listening.
-        className={`flex min-w-0 flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)] ${
-          studioReachable ? 'pointer-events-auto' : ''
-        }`}
+        className="pointer-events-auto flex min-w-0 flex-col gap-[0.2em] p-[clamp(14px,1.6vh,58px)]"
       >
-        {studioReachable ? (
-          <a href="/studio" aria-label={`${name ?? 'Dhiyona'} — back to the studio`}>
-            <Wordmark name={name} />
-          </a>
-        ) : (
+        <button
+          type="button"
+          onClick={() => bus.emit('SESSION_ENDED')}
+          aria-label={`${name ?? 'Dhiyona'} — home`}
+        >
           <Wordmark name={name} />
-        )}
+        </button>
         <span className="text-ink-soft text-label tracking-[0.24em] uppercase opacity-70">
           Showroom assistant
         </span>
