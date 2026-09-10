@@ -24,13 +24,13 @@ Full scope: `Docs/`, and the plan at
 
 ```bash
 (cd frontend && npm test)                   # 96 checks
-./.venv/bin/python -m backend.test_catalog  # 110 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 217 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 124 — the same through the real routes
+./.venv/bin/python -m backend.test_catalog  # 117 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 221 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-547 checks total. **Never run the Python suites through `unittest`** — they are
+561 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -38,11 +38,14 @@ like a pass.
 them. Both exist because a module can be perfectly tenant-safe behind a route that
 forgot to ask who was calling.
 
-Three `ponytail:` markers are outstanding — the echo filter in
-`frontend/src/logic.ts`, idle-loop periodicity in
-`frontend/src/renderer/animation.ts`, and the single global transcription lock in
-`backend/stt.py`. Each names its ceiling and its upgrade path. A fourth, in
-`backend/memory.py`, has been paid.
+Four `ponytail:` markers are outstanding — idle-loop periodicity in
+`frontend/src/renderer/animation.ts`, the single global transcription lock in
+`backend/stt.py`, a matching global generation lock in `backend/tts.py`, and the
+narrow ungrounded-stock-claim phrase list in `backend/llm.py`. Each names its
+ceiling and its upgrade path. A fifth, in `backend/memory.py`, has been paid. (The
+echo filter in `frontend/src/logic.ts` was previously listed here too, but carries
+no literal `ponytail:` tag — either already resolved or never actually marked;
+worth a look before trusting that line again.)
 
 ## Hardware, actual
 
