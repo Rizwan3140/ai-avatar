@@ -115,3 +115,8 @@ cloudflared.sha256
 # Advertising media, uploaded by a customer. Same reasoning as avatars/ above:
 # their content, not ours, and video besides.
 frontend/public/campaigns/
+
+# ffmpeg is fetched per machine by tools/get-ffmpeg.ps1, not carried in git —
+# it is ~80 MB of platform-specific binary and every machine needs its own.
+tools/ffmpeg
+tools/ffmpeg.exe

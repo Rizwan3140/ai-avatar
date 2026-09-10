@@ -499,11 +499,7 @@ async def upload_clip(
         if pose == "idle" and not (folder / "poster.png").exists():
             await run_in_threadpool(conform_footage.poster_from, folder / "idle.mp4", folder)
     except FileNotFoundError as exc:
-        raise HTTPException(
-            501,
-            "ffmpeg is not on this machine's PATH, and conforming footage needs it. "
-            "Install ffmpeg, or run conform_footage.py where it is available.",
-        ) from exc
+        raise HTTPException(501, conform_footage.MISSING) from exc
     except SystemExit as exc:
         # conform_footage raises this when ffmpeg rejects the input.
         raise HTTPException(

@@ -46,9 +46,12 @@ if [ ${#missing[@]} -gt 0 ]; then
 fi
 echo "  all present"
 
-# ffmpeg is optional and only for preparing footage. Say so once rather than
-# failing an install over it.
-have ffmpeg || echo "  (no ffmpeg — conform_footage.py needs it, nothing else does)"
+# ffmpeg prepares video, and it is no longer only a workstation's business: the
+# studio's clip upload runs conform_footage server-side, and an advert recorded
+# on a phone is converted before a browser will play it. Still not worth failing
+# an install over — everything else works without it — but say where to get it,
+# because "not on PATH" on a machine with no administrator is a dead end.
+have ffmpeg || echo "  (no ffmpeg — video uploads need it: tools/get-ffmpeg.ps1, or drop ffmpeg in tools/)"
 
 # --- pick a model that fits --------------------------------------------------
 # A 3B model exists in this project only because the first machine had 4 GB of

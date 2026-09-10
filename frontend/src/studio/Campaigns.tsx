@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api, upload, type Avatar, type Campaign, type Principal } from './api.ts'
 import { AdsRunner } from './AdsRunner.tsx'
-import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
+import { Button, DropZone, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
 /**
  * What plays while nobody is talking.
@@ -122,7 +122,12 @@ export function Campaigns({ who }: { who: Principal }) {
             {mayWrite && (
               <FilePicker
                 label={busy ? 'Uploading…' : 'Add media'}
-                accept="image/*,video/mp4,video/webm"
+                // `video/*`, not a list of two containers. Naming only mp4 and
+                // webm meant the file dialog greyed out the .mov a phone
+                // records, so picking it was impossible and no error was ever
+                // shown. Anything video-shaped is now selectable and the server
+                // converts it or says why it cannot.
+                accept="image/*,video/*"
                 disabled={busy || !avatarId}
                 onPick={addMedia}
                 tone="primary"
@@ -132,6 +137,17 @@ export function Campaigns({ who }: { who: Principal }) {
         }
       >
         {campaigns.error && <Note tone="warn">{campaigns.error}</Note>}
+        {mayWrite && (
+          <div className="mb-4">
+            <DropZone
+              label={busy ? 'Uploading…' : 'Drop a clip or an image here'}
+              hint="mp4, webm, mov, mkv, avi — anything else a camera makes is converted. Images: jpg, png, webp."
+              accept="image/*,video/*"
+              onPick={addMedia}
+              disabled={busy || !avatarId}
+            />
+          </div>
+        )}
         {items.length === 0 ? (
           <Empty>
             Nothing scheduled. Until something is, the screen shows them standing there — which is

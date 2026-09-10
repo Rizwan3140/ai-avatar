@@ -25,12 +25,12 @@ Full scope: `Docs/`, and the plan at
 ```bash
 (cd frontend && npm test)                   # 96 checks
 ./.venv/bin/python -m backend.test_catalog  # 110 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 207 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_platform # 217 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 121 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-534 checks total. **Never run the Python suites through `unittest`** — they are
+544 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -277,6 +277,22 @@ company's prices out loud.
   shoes" was answered "We do sell shoes, including Accessories, Bangles" — two
   real shelves and one lie. A noun the visitor supplied, repeated inside a claim
   of stock, has to be a shelf or a product retrieved that turn.
+- **ffmpeg is not optional any more, and PATH is not where to look for it.**
+  The studio's clip upload runs `conform_footage` server-side and an advert
+  recorded on a phone is transcoded before a browser will play it — so a
+  cabinet needs ffmpeg, not just a workstation. `shutil.which` was the whole
+  search, and on a machine where nobody could run an installer it found nothing:
+  every video upload answered "ffmpeg is not on this machine's PATH" and the
+  studio looked broken. `conform_footage.ffmpeg_exe()` is the one resolver —
+  `LUXORA_FFMPEG`, then PATH, then `tools/`, then where an installer would have
+  put it — and `tools/get-ffmpeg.ps1` fetches the binary without administrator.
+  It checks size, not just existence: a half-finished download is a real file at
+  the right path and finding it turns a clear message into an opaque crash.
+- **`accept` hides files rather than rejecting them.** The ads picker listed
+  `video/mp4,video/webm`, so the .mov a phone records was greyed out in the file
+  dialog — unpickable, with no error anywhere. Client-side filtering makes a
+  refusal invisible; the server is the only place that can say why. Pickers take
+  `video/*` and `save_media` converts what a browser cannot play.
 - **An empty result must not empty the screen.** A turn matching nothing emitted
   `PRODUCTS_CLEARED`, so every sentence that was not itself a search swept the
   merchandise away — a visitor asking "what is it made of" watched the saree

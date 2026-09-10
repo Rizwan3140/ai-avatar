@@ -30,6 +30,8 @@ export function Avatars({ who }: { who: Principal }) {
   const [selected, setSelected] = useState('')
   const [draft, setDraft] = useState<Partial<Avatar>>({})
   const [busy, setBusy] = useState('')
+  //: Which pose row a file is hovering over, so it can light up.
+  const [dropPose, setDropPose] = useState('')
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -419,9 +421,33 @@ export function Avatars({ who }: { who: Principal }) {
                     const have = Boolean(avatar.clips[pose])
                     const working = busy === `clip-${pose}`
                     return (
+                      /* The row is its own drop target. A separate drop box
+                         per pose would be four dashed rectangles stacked down
+                         the panel; the row already says which pose it is, so
+                         dropping a file on it is unambiguous without adding
+                         any furniture. */
                       <div
                         key={pose}
-                        className="flex flex-wrap items-center gap-3 rounded border border-line bg-white px-3 py-2 text-sm"
+                        onDragEnter={(e) => {
+                          e.preventDefault()
+                          if (!busy) setDropPose(pose)
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropPose('')
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setDropPose('')
+                          const file = e.dataTransfer.files?.[0]
+                          if (file && !busy) clip(pose, file)
+                        }}
+                        className="flex flex-wrap items-center gap-3 rounded border bg-white px-3 py-2 text-sm transition-colors duration-200"
+                        style={
+                          dropPose === pose
+                            ? { borderColor: 'var(--color-accent)', background: 'var(--color-accent-wash, #eef2ff)' }
+                            : undefined
+                        }
                       >
                         <span
                           aria-hidden
@@ -438,7 +464,10 @@ export function Avatars({ who }: { who: Principal }) {
                         {mayWrite && (
                           <FilePicker
                             label={have ? 'Replace' : 'Upload'}
-                            accept="video/mp4,video/webm,video/quicktime"
+                            // Anything video-shaped. ffmpeg reads far more
+                            // than three containers, and listing them here only
+                            // hid files the server would have accepted.
+                            accept="video/*"
                             disabled={!!busy}
                             onPick={(file) => clip(pose, file)}
                           />

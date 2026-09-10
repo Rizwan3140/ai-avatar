@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { type View, VIEWS, pathForView } from './routes.ts'
+import { useNoStrayDrops } from './ui.tsx'
 
 /**
  * The studio's frame: a rail down the left, a bar across the top, work in the
@@ -152,6 +153,11 @@ export function Shell({
   // the company changed exactly one of them. Rename the org and all of this
   // follows, because there is only one of it now.
   const brand = org?.trim() || 'Luxora'
+
+  // A file dropped next to a drop zone rather than on it is one Chrome opens:
+  // it navigates away to render the video, throwing the studio and anything
+  // unsaved on it away. Swallowed here, once, for every screen.
+  useNoStrayDrops()
 
   return (
     <div className="studio flex min-h-screen">

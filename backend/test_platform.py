@@ -977,5 +977,59 @@ check("and refuses the next", not _refused)
 check("saying when to come back", _retry >= 1)
 check("one caller's budget is not another's", _limiter.allow("5.6.7.8", "/x", 3)[0])
 
+# --- video a camera actually produces ----------------------------------------
+# Uploads "did nothing" on a machine with no ffmpeg on PATH, and the file dialog
+# would not even offer a phone's .mov. Both halves get a check: where ffmpeg is
+# looked for, and what an upload does with a container a browser cannot play.
+import os as _os
+
+import conform_footage as _cf
+from backend import campaigns as _camp
+
+_kept_look = _cf._LOOK
+_kept_path = _os.environ.get("PATH", "")
+_kept_pick = _os.environ.get("LUXORA_FFMPEG", "")
+try:
+    _os.environ["PATH"] = ""
+    _os.environ.pop("LUXORA_FFMPEG", None)
+    # Into a temp folder, never into the repo's own `tools/`: an empty
+    # `ffmpeg.exe` left behind by an interrupted run is exactly the truncated
+    # download the size check below exists to reject.
+    _fake = Path(tempfile.mkdtemp())
+    _cf._LOOK = (_fake,)
+    _stub = _fake / ("ffmpeg.exe" if _os.name == "nt" else "ffmpeg")
+    _stub.write_bytes(b"ffmpeg")
+    check("ffmpeg is found in tools/ when PATH has none", _cf.ffmpeg_exe() == str(_stub))
+    _stub.write_bytes(b"")
+    check("but a half-finished download is not ffmpeg", _cf.ffmpeg_exe() == "")
+
+    _os.environ["LUXORA_FFMPEG"] = str(_cf.ROOT / "conform_footage.py")
+    check(
+        "and an explicit LUXORA_FFMPEG wins over everything",
+        _cf.ffmpeg_exe() == str(_cf.ROOT / "conform_footage.py"),
+    )
+finally:
+    _cf._LOOK = _kept_look
+    _os.environ["PATH"] = _kept_path
+    if _kept_pick:
+        _os.environ["LUXORA_FFMPEG"] = _kept_pick
+    else:
+        _os.environ.pop("LUXORA_FFMPEG", None)
+
+# The message an operator reads has to name the fix, because the reason they are
+# reading it is that they cannot change PATH.
+check("the missing-ffmpeg message names the folder", "tools" in _cf.MISSING)
+check("and the script that fetches it", "get-ffmpeg" in _cf.MISSING)
+
+check("a phone's .mov is not refused outright", ".mov" in _camp.TRANSCODE)
+check("nor a screen recorder's .mkv", ".mkv" in _camp.TRANSCODE)
+check("what a browser plays is never transcoded", not (_camp.MEDIA.keys() & _camp.TRANSCODE))
+try:
+    _camp.save_media("northwind", "notes.txt", b"x")
+    check("a file that is not media is still refused", False)
+except ValueError as _exc:
+    check("a file that is not media is still refused", True)
+    check("and the refusal lists what would work", ".mp4" in str(_exc) and ".mov" in str(_exc))
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

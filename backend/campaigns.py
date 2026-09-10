@@ -21,6 +21,7 @@ uses. One showroom's advertising must not appear in another's window.
 
 import json
 import re
+import subprocess
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
 from datetime import time
@@ -31,6 +32,16 @@ from backend.store import _safe_id, get_avatar
 
 MEDIA = {".mp4": "video", ".webm": "video", ".jpg": "image", ".jpeg": "image",
          ".png": "image", ".webp": "image"}
+
+#: Video a camera makes and a browser will not play.
+#:
+#: These were refused, which read as the upload being broken rather than as an
+#: answer: a phone records .mov, a DSLR records .mov or .mp4, a screen recorder
+#: makes .mkv, and the file dialog greyed them out before any message could be
+#: shown. ffmpeg is already a hard dependency here — `conform_footage` needs it
+#: for every avatar clip — so converting the file is cheaper than teaching a
+#: showroom manager to convert it.
+TRANSCODE = {".mov", ".m4v", ".avi", ".mkv", ".mpg", ".mpeg", ".wmv", ".3gp", ".flv", ".ogv"}
 
 
 @dataclass
@@ -162,15 +173,63 @@ def save_media(org_id: str, filename: str, data: bytes) -> str:
     """
     safe = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(filename).name).strip("-.")
     suffix = Path(safe).suffix.lower()
-    if suffix not in MEDIA:
-        raise ValueError(f"{suffix or 'that file'} will not play — use {', '.join(sorted(MEDIA))}")
+    if suffix not in MEDIA and suffix not in TRANSCODE:
+        playable = ", ".join(sorted(MEDIA) + sorted(TRANSCODE))
+        raise ValueError(f"{suffix or 'that file'} will not play — use {playable}")
 
     folder = _folder(org_id)
     if folder is None:
         raise ValueError(f"unusable org id: {org_id!r}")
     folder.mkdir(parents=True, exist_ok=True)
+
+    if suffix in TRANSCODE:
+        return f"/campaigns/{org_id}/{_to_mp4(folder, safe, data)}"
+
     (folder / safe).write_bytes(data)
     return f"/campaigns/{org_id}/{safe}"
+
+
+def _to_mp4(folder: Path, safe: str, data: bytes) -> str:
+    """Convert a camera's file into one a shop window can play, and return its name.
+
+    Plain H.264 — no crop, no ping-pong. This is not `conform_footage`, which
+    exists to make a person loop seamlessly in a 9:16 frame; an advertisement is
+    somebody's finished artwork and cropping it would be vandalism.
+
+    The audio track goes. `Signage` renders every campaign `muted`, because
+    autoplay requires it, so a soundtrack is bytes that sync to every cabinet
+    and are never heard.
+    """
+    import conform_footage
+
+    exe = conform_footage.ffmpeg_exe()
+    if not exe:
+        raise ValueError(
+            f"{Path(safe).suffix} needs converting before a browser will play it. "
+            + conform_footage.MISSING
+        )
+
+    source = folder / f"upload-{safe}"
+    out = Path(safe).with_suffix(".mp4").name
+    source.write_bytes(data)
+    try:
+        done = subprocess.run(
+            [exe, "-y", "-i", str(source),
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+             "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an",
+             str(folder / out)],
+            capture_output=True, text=True,
+        )
+    finally:
+        source.unlink(missing_ok=True)
+
+    if done.returncode != 0 or not (folder / out).exists():
+        # ffmpeg's last line is the useful one; the rest is banner and build
+        # flags. Without this the operator gets "conversion failed" and no idea
+        # whether they picked a text file or a corrupt recording.
+        why = (done.stderr or "").strip().splitlines()
+        raise ValueError(f"could not convert that file — is it really a video? ({why[-1] if why else 'ffmpeg failed'})")
+    return out
 
 
 def to_dict(campaign: Campaign) -> dict:

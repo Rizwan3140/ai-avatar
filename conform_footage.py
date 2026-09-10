@@ -18,11 +18,62 @@ Ping-pong is why this exists. A visible seam every few seconds is the fastest
 way to stop reading as a person, and no amount of code hides it.
 """
 
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-AVATARS = Path(__file__).resolve().parent / "frontend" / "public" / "avatars"
+ROOT = Path(__file__).resolve().parent
+AVATARS = ROOT / "frontend" / "public" / "avatars"
+
+#: Where to look for ffmpeg, in order of how deliberate each answer is.
+#:
+#: `PATH` alone was the whole search, and on a machine where nobody could run an
+#: installer it found nothing — so every clip upload came back "ffmpeg is not on
+#: this machine's PATH" and the studio looked broken. ffmpeg ships as a single
+#: self-contained executable that needs no installer and no administrator: drop
+#: it in `tools/` and this finds it. The Windows paths below are where an
+#: installer or winget would have put it if one had been available.
+_LOOK = (
+    ROOT / "tools",
+    Path("C:/Program Files/ffmpeg/bin"),
+    Path("C:/Program Files (x86)/ffmpeg/bin"),
+    Path("C:/ffmpeg/bin"),
+    Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links",
+)
+
+
+def ffmpeg_exe() -> str:
+    """The ffmpeg to run, or "" if this machine has none.
+
+    One resolver, because there were four bare `"ffmpeg"` strings and a machine
+    either has it for all of them or none.
+    """
+    chosen = os.environ.get("LUXORA_FFMPEG", "").strip()
+    if chosen and Path(chosen).exists():
+        return chosen
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    for folder in _LOOK:
+        for name in ("ffmpeg.exe", "ffmpeg"):
+            # Size checked, not just existence: a download that died halfway
+            # leaves a real file at the right path, and finding it would turn a
+            # clear "no ffmpeg here" into an opaque failure to execute.
+            candidate = folder / name
+            if candidate.is_file() and candidate.stat().st_size > 0:
+                return str(candidate)
+    return ""
+
+
+#: Said in one place, because the operator reading it cannot change PATH — that
+#: is why they are reading it.
+MISSING = (
+    "ffmpeg is needed to prepare video and this machine has none. It is a single "
+    f"file needing no installer and no administrator: put ffmpeg.exe in {ROOT / 'tools'}, "
+    "or run tools/get-ffmpeg.ps1 to fetch it, then try again."
+)
 NAMES = {"idle", "listen", "think", "speak"}
 
 # 9:16 — a standing figure, and the shape of a transparent OLED cabinet.
@@ -59,7 +110,7 @@ def conform(sources: list[Path], name: str, out_dir: Path, pingpong: bool = True
         graph += ";[j]copy[v]"
 
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_exe() or "ffmpeg", "-y",
         *[arg for source in sources for arg in ("-i", str(source))],
         "-filter_complex", graph, "-map", "[v]",
         "-an",                       # no audio track
@@ -94,7 +145,7 @@ def poster_from(source: Path, out_dir: Path) -> None:
     """First frame of idle, so boot shows her rather than a blank panel."""
     out = out_dir / "poster.png"
     subprocess.run(
-        ["ffmpeg", "-y", "-i", str(source), "-vframes", "1",
+        [ffmpeg_exe() or "ffmpeg", "-y", "-i", str(source), "-vframes", "1",
          "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,"
                 f"crop={WIDTH}:{HEIGHT},scale=out_range=full",
          str(out)],

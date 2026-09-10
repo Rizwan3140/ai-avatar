@@ -195,6 +195,100 @@ export function FilePicker({
   )
 }
 
+/**
+ * A place to drop a file, beside the button rather than instead of it.
+ *
+ * Dropping is how somebody moves a file they are already looking at in a
+ * folder; the button is how somebody who has never dragged a file does it. Both
+ * end in the same `onPick`.
+ *
+ * Nothing is filtered here on purpose. `accept` on the picker hides everything
+ * it does not list, which is how a phone's .mov became an upload that did
+ * nothing at all — the file dialog greyed it out and no message was ever shown.
+ * A drop carries whatever was dropped, the server judges it, and the server can
+ * say why. That is the only place that knows.
+ */
+export function DropZone({
+  label,
+  hint,
+  accept,
+  onPick,
+  disabled,
+}: {
+  label: string
+  hint?: string
+  accept: string
+  onPick: (file: File) => void
+  disabled?: boolean
+}) {
+  const [over, setOver] = useState(false)
+  // Every child element fires its own dragenter/dragleave as the pointer
+  // crosses it, so a boolean flickers off the moment the cursor moves over the
+  // text inside. Counting depth is the fix that does not need pointer maths.
+  const depth = useRef(0)
+
+  const leave = () => {
+    depth.current = Math.max(0, depth.current - 1)
+    if (!depth.current) setOver(false)
+  }
+
+  return (
+    <div
+      onDragEnter={(e) => {
+        e.preventDefault()
+        if (disabled) return
+        depth.current += 1
+        setOver(true)
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={leave}
+      onDrop={(e) => {
+        e.preventDefault()
+        depth.current = 0
+        setOver(false)
+        if (disabled) return
+        const file = e.dataTransfer.files?.[0]
+        if (file) onPick(file)
+      }}
+      className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed px-5 py-7 text-center transition-colors duration-200"
+      style={{
+        borderColor: over ? 'var(--s-accent)' : 'var(--s-line)',
+        background: over ? 'var(--s-accent-wash)' : 'transparent',
+        opacity: disabled ? 0.55 : 1,
+      }}
+    >
+      <span className="text-[13.5px] font-medium">
+        {over ? 'Drop it' : label}
+      </span>
+      {hint && (
+        <span className="text-[12px]" style={{ color: 'var(--s-faint)' }}>
+          {hint}
+        </span>
+      )}
+      <FilePicker label="Choose a file" accept={accept} onPick={onPick} disabled={disabled} />
+    </div>
+  )
+}
+
+/**
+ * A file dropped anywhere else is a file the browser opens.
+ *
+ * Chrome navigates away to render it, so a near miss on the drop zone throws
+ * the whole studio away and shows the video full-screen — which reads as the
+ * upload having gone somewhere, and loses whatever was unsaved on the screen.
+ */
+export function useNoStrayDrops() {
+  useEffect(() => {
+    const swallow = (event: DragEvent) => event.preventDefault()
+    window.addEventListener('dragover', swallow)
+    window.addEventListener('drop', swallow)
+    return () => {
+      window.removeEventListener('dragover', swallow)
+      window.removeEventListener('drop', swallow)
+    }
+  }, [])
+}
+
 /** Load once on mount, with the three states every panel needs. */
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null)
