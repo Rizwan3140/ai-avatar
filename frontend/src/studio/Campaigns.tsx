@@ -16,8 +16,11 @@ import { Button, DropZone, Empty, FilePicker, Note, Section, useLoad } from './u
  */
 export function Campaigns({ who }: { who: Principal }) {
   const avatars = useLoad(() => api<Avatar[]>('/api/studio/avatars'))
-  const [selected, setSelected] = useState('')
-  const avatarId = selected || avatars.data?.[0]?.id || ''
+  // Campaigns belong to the showroom, not to whichever avatar happens to be
+  // first in the list — every avatar in the org sees the same schedule, so
+  // there is nothing for a picker to choose. This id only exists to satisfy
+  // the route's ownership check.
+  const avatarId = avatars.data?.[0]?.id || ''
 
   const campaigns = useLoad(
     () => (avatarId ? api<Campaign[]>(`/api/studio/campaigns/${avatarId}`) : Promise.resolve([])),
@@ -90,24 +93,6 @@ export function Campaigns({ who }: { who: Principal }) {
     <div className="flex flex-col gap-8">
       {problem && <Note tone="warn">{problem}</Note>}
       {note && <Note>{note}</Note>}
-
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[12.5px] font-medium" style={{ color: 'var(--s-muted)' }}>Avatar</span>
-        <select
-          className="input max-w-xs"
-          value={avatarId}
-          onChange={(event) => {
-            setSelected(event.target.value)
-            setDraft(null)
-          }}
-        >
-          {avatars.data.map((avatar) => (
-            <option key={avatar.id} value={avatar.id}>
-              {avatar.name}
-            </option>
-          ))}
-        </select>
-      </label>
 
       <Section
         title="Idle campaigns"
