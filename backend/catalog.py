@@ -145,6 +145,12 @@ class Product:
     #: fabric, worn — and the crawler was keeping the first and discarding the
     #: others, which is most of what a customer wants to see before buying.
     images: list[str] = field(default_factory=list)
+    #: A clip the shop published for this product — schema.org's `video`
+    #: property on a Product node. Empty for the overwhelming majority, which
+    #: is why it is a plain string rather than a list: one clip is what a shop
+    #: window plays, and a product with several would need a real reason to
+    #: pick among them before this grows into `videos`.
+    video: str = ""
     availability: str = "in_stock"
     #: Whatever this vertical needs — size, colour, RAM, fabric, bed type.
     attributes: dict[str, Any] = field(default_factory=dict)
@@ -269,14 +275,14 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     if "products" not in tables:
         return
     columns = {r["name"] for r in conn.execute("PRAGMA table_info(products)")}
-    missing = [c for c in ("color", "style", "images") if c not in columns]
+    missing = [c for c in ("color", "style", "images", "video") if c not in columns]
     for column in missing:
         conn.execute(f"ALTER TABLE products ADD COLUMN {column} TEXT")
     if not missing:
         return
 
     if "color" in columns and "style" in columns:
-        return  # only `images` was added; there is nothing to backfill for it
+        return  # only `images`/`video` were added; neither needs backfilling
     rows = conn.execute("SELECT org_id, id, name, description, attributes FROM products").fetchall()
     updates = []
     for row in rows:
@@ -307,20 +313,25 @@ def _row_to_product(row: sqlite3.Row) -> Product:
         data["images"] = json.loads(row["images"] or "[]")
     except (IndexError, KeyError, TypeError, ValueError):
         data["images"] = []
+    try:
+        data["video"] = row["video"] or ""
+    except (IndexError, KeyError):
+        data["video"] = ""
     return Product(**data)
 
 
 _UPSERT_SQL = """
     INSERT INTO products (org_id, id, name, category, price, currency, description,
-                          url, image, availability, attributes, color, style, images)
+                          url, image, availability, attributes, color, style, images, video)
     VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
-            :url, :image, :availability, :attributes, :color, :style, :images)
+            :url, :image, :availability, :attributes, :color, :style, :images, :video)
     ON CONFLICT(org_id, id) DO UPDATE SET
         name=excluded.name, category=excluded.category, price=excluded.price,
         currency=excluded.currency, description=excluded.description,
         url=excluded.url, image=excluded.image,
         availability=excluded.availability, attributes=excluded.attributes,
-        color=excluded.color, style=excluded.style, images=excluded.images
+        color=excluded.color, style=excluded.style, images=excluded.images,
+        video=excluded.video
 """
 
 
@@ -346,6 +357,7 @@ def _bind(products: list[Product], org_id: str) -> list[dict]:
             # are searchable without the caller knowing the key.
             "attributes": json.dumps(p.attributes, ensure_ascii=False),
             "images": json.dumps(gallery(p), ensure_ascii=False),
+            "video": p.video,
             # Derived here, once, rather than at every read. An ingest
             # is rare and a search is not.
             **dict(

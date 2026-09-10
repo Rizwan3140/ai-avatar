@@ -173,6 +173,26 @@ def _images(value) -> list[str]:
     return out
 
 
+def _video(value) -> str:
+    """The first playable clip on a JSON-LD node's `video` property, if any.
+
+    `contentUrl` is the actual media file schema.org's VideoObject carries;
+    `url` on a video node is usually the page it is embedded on, which a
+    `<video>` tag cannot play. A shop publishing several clips for one product
+    is rare enough that the first is what gets shown, same reasoning as
+    `Product.video` being a single string rather than a list.
+    """
+    if not value:
+        return ""
+    items = value if isinstance(value, list) else [value]
+    for item in items:
+        url = item.get("contentUrl") if isinstance(item, dict) else item
+        text = re.sub(r"\s+", " ", str(url or "")).strip()
+        if text:
+            return text
+    return ""
+
+
 def _text(value) -> str:
     value = _first(value)
     if isinstance(value, dict):
@@ -228,6 +248,7 @@ def product_from_jsonld(node: dict, page_url: str) -> Product | None:
         url=_text(node.get("url")) or page_url,
         image=_text(node.get("image")),
         images=_images(node.get("image")),
+        video=_video(node.get("video")),
         availability=availability,
         attributes=extras,
     )

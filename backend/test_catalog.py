@@ -144,6 +144,8 @@ def main() -> int:
     {"@graph":[{"@type":"BreadcrumbList"},
      {"@type":"Product","name":"Midnight Wrap Dress","sku":"D-1001",
       "category":"Dresses","image":["https://cdn/a.jpg","https://cdn/b.jpg"],
+      "video":{"@type":"VideoObject","contentUrl":"https://cdn/clip.mp4",
+               "url":"https://shop/p/1#video"},
       "brand":{"@type":"Brand","name":"Aurelia"},"material":"Silk",
       "offers":{"price":"2499.00","priceCurrency":"INR",
                 "availability":"https://schema.org/InStock"}}]}
@@ -163,6 +165,7 @@ def main() -> int:
     check("reads the nested offer", (crawled.price, crawled.currency), (2499.0, "INR"))
     check("normalises availability", crawled.availability, "in_stock")
     check("takes the first of many images", crawled.image, "https://cdn/a.jpg")
+    check("reads the video's contentUrl, not its page url", crawled.video, "https://cdn/clip.mp4")
     check("flattens the brand object", crawled.attributes.get("brand"), "Aurelia")
     check("keeps vertical attributes", crawled.attributes.get("material"), "Silk")
     check("collects links to follow", parser.links, ["/p/2"])
@@ -174,7 +177,7 @@ def main() -> int:
           ["https://cdn/a.jpg", "https://cdn/b.jpg"])
     check("and still reports a primary", crawled.image, "https://cdn/a.jpg")
 
-    from backend.crawl import _images
+    from backend.crawl import _images, _video
 
     # schema.org allows all three shapes and storefronts use all three.
     check("a bare string is one image", _images("https://cdn/x.jpg"), ["https://cdn/x.jpg"])
@@ -182,6 +185,15 @@ def main() -> int:
           _images([{"url": "https://cdn/x.jpg"}, {"contentUrl": "https://cdn/y.jpg"}]),
           ["https://cdn/x.jpg", "https://cdn/y.jpg"])
     check("nothing is not an error", _images(None), [])
+
+    check("a bare video url is used as-is", _video("https://cdn/clip.mp4"), "https://cdn/clip.mp4")
+    check("a VideoObject's contentUrl is preferred over url",
+          _video({"contentUrl": "https://cdn/clip.mp4", "url": "https://shop/p#video"}),
+          "https://cdn/clip.mp4")
+    check("a list takes the first playable clip",
+          _video([{"contentUrl": "https://cdn/clip.mp4"}, {"contentUrl": "https://cdn/other.mp4"}]),
+          "https://cdn/clip.mp4")
+    check("no video is not an error", _video(None), "")
 
     for unsafe in ("ftp://example.com/shop", "http://127.0.0.1:8000", "http://user:pass@example.com"):
         try:
@@ -488,6 +500,10 @@ def main() -> int:
     check("one photograph is still a gallery of one",
           catalog.get("G2").images, ["https://cdn/only.jpg"])
     check("and a product with none has none", catalog.gallery(catalog.Product(id="x", name="x")), [])
+
+    catalog.upsert([catalog.Product(id="G3", name="Runway Sari", video="https://cdn/runway.mp4")])
+    check("a product video round-trips", catalog.get("G3").video, "https://cdn/runway.mp4")
+    check("a product with none has none", catalog.get("G2").video, "")
 
     check("a real match is not second-guessed",
           catalog.search("Banarasi")[0].name, "Banarasi Silk")
