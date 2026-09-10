@@ -250,6 +250,30 @@ REPLICATE_API_TOKEN = _get("REPLICATE_API_TOKEN")
 #: should have to be asked for out loud.
 TRYON_ENABLED = _get("LUXORA_TRYON", "").strip().lower() in ("1", "on", "true", "yes")
 
+#: Let the account-less studio answer somebody who is not at the machine.
+#:
+#: With no accounts, the studio opens to a caller on loopback — that is the
+#: single-kiosk install, where demanding a login before anyone can create one is
+#: a locked door with the key inside. Being in the room was the credential.
+#:
+#: This removes that condition, which is the whole of the protection. It exists
+#: because reaching the studio from a phone on the shop's wifi, or down the
+#: tunnel `start.ps1` opens, is a real thing to want while a cabinet is being
+#: set up — and because the alternative was deleting the check, which does not
+#: come back. Off unless asked for, in one place, greppable, and undone by
+#: removing one line from `.env`.
+#:
+#: What it costs, plainly: every studio route answers whoever reaches the port
+#: as a full owner, with no token. Wipe the catalog, rewrite the persona a
+#: public screen speaks from, replace the footage, export the org. Quick-tunnel
+#: hostnames appear in Certificate Transparency logs, so "nobody knows the
+#: address" stops being true on its own.
+#:
+#: It deliberately does nothing once an account exists. A flag that waved past a
+#: real password would be a backdoor rather than a convenience — to reopen a
+#: machine that has accounts, delete the account.
+OPEN_STUDIO = _get("LUXORA_OPEN_STUDIO", "").strip().lower() in ("1", "on", "true", "yes")
+
 TRYON_PROVIDER = _get("TRYON_PROVIDER", "local")
 # Pinned model versions, overridable: a hash goes stale, and a vendor's 422 then
 # reads as our bug rather than as a model that moved.

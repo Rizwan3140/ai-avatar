@@ -108,6 +108,31 @@ check(
     == 403,
 )
 
+# Unless the operator asks for it out loud. Setting a cabinet up from a phone on
+# the shop's wifi is a real thing to want, and the alternative on offer was
+# deleting the loopback check, which does not come back.
+config.OPEN_STUDIO = True
+check(
+    "LUXORA_OPEN_STUDIO lets the stranger in",
+    remote.get("/api/studio/avatars").status_code == 200,
+    remote.get("/api/studio/avatars").text[:120],
+)
+# But it defers the first account, it is not a way around a password — so it
+# must not hand the install to whoever asks first.
+check(
+    "and still refuses to let one claim the install",
+    remote.post(
+        "/api/auth/signup",
+        json={"email": "attacker@evil.com", "password": "a-long-enough-one"},
+    ).status_code
+    == 403,
+)
+config.OPEN_STUDIO = False
+check(
+    "and the door shuts again when it is unset",
+    remote.get("/api/studio/avatars").status_code == 401,
+)
+
 r = client.post(
     "/api/auth/signup",
     json={"email": "ops@northwind.com", "password": "a-long-enough-one", "org_name": "Northwind"},

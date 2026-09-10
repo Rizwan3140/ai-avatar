@@ -56,14 +56,20 @@ def principal(request: Request, authorization: str = Header(default="")) -> Prin
     """
     if not accounts.any_users():
         client = request.client.host if request.client else ""
-        if client in LOOPBACK:
+        # `LUXORA_OPEN_STUDIO=1` drops the "at the machine" half of that, on
+        # purpose and only while no account exists — see `config.OPEN_STUDIO`
+        # for what it costs. Once somebody signs up this branch is gone and the
+        # flag stops meaning anything, which is the point: it defers the first
+        # account, it is not a way around a password.
+        if client in LOOPBACK or config.OPEN_STUDIO:
             return Principal(
                 user_id="local", email="", org_id=accounts.DEFAULT_ORG, role="owner"
             )
         raise HTTPException(
             401,
             "This machine has no accounts yet. Create the first one from the "
-            "machine itself, then sign in.",
+            "machine itself, then sign in — or set LUXORA_OPEN_STUDIO=1 in .env "
+            "to let this studio answer from anywhere while you set it up.",
         )
 
     token = authorization.removeprefix("Bearer ").strip()

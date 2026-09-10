@@ -26,11 +26,11 @@ Full scope: `Docs/`, and the plan at
 (cd frontend && npm test)                   # 96 checks
 ./.venv/bin/python -m backend.test_catalog  # 110 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 217 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 121 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 124 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ```
 
-544 checks total. **Never run the Python suites through `unittest`** — they are
+547 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -141,6 +141,14 @@ company's prices out loud.
   Cloudflare tunnel over the whole app at every logon. Creating the first
   account is bound the same way, because claiming an install is something you
   do at the machine.
+- **`LUXORA_OPEN_STUDIO=1` drops the loopback half of that.** Off unless set,
+  and only while no account exists — once somebody signs up the branch is gone
+  and the flag means nothing, because it defers the first account rather than
+  waving past a password. It still cannot claim an install: signup stays bound
+  to the machine. With it on, every studio route answers whoever reaches the
+  port as a full owner, so it belongs on a bench or during a setup session, not
+  on a showroom network with a tunnel over it. Asked for while a second machine
+  was being set up; delete the line from `.env` to put the door back.
 - **A token proves identity; the database decides rights.** `principal()` reads
   the role from `members` on every request. A signed token's role is as true a
   fortnight later as the day it was minted, so removing somebody used to leave
