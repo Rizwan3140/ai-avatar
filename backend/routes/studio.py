@@ -272,6 +272,15 @@ def update_org(patch: OrgPatch, caller: Principal = Depends(owner)):
 #: What `DigitalHumanRenderer` in the frontend knows how to be.
 RENDERERS = ("mp4", "simli", "heygen", "anam")
 
+#: What an avatar can be asked to listen for. English plus the Indian
+#: languages `WHISPER_MODEL` is now large enough to actually hear — a fixed
+#: list rather than the freeform string this used to be, because a typo here
+#: used to fail silently at the very end of the pipeline, inside Whisper.
+LANGUAGES = (
+    "en-US", "hi-IN", "ta-IN", "te-IN", "kn-IN",
+    "ml-IN", "bn-IN", "mr-IN", "gu-IN", "pa-IN", "ur-IN",
+)
+
 
 class AvatarPatch(BaseModel):
     name: str | None = None
@@ -312,6 +321,8 @@ def create_avatar(req: AvatarCreate, caller: Principal = Depends(editor)):
     _mirrored()
     if not req.name.strip():
         raise HTTPException(400, "an avatar needs a name")
+    if req.language not in LANGUAGES:
+        raise HTTPException(400, f"language must be one of {', '.join(LANGUAGES)}")
     avatar = store.create_avatar(
         req.name,
         caller.org_id,
@@ -331,6 +342,8 @@ def update_avatar(avatar_id: str, patch: AvatarPatch, caller: Principal = Depend
     # from it. An unknown value is a panel that draws nothing.
     if patch.renderer is not None and patch.renderer not in RENDERERS:
         raise HTTPException(400, f"renderer must be one of {', '.join(RENDERERS)}")
+    if patch.language is not None and patch.language not in LANGUAGES:
+        raise HTTPException(400, f"language must be one of {', '.join(LANGUAGES)}")
     for key, value in patch.model_dump(exclude_none=True).items():
         setattr(avatar, key, value)
     return _with_status(store.save_avatar(avatar))

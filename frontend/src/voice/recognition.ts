@@ -1,4 +1,5 @@
 import { bus } from '../bus/bus.ts'
+import { useStore } from '../state/store.ts'
 import config from './voice.config.ts'
 import { encodeWav, rms } from './wav.ts'
 
@@ -293,7 +294,13 @@ async function sendPartial() {
 
 async function transcribe(audio: ArrayBuffer, partial: boolean): Promise<string> {
   try {
-    const response = await fetch(`/api/listen${partial ? '?partial=1' : ''}`, {
+    // Which avatar is listening decides which language Whisper listens for —
+    // resolved server-side from this id, never a language this client sends.
+    const { avatarId } = useStore.getState()
+    const params = new URLSearchParams()
+    if (partial) params.set('partial', '1')
+    if (avatarId) params.set('avatar_id', avatarId)
+    const response = await fetch(`/api/listen?${params}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream' },
       body: audio,

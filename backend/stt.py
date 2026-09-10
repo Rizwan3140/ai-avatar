@@ -56,7 +56,7 @@ def warm() -> None:
     threading.Thread(target=_get_model, daemon=True).start()
 
 
-def _multipart(audio: bytes, model: str) -> tuple[bytes, str]:
+def _multipart(audio: bytes, model: str, language: str | None = None) -> tuple[bytes, str]:
     """Build a multipart body by hand.
 
     `requests` would make this three lines, and `python-multipart` is for
@@ -66,8 +66,12 @@ def _multipart(audio: bytes, model: str) -> tuple[bytes, str]:
     crlf = "\r\n"
     boundary = "----luxora" + os.urandom(8).hex()
 
+    fields = [("model", model), ("response_format", "text")]
+    if language:
+        fields.append(("language", language))
+
     head = ""
-    for name, value in (("model", model), ("response_format", "text")):
+    for name, value in fields:
         head += f"--{boundary}{crlf}"
         head += f'Content-Disposition: form-data; name="{name}"{crlf}{crlf}'
         head += f"{value}{crlf}"
@@ -79,9 +83,9 @@ def _multipart(audio: bytes, model: str) -> tuple[bytes, str]:
     return body, f"multipart/form-data; boundary={boundary}"
 
 
-def _transcribe_groq(audio: bytes) -> str:
+def _transcribe_groq(audio: bytes, language: str | None = None) -> str:
     """Whisper, someone else's machine. Same contract, no local model."""
-    body, content_type = _multipart(audio, config.GROQ_STT_MODEL)
+    body, content_type = _multipart(audio, config.GROQ_STT_MODEL, language)
     request = urllib.request.Request(
         f"{config.GROQ_BASE_URL}/audio/transcriptions",
         data=body,
@@ -163,13 +167,18 @@ def is_speech(text: str) -> bool:
     return cleaned not in _NOT_SPEECH
 
 
-def transcribe(audio: bytes, partial: bool = False) -> str:
-    """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included."""
-    heard = _transcribe(audio, partial)
+def transcribe(audio: bytes, partial: bool = False, language: str | None = None) -> str:
+    """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included.
+
+    `language` is an ISO-639-1 code ("hi", "ta", ...) or None to auto-detect —
+    the caller resolves it from the avatar being spoken to, this function just
+    forwards it to whichever provider is listening.
+    """
+    heard = _transcribe(audio, partial, language)
     return heard if is_speech(heard) else ""
 
 
-def _transcribe(audio: bytes, partial: bool = False) -> str:
+def _transcribe(audio: bytes, partial: bool = False, language: str | None = None) -> str:
     import io
 
     # Hosted first, local underneath — the same arrangement `llm.py` uses, and
@@ -177,7 +186,7 @@ def _transcribe(audio: bytes, partial: bool = False) -> str:
     # should go deaf because a mall's wifi blinked. A rejected key still raises.
     if config.stt_provider() == "groq":
         try:
-            return _transcribe_groq(audio)
+            return _transcribe_groq(audio, language)
         except config.ProviderUnreachable as error:
             print(f"  stt: {error} -- falling back to {config.WHISPER_MODEL}")
             analytics.record("provider_fallback", module="stt", reason=str(error)[:200])
@@ -194,6 +203,7 @@ def _transcribe(audio: bytes, partial: bool = False) -> str:
             without_timestamps=partial,
             vad_filter=not partial,
             condition_on_previous_text=False,
+            language=language,
         )
         # `transcribe` returns a lazy generator — the work happens on
         # consumption, not on the call, so the join has to be inside the lock or

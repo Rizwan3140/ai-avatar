@@ -189,11 +189,15 @@ OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.2:3b")
 #   tiny.en   443 ms
 #   base.en   849 ms
 #
-# base.en is the default because a misheard question is unrecoverable — it sends
-# the wrong words to the model and the whole answer is wrong — whereas latency is
-# merely felt. Set WHISPER_MODEL=tiny.en to halve the wait if the room turns out
-# to be quiet and the speech clear.
-WHISPER_MODEL = _get("WHISPER_MODEL", "base.en")
+# `.en` models are English-only, which is what made them fast — and the wrong
+# choice the day an avatar's language is Hindi, Tamil or any of the other
+# Indian languages Studio now offers: a `.en` model simply cannot hear them.
+# `small` is the smallest Whisper size that is genuinely multilingual and
+# still runs on CPU int8 without becoming the visible delay. A machine that
+# wants better accuracy over latency — the Mac mini, say — can set
+# WHISPER_MODEL=medium or large-v3 here; a machine that wants the old
+# English-only speed back can set WHISPER_MODEL=base.en.
+WHISPER_MODEL = _get("WHISPER_MODEL", "small")
 #: Discard a transcribed segment whose `no_speech_prob` is above this. Whisper
 #: invents fluent sentences from silence — "Bye bye", "I will see you in the next
 #: video" — and each one reached the model as a visitor's question. Tune per room:

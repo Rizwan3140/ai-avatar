@@ -162,6 +162,15 @@ r = client.patch(
 )
 check("the persona saves", r.json()["persona"] == "You sell laptops in Pune.")
 
+r = client.patch(f"/api/studio/avatars/{AVATAR}", headers=north, json={"language": "fr-FR"})
+check("a language outside the list is refused", r.status_code == 400, r.text[:160])
+
+r = client.patch(f"/api/studio/avatars/{AVATAR}", headers=north, json={"language": "hi-IN"})
+check("a listed language saves", r.json()["language"] == "hi-IN", r.text[:160])
+
+r = client.post("/api/studio/avatars", headers=north, json={"name": "Bad Lang", "language": "fr-FR"})
+check("creating with an unlisted language is refused too", r.status_code == 400, r.text[:160])
+
 csv = b"name,category,price,description,image\nTitan Pro 16,laptop,189900,For video editing,https://x/t.jpg\nAria 14,laptop,129900,Light and quiet,\n"
 r = client.post("/api/studio/import?filename=catalog.csv", headers=north, content=csv)
 check("a csv imports as products", r.json() == {"source": "catalog.csv", "products": 2, "passages": 0}, r.text[:160])

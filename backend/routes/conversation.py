@@ -171,7 +171,7 @@ def chat(req: ChatRequest, request: Request):
 
 
 @router.post("/listen")
-async def listen(request: Request):
+async def listen(request: Request, avatar_id: str = ""):
     """Raw audio in, text out. Bytes on the body rather than multipart, so this
     needs no extra dependency and no encoding round trip."""
     content_length = request.headers.get("content-length")
@@ -187,8 +187,18 @@ async def listen(request: Request):
     if not audio:
         return {"text": ""}
     partial = request.query_params.get("partial") == "1"
+    # Resolved from the avatar, same as every other read here — never trust a
+    # caller-chosen language, only the one on record for who is listening.
+    # Whisper wants "hi", not "hi-IN"; the part before the dash is the whole
+    # conversion. Falls back to auto-detect rather than failing the request
+    # outright, since a kiosk with no avatars yet still has audio to reject.
+    language = None
+    try:
+        language = avatar_or_404(avatar_id).language.split("-")[0].lower() or None
+    except HTTPException:
+        pass
     # Transcription is CPU-bound; keep it off the event loop.
-    text = await run_in_threadpool(stt.transcribe, audio, partial)
+    text = await run_in_threadpool(stt.transcribe, audio, partial, language)
     return {"text": text}
 
 

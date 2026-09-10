@@ -3,6 +3,22 @@ import { api, upload, type Avatar, type Principal, POSES } from './api.ts'
 import { Button, ConfirmAction, Empty, Field, FilePicker, Note, useLoad } from './ui.tsx'
 import { voicesFor } from '../voice/pickVoice.ts'
 
+// What an avatar can be asked to listen for — must match `LANGUAGES` in
+// `backend/routes/studio.py`, which is what actually enforces this list.
+const LANGUAGES: [string, string][] = [
+  ['en-US', 'English'],
+  ['hi-IN', 'Hindi'],
+  ['ta-IN', 'Tamil'],
+  ['te-IN', 'Telugu'],
+  ['kn-IN', 'Kannada'],
+  ['ml-IN', 'Malayalam'],
+  ['bn-IN', 'Bengali'],
+  ['mr-IN', 'Marathi'],
+  ['gu-IN', 'Gujarati'],
+  ['pa-IN', 'Punjabi'],
+  ['ur-IN', 'Urdu'],
+]
+
 /**
  * Avatars — list, create, configure, delete.
  *
@@ -277,13 +293,22 @@ export function Avatars({ who }: { who: Principal }) {
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Language">
-                  <input
+                <Field
+                  label="Language"
+                  hint="What this avatar listens for. Indian languages need the larger Whisper models — see CLAUDE.md."
+                >
+                  <select
                     className="input"
                     disabled={!mayWrite}
                     value={value('language') ?? ''}
                     onChange={(e) => setDraft((d) => ({ ...d, language: e.target.value }))}
-                  />
+                  >
+                    {LANGUAGES.map(([code, label]) => (
+                      <option key={code} value={code}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field
                   label="Stock voice"
