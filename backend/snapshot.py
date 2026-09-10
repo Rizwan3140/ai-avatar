@@ -48,6 +48,7 @@ FIELDS = (
     "url",
     "image",
     "images",
+    "video",
     "availability",
     "attributes",
 )
@@ -142,6 +143,7 @@ def apply(force: bool = False) -> str:
                 url=r.get("url") or "",
                 image=r.get("image") or "",
                 images=r.get("images") or [],
+                video=r.get("video") or "",
                 availability=r.get("availability") or "in_stock",
                 attributes=r.get("attributes") or {},
             )

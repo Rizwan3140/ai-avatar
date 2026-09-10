@@ -147,6 +147,8 @@ def pull_catalog() -> str:
             description=r.get("description", ""),
             url=r.get("url", ""),
             image=r.get("image", ""),
+            images=r.get("images") or [],
+            video=r.get("video", ""),
             availability=r.get("availability", "in_stock"),
             attributes=r.get("attributes") or {},
         )

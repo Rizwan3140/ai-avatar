@@ -813,13 +813,21 @@ check("and that also keeps the catalog", len(catalog.all_products(SYNC_ORG)) == 
 sync._fetch = lambda path: {
     "org_id": SYNC_ORG,
     "products": [
-        {"id": "new-1", "name": "Emerald Lehenga", "category": "Lehengas", "price": 9000.0},
+        {
+            "id": "new-1", "name": "Emerald Lehenga", "category": "Lehengas", "price": 9000.0,
+            "images": ["https://cdn/1.jpg", "https://cdn/2.jpg"], "video": "https://cdn/clip.mp4",
+        },
         {"id": "new-2", "name": "Gold Bangle", "category": "Bangles", "price": 900.0},
     ],
 }
 check("a good payload mirrors", "1 -> 2 products" in sync.pull_catalog())
 check("and the old row is gone", catalog.get("keep-1", SYNC_ORG) is None)
 check("and the new ones are there", catalog.get("new-1", SYNC_ORG) is not None)
+# A gallery and a video are as real as a price - dropped here once, silently,
+# because the response was decoded field by field instead of passed through.
+check("the gallery survives a network sync",
+      catalog.get("new-1", SYNC_ORG).images == ["https://cdn/1.jpg", "https://cdn/2.jpg"])
+check("and so does the video", catalog.get("new-1", SYNC_ORG).video == "https://cdn/clip.mp4")
 
 sync._fetch = _fetch
 config.PLATFORM_URL, config.KIOSK_ID = _url, _kiosk
@@ -834,7 +842,8 @@ SNAP_ORG = "snap-co"
 accounts.create_org("Snap Co")
 catalog.replace(
     [
-        catalog.Product(id="s1", name="Emerald Lehenga", category="Lehengas", price=9000.0),
+        catalog.Product(id="s1", name="Emerald Lehenga", category="Lehengas", price=9000.0,
+                         video="https://cdn/runway.mp4"),
         catalog.Product(id="s2", name="Gold Bangle", category="Bangles", price=900.0),
     ],
     SNAP_ORG,
@@ -842,6 +851,8 @@ catalog.replace(
 snapshot.PATH = catalog.DB_PATH.parent / "test-snapshot.json"
 summary = snapshot.export()
 check("a snapshot exports products", summary["products"] >= 2)
+check("and carries a product's video",
+      "https://cdn/runway.mp4" in snapshot.PATH.read_text(encoding="utf-8"))
 
 body = snapshot.PATH.read_text(encoding="utf-8")
 # The allowlist is the boundary. `users` lives in the same SQLite file and holds
@@ -865,6 +876,8 @@ check("a machine can drift", len(catalog.all_products(SNAP_ORG)) == 3)
 snapshot.apply(force=True)
 check("applying mirrors the snapshot", len(catalog.all_products(SNAP_ORG)) == 2)
 check("and the extra row is gone", catalog.get("s3", SNAP_ORG) is None)
+check("and the video survived the round trip",
+      catalog.get("s1", SNAP_ORG).video == "https://cdn/runway.mp4")
 
 # A company name travels with it, which is the other thing that needed a command
 # run on every machine.
