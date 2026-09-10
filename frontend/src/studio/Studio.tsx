@@ -58,6 +58,14 @@ export default function Studio() {
   const [who, setWho] = useState<Principal | null>(null)
   const [org, setOrg] = useState<Org | null>(null)
   const [open, setOpen] = useState<boolean | null>(null)
+  // Whether *this* caller can actually claim the machine — true only once
+  // `/api/auth/me` has granted them owner, the same test `principal()` uses
+  // server-side (loopback, or LUXORA_OPEN_STUDIO). A stranger reaching an
+  // open machine over a tunnel fails that the first time and stays false, so
+  // they never see the create-the-first-account form — it would 403 for them
+  // anyway (`signup`'s own loopback check), and showing it first just invites
+  // the thing the check exists to stop.
+  const [mayClaim, setMayClaim] = useState(false)
   // The URL is the tab, so a bookmark reopens what you bookmarked and Back
   // steps between tabs instead of leaving the studio.
   const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname))
@@ -87,9 +95,23 @@ export default function Studio() {
       .then(async ({ open: isOpen }) => {
         if (!live) return
         setOpen(isOpen)
-        // An open machine has no accounts; the API hands back a local owner.
-        // A closed one needs a token that has not expired.
-        if (isOpen || token()) {
+        if (isOpen) {
+          // Caught locally, not left to the outer .catch below: a stranger
+          // who fails this is not a network error, they are the exact caller
+          // the create-the-first-account form must not be shown to.
+          try {
+            const me = await api<Principal & { org: Org | null }>('/api/auth/me')
+            if (!live) return
+            setWho(me)
+            setOrg(me.org)
+            setMayClaim(true)
+          } catch {
+            if (live) setMayClaim(false)
+          }
+          return
+        }
+        // A closed machine needs a token that has not expired.
+        if (token()) {
           const me = await api<Principal & { org: Org | null }>('/api/auth/me')
           if (!live) return
           setWho(me)
@@ -123,6 +145,21 @@ export default function Studio() {
 
   if (open === null) return null
   if (!who) {
+    // Open, but this caller was never granted owner — not the console, and
+    // signup would 403 them anyway. Say so; do not hand them a form whose
+    // own copy invites the thing the loopback check exists to stop.
+    if (open && !mayClaim) {
+      return (
+        <div className="bg-canvas text-ink grid min-h-full place-items-center px-6">
+          <div className="flex max-w-sm flex-col gap-2 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">Avatar Studio</h1>
+            <p className="text-ink-soft text-sm">
+              This machine has no account yet. Set one up from the machine itself.
+            </p>
+          </div>
+        </div>
+      )
+    }
     return (
       <Auth
         open={open}
