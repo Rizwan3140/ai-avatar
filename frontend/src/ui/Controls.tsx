@@ -35,7 +35,11 @@ export function Controls() {
 
   return (
     <div
-      className="absolute top-1/2 right-safe z-10 flex -translate-y-1/2 flex-col gap-[clamp(16px,1.4vh,54px)] transition-transform duration-1000"
+      // `z-20`, not `z-10`: a product detail view with both a photo gallery and
+      // a video stacks tall enough to reach the vertical centre of the panel,
+      // and `Showcase` paints after this in the DOM. Mute and end-conversation
+      // must never become unreachable behind a translucent product panel.
+      className="absolute top-1/2 right-safe z-20 flex -translate-y-1/2 flex-col gap-[clamp(16px,1.4vh,54px)] transition-transform duration-1000"
       style={{ transform: `translate(${shift.x}px, calc(-50% + ${shift.y}px))` }}
     >
       <ControlButton
