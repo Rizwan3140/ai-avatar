@@ -18,10 +18,11 @@ export function Showcase() {
   if (!products.length) return null
 
   return (
-    // A shelf under them, not a panel beside them. It takes the full width of a
-    // portrait panel and claims only the height it needs, so they keep the whole
-    // frame above it instead of being scaled into a corner.
-    <aside className="lay-down bg-canvas shrink-0 px-safe pb-safe flex flex-col gap-[clamp(10px,1.1vh,40px)] pt-[clamp(12px,1.3vh,48px)]">
+    // A shelf floating over them, not one that pushes them up to make room.
+    // Translucent and blurred rather than the opaque `bg-canvas` this used to
+    // be — the whole point is that they are still visible behind it, full
+    // height, while what they are showing sits over the lower part of them.
+    <aside className="lay-down absolute inset-x-0 bottom-0 z-10 bg-canvas/85 px-safe pb-safe flex flex-col gap-[clamp(10px,1.1vh,40px)] pt-[clamp(12px,1.3vh,48px)] backdrop-blur-md">
       {selected ? (
         <Detail product={selected} siblings={products.length} />
       ) : (
@@ -131,65 +132,84 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
       // and cut the dress off — on the one screen whose entire job is showing
       // somebody a dress. The shelf is wide and short, so the picture takes a
       // column of it and keeps its own shape.
-      className="lay-down bg-line/20 relative flex gap-[clamp(12px,1.4vh,52px)] overflow-hidden rounded-xl p-[clamp(12px,1.4vh,52px)]"
+      className="lay-down bg-line/20 relative flex flex-col gap-[clamp(12px,1.4vh,52px)] overflow-hidden rounded-xl p-[clamp(12px,1.4vh,52px)]"
     >
-      <Gallery product={product} />
+      <div className="flex gap-[clamp(12px,1.4vh,52px)]">
+        <Gallery product={product} />
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-[1em]">
-        <div className="flex min-w-0 flex-col items-start gap-[0.3em]">
-          {/* The only way back to the results. It was positioned against the
-              full-bleed frame this replaced, so restructuring the layout took
-              it off the screen entirely — leaving a selected product with no
-              exit but asking out loud. */}
-          <button
-            type="button"
-            onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
-            className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink mb-[0.4em] rounded-full border px-[1em] py-[0.45em] transition-colors"
-          >
-            {toResults ? `Back to ${siblings} results` : 'Back'}
-          </button>
-          <h2
-            className="font-display lay-down text-ink text-display leading-[1.02] tracking-[-0.015em] text-balance"
-            style={{ animationDelay: '90ms' }}
-          >
-            {product.name}
-          </h2>
-          <p
-            className="lay-down text-ink-soft text-title leading-none tabular-nums"
-            style={{ animationDelay: '160ms' }}
-          >
-            {product.spoken_price}
-          </p>
-          {facts.length > 0 && (
-            <p
-              className="lay-down text-ink-soft text-label tracking-[0.08em] uppercase opacity-75"
-              style={{ animationDelay: '220ms' }}
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-[1em]">
+          <div className="flex min-w-0 flex-col items-start gap-[0.3em]">
+            {/* The only way back to the results. It was positioned against the
+                full-bleed frame this replaced, so restructuring the layout took
+                it off the screen entirely — leaving a selected product with no
+                exit but asking out loud. */}
+            <button
+              type="button"
+              onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
+              className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink mb-[0.4em] rounded-full border px-[1em] py-[0.45em] transition-colors"
             >
-              {facts.join('   ·   ')}
+              {toResults ? `Back to ${siblings} results` : 'Back'}
+            </button>
+            <h2
+              className="font-display lay-down text-ink text-display leading-[1.02] tracking-[-0.015em] text-balance"
+              style={{ animationDelay: '90ms' }}
+            >
+              {product.name}
+            </h2>
+            <p
+              className="lay-down text-ink-soft text-title leading-none tabular-nums"
+              style={{ animationDelay: '160ms' }}
+            >
+              {product.spoken_price}
             </p>
+            {facts.length > 0 && (
+              <p
+                className="lay-down text-ink-soft text-label tracking-[0.08em] uppercase opacity-75"
+                style={{ animationDelay: '220ms' }}
+              >
+                {facts.join('   ·   ')}
+              </p>
+            )}
+          </div>
+
+          {product.url && scope() !== null && (
+            // The card the whole screen is for, floated on the photograph rather
+            // than filed in a footer under it. Arriving last, after the name and
+            // the price, because it is the thing to do once you have decided.
+            <div
+              className="text-ink lay-down border-line/70 flex shrink-0 flex-col items-center gap-[0.5em] self-start rounded-lg border bg-white p-[clamp(8px,0.9vh,32px)]"
+              style={{ animationDelay: '300ms' }}
+            >
+              {/* Ours, not a QR web service — otherwise this is the one element on
+                  screen that goes blank when the network drops. An SVG, so it
+                  scales to the panel without losing a module. */}
+              <img
+                src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
+                alt={`QR code linking to ${product.name}`}
+                className="aspect-square w-[clamp(84px,6vh,232px)]"
+              />
+              <span className="text-label font-medium">Scan to buy</span>
+            </div>
           )}
         </div>
-
-        {product.url && scope() !== null && (
-          // The card the whole screen is for, floated on the photograph rather
-          // than filed in a footer under it. Arriving last, after the name and
-          // the price, because it is the thing to do once you have decided.
-          <div
-            className="text-ink lay-down border-line/70 flex shrink-0 flex-col items-center gap-[0.5em] self-start rounded-lg border bg-white p-[clamp(8px,0.9vh,32px)]"
-            style={{ animationDelay: '300ms' }}
-          >
-            {/* Ours, not a QR web service — otherwise this is the one element on
-                screen that goes blank when the network drops. An SVG, so it
-                scales to the panel without losing a module. */}
-            <img
-              src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
-              alt={`QR code linking to ${product.name}`}
-              className="aspect-square w-[clamp(84px,6vh,232px)]"
-            />
-            <span className="text-label font-medium">Scan to buy</span>
-          </div>
-        )}
       </div>
+
+      {/* Its own section, not squeezed into the photograph row — a clip the
+          shop published for this product, from the crawler. Muted so autoplay
+          is allowed, looped like `Signage`'s campaign clips. Independent of
+          the avatar's own "never pause or seek" video system: that rule is
+          about the four pose clips, not this. */}
+      {product.video && (
+        <video
+          key={product.video}
+          src={product.video}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="h-[clamp(200px,26vh,900px)] w-full rounded-lg object-contain"
+        />
+      )}
 
       {/* Offered on the product being discussed, not on the grid — "see it on
           you" only means anything once there is a single "it". Renders nothing
@@ -229,6 +249,16 @@ function Gallery({ product }: { product: Product }) {
   // Without this, selecting a second garment opens on whichever index the last
   // one was left at — which is a picture of the wrong thing, briefly.
   useEffect(() => setShown(0), [product.id])
+
+  // Cycles on its own, the way `Signage` and `AdsRunner` already cycle
+  // campaigns — a visitor standing at a shop window does not tap through a
+  // garment's photographs, they watch. A manual thumbnail tap still works;
+  // the timer just keeps advancing afterward.
+  useEffect(() => {
+    if (shots.length < 2) return
+    const timer = setInterval(() => setShown((i) => (i + 1) % shots.length), 4000)
+    return () => clearInterval(timer)
+  }, [shots.length])
 
   const current = shots[Math.min(shown, shots.length - 1)] ?? ''
 

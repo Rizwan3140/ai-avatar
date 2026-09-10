@@ -31,8 +31,13 @@ export function Subtitle() {
     //
     // The rail appears in exactly the states below, so this is the same
     // condition read from the other side rather than a guess at its height.
+    //
+    // `z-20`, above `Showcase`'s `z-10`: the translucent product shelf now
+    // floats over this same bottom region, and what they are saying must stay
+    // readable over it rather than under it — the Card beneath is already
+    // near-opaque for exactly this reason.
     <div
-      className="pointer-events-none from-canvas via-canvas/85 absolute inset-x-0 bottom-0 z-10 flex justify-center bg-linear-to-t to-transparent px-safe pt-24 pb-safe"
+      className="pointer-events-none from-canvas via-canvas/85 absolute inset-x-0 bottom-0 z-20 flex justify-center bg-linear-to-t to-transparent px-safe pt-24 pb-safe"
       // Inline, not a utility class. `pb-safe` is already on this element and
       // the two are the same property, so which one won came down to their
       // order in the generated stylesheet — it lost, and the greeting stayed

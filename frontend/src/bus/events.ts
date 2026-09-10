@@ -75,6 +75,9 @@ export type Product = {
   /** Every photograph, primary first. A storefront publishes six or seven of a
    *  garment — front, back, fabric, worn — and only the first was ever kept. */
   images?: string[]
+  /** A clip the shop published for this product, from the crawler. Empty for
+   *  the overwhelming majority. */
+  video?: string
   availability: string
   attributes: Record<string, string>
 }

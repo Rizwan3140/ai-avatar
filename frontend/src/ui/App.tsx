@@ -9,33 +9,26 @@ import { Subtitle } from './Subtitle.tsx'
 import { Transcript } from './Transcript.tsx'
 
 /**
- * They are the stage; the merchandise sits beneath them.
+ * They are the stage; the merchandise floats over them.
  *
  * Products used to slide in from the right and take 62% of the panel, shrinking
  * them to 42% in the corner — so asking to see a saree cost you most of the
- * person you were asking, and the two halves fought over the same edge. The
- * panel is 2160x3840, nearly twice as tall as it is wide, and a portrait screen
- * wants a column: them above, what they are showing below, both full width.
- *
- * The stage still reserves no space under their feet. They stands on the floor of
- * their own frame and the shelf begins below it, rather than a caption row
- * leaving them hovering — which is the one thing a standing person never does.
+ * person you were asking. Shrinking them to make room below had the same cost
+ * in the other direction: the person asked stopped being full height the moment
+ * they answered. The panel is 2160x3840, nearly twice as tall as it is wide, so
+ * there is room for both without either giving way — the shelf now floats,
+ * translucent, over the lower part of the frame they never stood clear of.
  */
 export function App() {
   const sleeping = useStore((s) => s.status === 'sleeping')
-  const showcase = useStore((s) => s.products.length > 0)
   const hasCampaigns = useStore((s) => s.hasCampaigns)
 
   return (
-    <main className="kiosk-root bg-canvas flex h-full flex-col overflow-hidden">
-      {/* The stage. Everything that is *them* floats inside this, so the shelf
-          below can never be painted over by a caption or a control — which is
-          what the whole `z-20` argument between the prompt rail and the QR card
-          was about when both were absolutely positioned on one plane. */}
-      <div
-        className="relative min-h-0 flex-1 transition-[flex-grow] duration-700 ease-(--ease-human)"
-        style={{ flexGrow: showcase ? 0.85 : 1 }}
-      >
+    <main className="kiosk-root bg-canvas relative flex h-full flex-col overflow-hidden">
+      {/* The stage. Everything that is *them* floats inside this, full height
+          always — the shelf now floats on top of it rather than claiming a row
+          beneath it, so nothing here shrinks to make room. */}
+      <div className="relative min-h-0 flex-1">
         <Mp4VideoRenderer />
         <Masthead />
         <Signage />
@@ -44,6 +37,8 @@ export function App() {
         <Controls />
       </div>
 
+      {/* Rendered after the stage, so it paints on top — `Showcase` positions
+          itself absolutely against this `<main>`. */}
       <Showcase />
       <Transcript />
 

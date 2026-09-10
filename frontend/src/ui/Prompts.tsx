@@ -31,16 +31,20 @@ const PROMPTS = [
 export function Prompts() {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
+  const showcase = useStore((s) => s.products.length > 0)
 
-  // Only while they are genuinely waiting. `idle` covers a muted cabinet too,
-  // which is the one case where these are the only way in at all.
-  const offer = status === 'idle' || status === 'listening'
+  // Only while they are genuinely waiting, and only while there is nothing
+  // more specific already on offer. Products floating over the lower frame
+  // claim exactly this space now — four generic chips on top of a shelf of
+  // real answers is clutter, not an offer.
+  const offer = (status === 'idle' || status === 'listening') && !showcase
   if (!offer) return null
 
   // Full width again. These used to stop short of the showcase panel to keep
   // off its QR code — both sat at `z-20` on one plane and this painted second,
-  // so the buttons won. The shelf is below the stage now and cannot be reached
-  // from in here, so there is nothing left to dodge.
+  // so the buttons won. The shelf used to sit below the stage and could not be
+  // reached from in here; now that it floats over the stage again, the guard
+  // above is what keeps the two apart instead.
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-[1.1em] px-safe pb-safe">
       {/* Two by two, not a row that wraps.
