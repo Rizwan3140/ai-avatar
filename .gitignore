@@ -1,5 +1,10 @@
 # Environments — 690 MB and 89 MB. Rebuilt from requirements.txt / package.json.
 .venv/
+# Model experiments, each in its own environment because their pins collide
+# with the app's (numpy 1 vs 2). Several GB each. See Docs/16-Try-On-Local-Spike.md.
+.venv-*/
+# Third-party model code cloned for those experiments.
+vendor/
 __pycache__/
 *.pyc
 node_modules/
