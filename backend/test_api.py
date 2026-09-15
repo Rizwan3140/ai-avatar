@@ -38,6 +38,11 @@ os.environ["LUXORA_SEED"] = "0"
 
 from backend import accounts, catalog, config, documents, store, tryon  # noqa: E402
 
+# Same reason, and this one spends money: the suite sets an avatar to Hindi, and
+# with a real SARVAM_API_KEY in .env every /api/speak below was a billed call
+# that answered with audio where a refusal was asserted.
+config.SARVAM_API_KEY = ""
+
 # Pin the try-on providers to the one that refuses, for the same reason the
 # database is redirected two lines below: this suite asserts what the routes do,
 # and it must not depend on which keys happen to be in the developer's .env.

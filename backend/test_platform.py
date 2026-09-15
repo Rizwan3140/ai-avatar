@@ -1044,5 +1044,108 @@ except ValueError as _exc:
     check("a file that is not media is still refused", True)
     check("and the refusal lists what would work", ".mp4" in str(_exc) and ".mov" in str(_exc))
 
+section("indian languages")
+
+# Telugu in, Telugu out. Hearing and speaking go through Sarvam; the model is
+# told the language; English avatars must not notice any of it.
+from backend import sarvam as _sarvam, stt as _stt  # noqa: E402
+from backend.routes.studio import LANGUAGES as _STUDIO_LANGUAGES  # noqa: E402
+
+check(
+    "every language the studio offers has a name the model is told",
+    all(code in llm.LANGUAGE_NAMES for code in _STUDIO_LANGUAGES),
+)
+check(
+    "every Indian language the studio offers is one Sarvam hears",
+    all(code in _sarvam.HEARS for code in _STUDIO_LANGUAGES if not code.startswith("en")),
+)
+from backend import indic_asr as _indic  # noqa: E402
+
+check(
+    "every Indian language the studio offers is one IndicConformer hears",
+    all(_indic.hears(code) for code in _STUDIO_LANGUAGES if not code.startswith("en")),
+)
+check(
+    "an English prompt is byte-identical to before",
+    llm._stable_prompt("p", "en-US") == llm._stable_prompt("p")
+    == "p" + llm.NL2 + llm.SCOPE + llm.NL2 + llm.BREVITY,
+)
+_rule = llm._stable_prompt("p", "te-IN")
+check("a Telugu avatar is told to reply in Telugu", "Reply only in Telugu" in _rule)
+# gemma3:4b read $66 as "six six thousand rupees" when left to put it in words.
+check("and to copy prices as digits", "digits" in _rule and "never in words" in _rule)
+check(
+    "a Telugu refusal is in Telugu",
+    all("\u0c00" <= c <= "\u0c7f" for c in llm.refusal("te-IN") if c.isalpha()),
+)
+check("an English refusal is unchanged", llm.refusal("en-US") == llm.REFUSAL)
+check("a language with no written refusal falls back to English", llm.refusal("ta-IN") == llm.REFUSAL)
+
+from backend import indic_asr as _indic  # noqa: E402
+
+_heard: list[tuple] = []
+_saved = (
+    config.SARVAM_API_KEY, config.STT_PROVIDER, config.ROLE,
+    _sarvam.transcribe, _stt._transcribe_groq, _indic.transcribe,
+)
+config.SARVAM_API_KEY, config.STT_PROVIDER = "test-key", "groq"
+_indic.transcribe = lambda audio, language: _heard.append(("indic", language)) or "ఈ బ్లాక్ పలాజో"
+_sarvam.transcribe = lambda audio, language: _heard.append(("sarvam", language)) or "ఈ saree ధర ఎంత"
+_stt._transcribe_groq = lambda audio, language=None: _heard.append(("groq", language)) or "fallback words"
+try:
+    check("a Telugu turn is heard on this machine", _stt.transcribe(b"a", False, "te-IN") == "ఈ బ్లాక్ పలాజో")
+    check("with the full locale", _heard[-1] == ("indic", "te-IN"))
+    _stt.transcribe(b"a", True, "te-IN")
+    check("partials too, since they cost no credits", _heard[-1] == ("indic", "te-IN"))
+    _stt.transcribe(b"a", False, "en-US")
+    check("an English turn never goes to IndicConformer", _heard[-1] == ("groq", "en"))
+
+    def _not_installed(audio, language):
+        raise _indic.Unavailable("no weights")
+
+    _indic.transcribe = _not_installed
+    check("without the weights, Sarvam hears", _stt.transcribe(b"a", False, "te-IN") == "ఈ saree ధర ఎంత")
+    check("and Sarvam gets the full locale", _heard[-1] == ("sarvam", "te-IN"))
+    _stt.transcribe(b"a", True, "te-IN")
+    check("a partial is never a billed Sarvam upload", _heard[-1] == ("groq", "te"))
+
+    def _offline(audio, language):
+        raise config.ProviderUnreachable("wifi went away")
+
+    _sarvam.transcribe = _offline
+    check("an unreachable Sarvam falls back", _stt.transcribe(b"a", False, "te-IN") == "fallback words")
+    check("to Whisper, still listening for Telugu", _heard[-1] == ("groq", "te"))
+    config.SARVAM_API_KEY = ""
+    _stt.transcribe(b"a", False, "te-IN")
+    check("no key, no Sarvam", _heard[-1] == ("groq", "te"))
+
+    # The cloud image has no numpy, so it must never reach for the local model.
+    _indic.transcribe = lambda audio, language: _heard.append(("indic", language)) or "x"
+    config.ROLE = "cloud"
+    _stt.transcribe(b"a", False, "te-IN")
+    check("the cloud role never loads IndicConformer", _heard[-1] != ("indic", "te-IN"))
+finally:
+    (
+        config.SARVAM_API_KEY, config.STT_PROVIDER, config.ROLE,
+        _sarvam.transcribe, _stt._transcribe_groq, _indic.transcribe,
+    ) = _saved
+
+# Search in translation. The reply is in Telugu; the catalog is not.
+_saved_llm = (llm._hosted_then_local, llm._stream_ollama, config.LLM_PROVIDER)
+config.LLM_PROVIDER = "groq"
+_asked: list = []
+llm._hosted_then_local = lambda messages, temperature=0.2: _asked.append(messages) or iter([" black palazzo ", "pant "])
+try:
+    check("a Telugu turn is searched in English", llm.search_text("బ్లాక్ పలాజో పాంట్") == "black palazzo pant")
+    check("the visitor's words are what gets translated", _asked[-1][-1]["content"] == "బ్లాక్ పలాజో పాంట్")
+    check("with no sample sentence to copy", not any(ch.isdigit() for ch in llm.TRANSLATE))
+    llm._hosted_then_local = lambda messages, temperature=0.2: _unreachable()
+    llm._stream_ollama = lambda messages, temperature=0.2: (_ for _ in ()).throw(RuntimeError("ollama 400"))
+    check("a failed translation searches as said", llm.search_text("చీరలు") == "చీరలు")
+    llm._hosted_then_local = lambda messages, temperature=0.2: iter(["  "])
+    check("an empty translation searches as said", llm.search_text("చీరలు") == "చీరలు")
+finally:
+    llm._hosted_then_local, llm._stream_ollama, config.LLM_PROVIDER = _saved_llm
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

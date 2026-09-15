@@ -14,6 +14,12 @@ it clones zero-shot from about ten seconds of reference audio — no training ru
 no per-voice setup. It runs on Metal, which is the reason the whole application
 is a Mac app rather than a container.
 
+**Sarvam, hosted, for Indian languages.** Chatterbox clones English, and a
+Windows machine ships no Telugu voice at all, so an avatar whose language is an
+Indian one speaks through `sarvam.py` in a stock voice matching its gender. A
+stock voice speaking the visitor's language beats their own voice speaking one
+the visitor did not use.
+
 **Browser speech is the floor and stays.** A cabinet with no reference recording,
 or on a machine where the model will not load, still talks. Silence is the one
 outcome worth avoiding.
@@ -27,7 +33,7 @@ import io
 import threading
 import wave
 
-from backend import config, store
+from backend import config, sarvam, store
 
 #: How much reference audio is worth having. Chatterbox needs about ten seconds;
 #: more is better and stops mattering fairly quickly. Recorded once, in a quiet
@@ -175,6 +181,12 @@ def installed() -> bool:
     return importlib.util.find_spec("chatterbox") is not None
 
 
+def _sarvam_avatar(avatar_id: str):
+    """The avatar, when Sarvam is the one that speaks for it."""
+    avatar = store.get_avatar(avatar_id) if avatar_id else None
+    return avatar if avatar is not None and sarvam.speaks(avatar.language) else None
+
+
 def available(avatar_id: str = "") -> bool:
     """Whether *this* avatar can speak in its own voice.
 
@@ -182,6 +194,8 @@ def available(avatar_id: str = "") -> bool:
     this is the cloud role, and the recording may be absent because nobody has
     made one yet. `status()` reports which.
     """
+    if _sarvam_avatar(avatar_id):
+        return True
     if config.ROLE == "cloud" or not installed():
         return False
     return avatar_id != "" and reference_for(avatar_id) is not None
@@ -197,7 +211,10 @@ def status(avatar_id: str = "") -> dict:
     """
     return {
         "available": available(avatar_id),
-        "provider": "chatterbox" if installed() else "browser",
+        "provider": (
+            "sarvam" if _sarvam_avatar(avatar_id)
+            else "chatterbox" if installed() else "browser"
+        ),
         "model_installed": installed(),
         "has_reference": avatar_id != "" and reference_for(avatar_id) is not None,
         "device": _device() if installed() else "",
@@ -229,6 +246,13 @@ def speak(text: str, avatar_id: str) -> bytes:
     text = (text or "").strip()
     if not text:
         raise ValueError("nothing to say")
+
+    # Before the recording check: a cloned English voice cannot say Telugu, so
+    # an Indian-language avatar goes to Sarvam even if it has one. Unreachable
+    # propagates, and the browser says this one sentence.
+    avatar = _sarvam_avatar(avatar_id)
+    if avatar is not None:
+        return sarvam.speak(text, avatar.language, sarvam.voice_for(avatar.gender, avatar.voice))
 
     reference = reference_for(avatar_id)
     if reference is None:
@@ -266,6 +290,28 @@ def demo() -> None:
     s = status("")
     assert s["available"] is False, "no avatar named, so nothing to speak with"
     assert s["provider"] in ("chatterbox", "browser")
+
+    # An Indian-language avatar speaks through Sarvam, recording or not, and an
+    # English one never does.
+    real_get, real_speak, real_key = store.get_avatar, sarvam.speak, config.SARVAM_API_KEY
+    try:
+        config.SARVAM_API_KEY = "test-key"
+        telugu = store.Avatar(id="t", name="T", persona="", greeting="", language="te-IN", gender="male")
+        english = store.Avatar(id="e", name="E", persona="", greeting="", language="en-US", gender="male")
+        store.get_avatar = lambda avatar_id, org_id=None: {"t": telugu, "e": english}.get(avatar_id)
+        sarvam.speak = lambda text, language, voice: f"{language}|{voice}|{text}".encode()
+        assert speak("నమస్కారం", "t") == "te-IN|vijay|నమస్కారం".encode()
+        assert status("t")["available"] and status("t")["provider"] == "sarvam"
+        assert status("e")["provider"] != "sarvam"
+        try:
+            speak("hello", "e")
+            raise AssertionError("an English avatar with no recording should refuse")
+        except VoiceUnavailable:
+            pass
+        config.SARVAM_API_KEY = ""
+        assert status("t")["provider"] != "sarvam", "no key, no Sarvam"
+    finally:
+        store.get_avatar, sarvam.speak, config.SARVAM_API_KEY = real_get, real_speak, real_key
     assert set(s) == {"available", "provider", "model_installed", "has_reference", "device"}
 
     # An avatar with no recording cannot speak, and says which thing is missing.

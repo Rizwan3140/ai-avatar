@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend import analytics, catalog, documents, llm, memory, stt
+from backend import analytics, catalog, config, documents, llm, memory, stt
 from backend.routes.platform import avatar_or_404
 
 router = APIRouter(prefix="/api", tags=["conversation"])
@@ -85,9 +85,15 @@ def chat(req: ChatRequest, request: Request):
     # the worst outcome tenancy exists to prevent.
     org_id = avatar.org_id
 
+    # The catalog is English. A Telugu or Hindi turn is searched in translation,
+    # and answered in the words the visitor actually used.
+    searched = req.message
+    if avatar.language in llm.LANGUAGE_NAMES and not avatar.language.startswith("en"):
+        searched = llm.search_text(req.message)
+
     # Catalog first, model second. Retrieval happens here rather than inside
     # llm.py so the provider seam stays a pure "messages in, text out" contract.
-    query, max_price = catalog.parse_query(req.message)
+    query, max_price = catalog.parse_query(searched)
     # "Have you got this in red" and "something for a wedding" are filters the
     # catalog can apply exactly, so they are lifted out of the text rather than
     # left for keyword search to approximate.
@@ -145,18 +151,19 @@ def chat(req: ChatRequest, request: Request):
             req.context,
             documents.as_context(passages),
             shelves,
+            avatar.language,
         ):
             reply += chunk
             if not withhold:
                 yield chunk
 
         if withhold:
-            if llm.ungrounded_claim(reply, products, shelves, req.message):
+            if llm.ungrounded_claim(reply, products, shelves, searched):
                 analytics.record(
                     "ungrounded_claim", session=session, avatar=avatar.id,
                     org=org_id, text=req.message, said=reply[:200],
                 )
-                reply = llm.REFUSAL
+                reply = llm.refusal(avatar.language)
             yield reply
 
         memory.add_message(session, "assistant", reply)
@@ -189,12 +196,11 @@ async def listen(request: Request, avatar_id: str = ""):
     partial = request.query_params.get("partial") == "1"
     # Resolved from the avatar, same as every other read here — never trust a
     # caller-chosen language, only the one on record for who is listening.
-    # Whisper wants "hi", not "hi-IN"; the part before the dash is the whole
-    # conversion. Falls back to auto-detect rather than failing the request
-    # outright, since a kiosk with no avatars yet still has audio to reject.
+    # Falls back to auto-detect rather than failing the request outright, since
+    # a kiosk with no avatars yet still has audio to reject.
     language = None
     try:
-        language = avatar_or_404(avatar_id).language.split("-")[0].lower() or None
+        language = avatar_or_404(avatar_id).language or None
     except HTTPException:
         pass
     # Transcription is CPU-bound; keep it off the event loop.
@@ -238,6 +244,11 @@ def speak(req: SpeakRequest):
         # switched off, and the browser falls back to its own synthesiser rather
         # than the cabinet going silent.
         raise HTTPException(503, str(exc)) from exc
+    except config.ProviderUnreachable as exc:
+        # 502, not 503: the voice exists and the network blinked. The browser
+        # says this sentence itself and asks again for the next one, where a 503
+        # would switch the voice off for the rest of the conversation.
+        raise HTTPException(502, str(exc)) from exc
 
     return Response(
         content=audio,

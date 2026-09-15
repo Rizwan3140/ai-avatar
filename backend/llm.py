@@ -112,6 +112,85 @@ _CLAIMS_STOCK = re.compile(
 #: does not get a say in this one.
 REFUSAL = "I'm afraid we don't carry those."
 
+#: The same refusal for an avatar that does not speak English. The guard below
+#: fires on English phrasing, which from a Telugu avatar means the model slipped
+#: out of Telugu — and answering that slip in English would be the second slip.
+REFUSALS = {
+    "hi-IN": "माफ़ कीजिए, वो हमारे पास नहीं हैं।",
+    "te-IN": "క్షమించండి, అవి మా దగ్గర లేవు.",
+}
+
+
+def refusal(language: str = "") -> str:
+    return REFUSALS.get(language, REFUSAL)
+
+
+#: What an avatar's language is called, for telling the model to speak it.
+#: Keys match `LANGUAGES` in `routes/studio.py`.
+LANGUAGE_NAMES = {
+    "en-US": "English", "hi-IN": "Hindi", "ta-IN": "Tamil", "te-IN": "Telugu",
+    "kn-IN": "Kannada", "ml-IN": "Malayalam", "bn-IN": "Bengali",
+    "mr-IN": "Marathi", "gu-IN": "Gujarati", "pa-IN": "Punjabi", "ur-IN": "Urdu",
+}
+
+
+#: No example sentence, on purpose: a sample in a prompt becomes the answer.
+TRANSLATE = (
+    "Translate what the shopper said into English. Write product names, "
+    "colours, sizes and prices in English. Output only the translation - no "
+    "quotes, no notes, nothing else."
+)
+
+
+def search_text(said: str) -> str:
+    """What a visitor said in another language, in English — for the search only.
+
+    The catalog is English and IndicConformer writes every word in the
+    visitor's script, English ones included: "black palazzo pant" arrives as
+    "బ్లాక్ పలాజో పాంట్" and matches nothing. Even with a transcriber that keeps
+    English in Latin letters, "చీరలు" is sarees and found none. So the words
+    go to the model once, before retrieval.
+
+    Only retrieval sees this. The history and the prompt keep what was actually
+    said, so the reply answers the visitor rather than a translation of them.
+
+    Never fatal. A failed translation searches with the original words, which
+    finds less; a failed turn says nothing at all.
+    """
+    messages = [
+        {"role": "system", "content": TRANSLATE},
+        {"role": "user", "content": said},
+    ]
+    try:
+        if config.llm_provider() == "groq":
+            english = "".join(_hosted_then_local(messages, 0.0))
+        else:
+            english = "".join(_stream_ollama(messages, 0.0))
+    except RuntimeError as error:
+        print(f"  llm: could not translate for search -- searching as said ({error})")
+        return said
+    return english.strip() or said
+
+
+def _language_rule(language: str) -> str:
+    """Speak the visitor's language — and copy prices, never translate them.
+
+    The price clause is measured. Told to reply in Telugu, `gemma3:4b` turned
+    $66 into "six six thousand rupees", then "six six dollars", five times in
+    five: converting a number into Telugu words is arithmetic the model gets
+    wrong. Told to copy the figure as written, `gpt-oss-120b` kept "$66" four
+    times in four. The voice reads digits aloud; the model only has to copy.
+    """
+    name = LANGUAGE_NAMES.get(language)
+    if not name or name == "English":
+        return ""
+    return (
+        NL2 + f"LANGUAGE: The visitor speaks {name}. Reply only in {name}, written "
+        f"in {name} script. Keep product and brand names exactly as written. Write "
+        "every price exactly as it is written in the list, digits and symbol "
+        "included, never in words."
+    )
+
 
 def _stem(word: str) -> str:
     """Crude singular, so "saree" and "sarees" compare equal. Nothing cleverer is
@@ -159,6 +238,12 @@ def ungrounded_claim(
     ponytail: a phrase list, checked once per reply. It is deliberately narrow
     and will miss a paraphrase; the day a larger model makes the whole guard
     unnecessary, delete it rather than growing it.
+
+    ponytail: English phrases only, so a stock claim made *in* Telugu or Hindi
+    passes unchecked. `gpt-oss-120b` refused correctly in Telugu when measured,
+    so this is a ceiling rather than an observed lie. If the event log shows an
+    Indian-language avatar claiming stock it does not have, add that language's
+    claim phrases here — not a translation step in front of every reply.
     """
     if products or not _CLAIMS_STOCK.search(reply):
         return False
@@ -330,14 +415,14 @@ def _turn_prompt(
     return grounding + NL2 + company + screen
 
 
-def _stable_prompt(persona: str) -> str:
+def _stable_prompt(persona: str, language: str = "") -> str:
     """Everything that does not change between turns.
 
     Kept byte-identical for the whole conversation so the model's prefix cache
     survives it. Anything volatile added here costs a full re-evaluation on
     every turn, which is a latency bug rather than a wording one.
     """
-    return persona + NL2 + SCOPE + NL2 + BREVITY
+    return persona + NL2 + SCOPE + NL2 + BREVITY + _language_rule(language)
 
 
 
@@ -464,6 +549,7 @@ def stream_reply(
     on_screen: str = "",
     knowledge: str = "",
     categories: list[str] | None = None,
+    language: str = "",
 ) -> Iterator[str]:
     # Warm when there is nothing to get wrong, cold the moment there is.
     temperature = GROUNDED_TEMPERATURE if (products or knowledge) else CHAT_TEMPERATURE
@@ -476,7 +562,7 @@ def stream_reply(
     # time to first word was ~2.9s whether the answer ran to five words or forty,
     # which is the signature of prompt evaluation rather than generation.
     messages = [
-        {"role": "system", "content": _stable_prompt(persona)},
+        {"role": "system", "content": _stable_prompt(persona, language)},
         {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge, categories)},
         *history,
     ]

@@ -271,7 +271,8 @@ function pump(): void {
 
   const utterance = new SpeechSynthesisUtterance(text)
   if (voice) utterance.voice = voice
-  utterance.lang = config.lang
+  // The avatar's language, so a browser that has a Telugu voice reaches for it.
+  utterance.lang = profile.lang || config.lang
   utterance.rate = config.rate
   utterance.pitch = config.pitch
   utterance.volume = config.volume

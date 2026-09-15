@@ -11,7 +11,9 @@ const ABBREVIATIONS = new Set([
   'etc', 'eg', 'ie', 'approx', 'inc', 'ltd', 'co',
 ])
 
-const TERMINATORS = '.!?'
+/** `।` is the Devanagari full stop: a Hindi reply otherwise waits to be
+ *  spoken until the whole of it has arrived. */
+const TERMINATORS = '.!?।'
 
 /**
  * Cut a streaming buffer into complete sentences, holding back whatever might

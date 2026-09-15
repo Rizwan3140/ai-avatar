@@ -8,6 +8,12 @@ test('splits a complete multi-sentence chunk', () => {
   assert.equal(remainder.trim(), '')
 })
 
+test('a Hindi full stop ends a sentence', () => {
+  const { sentences, remainder } = splitSentences('नमस्ते। आप कैसे हैं? ')
+  assert.deepEqual(sentences, ['नमस्ते।', 'आप कैसे हैं?'])
+  assert.equal(remainder.trim(), '')
+})
+
 test('holds back a sentence that is still growing', () => {
   const { sentences, remainder } = splitSentences('Of course. The Aria 14 is')
   assert.deepEqual(sentences, ['Of course.'])

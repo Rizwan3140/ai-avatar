@@ -209,6 +209,12 @@ GROQ_API_KEY = _get("GROQ_API_KEY")          # fast, cheap: intent and routing
 DEEPGRAM_API_KEY = _get("DEEPGRAM_API_KEY")  # streaming STT
 CARTESIA_API_KEY = _get("CARTESIA_API_KEY")
 ELEVENLABS_API_KEY = _get("ELEVENLABS_API_KEY")
+# Indian languages, both directions. Only avatars whose language is an Indian
+# one use it; see `backend/sarvam.py`.
+SARVAM_API_KEY = _get("SARVAM_API_KEY")
+SARVAM_BASE_URL = _get("SARVAM_BASE_URL", "https://api.sarvam.ai")
+SARVAM_STT_MODEL = _get("SARVAM_STT_MODEL", "saaras:v3")
+SARVAM_TTS_MODEL = _get("SARVAM_TTS_MODEL", "bulbul:v3")
 
 # --- avatar rendering --------------------------------------------------------
 AVATAR_PROVIDER = _get("AVATAR_PROVIDER", "mp4")  # mp4 | simli | heygen | anam
@@ -354,6 +360,7 @@ _GROUPS = {
         ("Deepgram", DEEPGRAM_API_KEY, "streaming STT"),
         ("Cartesia", CARTESIA_API_KEY, "streaming TTS"),
         ("ElevenLabs", ELEVENLABS_API_KEY, "expressive TTS"),
+        ("Sarvam", SARVAM_API_KEY, "Indian-language STT + voice"),
     ],
     "avatar": [
         ("Provider", AVATAR_PROVIDER, "active renderer"),

@@ -28,6 +28,8 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.test_platform # 221 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
+./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
+./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
 561 checks total. **Never run the Python suites through `unittest`** — they are
@@ -67,7 +69,8 @@ event, not a dependency.
 | seam | swapped so far |
 |---|---|
 | `backend/llm.py` | Anthropic → Ollama, one file |
-| `backend/stt.py` | browser speech → local Whisper, one folder |
+| `backend/stt.py` | browser speech → local Whisper, one folder; Indian languages → IndicConformer, then Sarvam |
+| `backend/tts.py` | browser voice → Chatterbox clone; Indian languages → Sarvam |
 | `backend/avatar_provider.py` | mp4 today; Simli/HeyGen/Anam declared |
 | `backend/store.py` | files today; Supabase replaces this module alone |
 | `backend/tryon.py` | Replicate and fal wired; local declared and refusing |
@@ -198,6 +201,20 @@ company's prices out loud.
 
 ## Gotchas that have already cost time
 
+- **Whisper cannot hear Telugu.** Measured on clean speech, `medium` took 14-112s
+  a clip and wrote Khmer. An Indian-language avatar is heard by IndicConformer
+  (`indic_asr.py`, CPU, 0.3-0.5s), falling back to Sarvam. It writes English words
+  in Telugu script, so `/api/chat` searches a translation (`llm.search_text`) and
+  answers the original.
+- **Do not let the model say a price in Telugu words.** `gemma3:4b` turned $66 into
+  "six six thousand rupees" 5 times in 5. The prompt says copy digits; Sarvam reads
+  "$66" as "66 US dollars".
+- **`sarvam-m` cannot be the local model.** Its chat template rejects a second
+  system message, and `stream_reply` always sends two — every request is a 400.
+- **A Windows box with no VC++ Redistributable** fails to load torch, onnxruntime
+  and ctranslate2 with "DLL load failed". Copy signed `vcruntime140*.dll` and
+  `msvcp140*.dll` into the package folder; the ones bundled with Python 3.11 are
+  too old for current torch.
 - **Windows console is cp1252.** Printing `→`, `—` or `₹` crashes a script. Use
   ASCII in console output, or `sys.stdout.reconfigure(encoding="utf-8")`.
 - **`crypto.randomUUID()` needs a secure context.** Over plain http on a LAN it is

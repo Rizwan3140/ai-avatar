@@ -19,7 +19,7 @@ import threading
 import urllib.error
 import urllib.request
 
-from backend import analytics, config
+from backend import analytics, config, sarvam, store
 
 _model = None  # WhisperModel, once something asks for it
 _lock = threading.Lock()
@@ -44,6 +44,17 @@ def _get_model():
         return _model
 
 
+def _indic():
+    """IndicConformer, where a model may run at all. It needs numpy, which the
+    cloud image does not carry — the same rule as faster-whisper above, and in
+    the cloud Sarvam hears instead."""
+    if config.ROLE == "cloud":
+        return None
+    from backend import indic_asr
+
+    return indic_asr
+
+
 def warm() -> None:
     """Load the model before the first visitor does, not during their sentence.
 
@@ -51,6 +62,10 @@ def warm() -> None:
     `_get_model()` would import faster-whisper into a container that does not
     have it.
     """
+    indic = _indic()
+    if indic is not None:
+        for language in {a.language for a in store.list_avatars() if indic.hears(a.language)}:
+            threading.Thread(target=indic.warm, args=(language,), daemon=True).start()
     if config.stt_provider() != "whisper":
         return
     threading.Thread(target=_get_model, daemon=True).start()
@@ -170,9 +185,9 @@ def is_speech(text: str) -> bool:
 def transcribe(audio: bytes, partial: bool = False, language: str | None = None) -> str:
     """Audio bytes in, text out. Accepts anything PyAV can decode, WAV included.
 
-    `language` is an ISO-639-1 code ("hi", "ta", ...) or None to auto-detect —
-    the caller resolves it from the avatar being spoken to, this function just
-    forwards it to whichever provider is listening.
+    `language` is the avatar's locale ("te-IN", "en-US") or None to
+    auto-detect — the caller resolves it from the avatar being spoken to, this
+    function just forwards it to whichever provider is listening.
     """
     heard = _transcribe(audio, partial, language)
     return heard if is_speech(heard) else ""
@@ -180,6 +195,29 @@ def transcribe(audio: bytes, partial: bool = False, language: str | None = None)
 
 def _transcribe(audio: bytes, partial: bool = False, language: str | None = None) -> str:
     import io
+
+    # An Indian-language avatar is heard on this machine by IndicConformer,
+    # which Whisper cannot stand in for (see indic_asr.py). Partials too: it is
+    # local, so a caption costs CPU rather than credits.
+    indic = _indic()
+    if language and indic is not None and indic.hears(language):
+        try:
+            return indic.transcribe(audio, language)
+        except indic.Unavailable as error:
+            print(f"  stt: {error} -- trying sarvam")
+
+    # Sarvam, hosted, where the weights are not installed; Whisper under that.
+    # Final turns only: a partial is a caption nobody sees, and here it would be
+    # a billed upload every 1.2s.
+    if language and not partial and sarvam.hears(language):
+        try:
+            return sarvam.transcribe(audio, language)
+        except config.ProviderUnreachable as error:
+            print(f"  stt: {error} -- falling back to whisper")
+            analytics.record("provider_fallback", module="stt", reason=str(error)[:200])
+
+    # Whisper wants "te", not "te-IN".
+    language = language.split("-")[0].lower() if language else None
 
     # Hosted first, local underneath — the same arrangement `llm.py` uses, and
     # for the same reason: every cabinet should hear alike, and none of them
