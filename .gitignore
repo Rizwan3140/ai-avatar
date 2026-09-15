@@ -104,6 +104,10 @@ frontend/tsconfig.tsbuildinfo
 # committing it would have every install claiming the same version.
 .version
 
+# The release this machine was told to run ('latest' or a version). Chosen at
+# the machine in Luxora.bat's menu, so machine-local like .version.
+.release
+
 # Written where a snapshot was last applied. Machine-local, like .version.
 knowledge/.snapshot-applied
 

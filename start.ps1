@@ -73,7 +73,13 @@ foreach ($name in @('python', 'cloudflared')) {
 $updater = Join-Path $root 'update.ps1'
 if (Test-Path $updater) {
     Write-Host "`n[1/3] updating" -ForegroundColor Cyan
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $updater
+    # A person double-clicked Luxora.bat: let them choose the version. The
+    # scheduled run keeps whatever was chosen last.
+    if ($Open) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $updater -Choose
+    } else {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $updater
+    }
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  update did not complete - starting on the existing code" -ForegroundColor Yellow
     }
