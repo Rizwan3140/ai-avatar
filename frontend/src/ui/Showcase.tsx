@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
 import { scope } from '../provider/http.ts'
@@ -46,8 +46,84 @@ function sharedCategory(products: Product[]): string {
   return products.every((p) => p.category?.trim() === first) ? first : ''
 }
 
+/**
+ * Lets a mouse — or a touch panel that reaches the browser as one — move the row.
+ *
+ * With its scrollbar hidden, the shelf scrolled only for a real finger or a
+ * trackpad. macOS has no touchscreen support, so a cabinet's touch overlay
+ * arrives as a mouse, and a mouse can neither drag an overflow box nor turn a
+ * vertical wheel into sideways movement: the shelf showed four of eight results
+ * and would not move. Touch keeps the browser's own swipe; every other pointer
+ * drags, and a vertical wheel steps sideways.
+ */
+function useSideScroll(ref: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const row = ref.current
+    if (!row) return
+    let start: { x: number; left: number } | null = null
+    let dragged = false
+
+    const down = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
+      start = { x: e.clientX, left: row.scrollLeft }
+      dragged = false
+    }
+    const move = (e: PointerEvent) => {
+      if (!start) return
+      const dx = e.clientX - start.x
+      if (!dragged && Math.abs(dx) < 8) return // a shaky tap is still a tap
+      if (!dragged) {
+        dragged = true
+        row.style.scrollSnapType = 'none' // snapping mid-drag fights the hand
+      }
+      row.scrollLeft = start.left - dx
+    }
+    const up = () => {
+      if (!start) return
+      start = null
+      row.style.scrollSnapType = '' // back to the class, which settles on a garment
+    }
+    // A drag ends with a click on whichever card it began over. That is not a choice.
+    const click = (e: MouseEvent) => {
+      if (!dragged) return
+      e.stopPropagation()
+      e.preventDefault()
+      dragged = false
+    }
+    // Scrolling by, not to: Chrome snaps a scrollBy to the next garment in its
+    // direction, where a small scrollLeft change would snap straight back.
+    const wheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      e.preventDefault()
+      row.scrollBy({ left: e.deltaY })
+    }
+    // A picture dragged by mouse becomes a browser drag-and-drop and swallows the
+    // moves above. Only on the row: the detail view's photos stay draggable.
+    const noNativeDrag = (e: DragEvent) => e.preventDefault()
+
+    row.addEventListener('pointerdown', down)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    row.addEventListener('click', click, true)
+    row.addEventListener('wheel', wheel, { passive: false })
+    row.addEventListener('dragstart', noNativeDrag)
+    return () => {
+      row.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      row.removeEventListener('click', click, true)
+      row.removeEventListener('wheel', wheel)
+      row.removeEventListener('dragstart', noNativeDrag)
+    }
+  }, [ref])
+}
+
 function Rail({ products }: { products: Product[] }) {
   const shelf = sharedCategory(products)
+  const row = useRef<HTMLDivElement>(null)
+  useSideScroll(row)
 
   return (
     <>
@@ -61,7 +137,10 @@ function Rail({ products }: { products: Product[] }) {
           Snap points, because this is a touch panel: a flick that lands
           half-way through a garment reads as a page that failed to finish
           moving. */}
-      <div className="-mx-safe px-safe flex snap-x snap-mandatory gap-[clamp(10px,1.1vh,40px)] overflow-x-auto pb-[0.4em]">
+      <div
+        ref={row}
+        className="-mx-safe px-safe flex snap-x snap-mandatory gap-[clamp(10px,1.1vh,40px)] overflow-x-auto pb-[0.4em] select-none"
+      >
         {products.map((product, i) => (
           <button
             key={product.id}
