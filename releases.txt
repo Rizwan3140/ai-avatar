@@ -3,6 +3,7 @@
 # release's copy is the one read, so older lines never need changing.
 #
 # version | what someone choosing a version needs to know
-v2.1.0 | Telugu and Hindi avatars, plus this version menu. Recommended.
+v2.2.0 | Telugu and Hindi speech now reaches the avatar - 2.0 and 2.1 threw it away in the browser. Recommended.
+v2.1.0 | Telugu and Hindi avatars, plus this version menu. Spoken Telugu/Hindi is not heard - use 2.2.
 v2.0.0 | Telugu and Hindi: avatars hear and speak Indian languages. First release of it.
 v1.0.0 | English only - the last version before Telugu and Hindi. Go back here if 2.x misbehaves.

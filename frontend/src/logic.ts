@@ -120,6 +120,9 @@ export function isEcho(transcript: string, spoken: string | string[]): boolean {
   return words.length <= 3 ? overlap === 1 : overlap >= 0.7
 }
 
+// Any script, not just a-z: `[^a-z0-9]` turned a Telugu transcript into "",
+// which reads as echo, so every word a Telugu avatar heard was discarded here.
+// \p{M} keeps vowel signs and the virama, or "నమస్కారం" splits into fragments.
 function normalize(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  return text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim()
 }

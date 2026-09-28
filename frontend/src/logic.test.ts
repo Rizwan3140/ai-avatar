@@ -97,3 +97,13 @@ test('isEcho does not steal a short phrase the visitor genuinely repeats', () =>
   assert.equal(isEcho('linen shirt size', recent), false) // "size" is not
   assert.equal(isEcho('how much', recent), false)
 })
+
+test('isEcho hears Indian scripts instead of discarding them as silence', () => {
+  // `[^a-z0-9]` used to strip a Telugu transcript to "", which reads as echo —
+  // so every turn a Telugu avatar heard was thrown away before reaching the model.
+  assert.equal(isEcho('నమస్కారం మీకు ఎలా సహాయం చేయగలను', ''), false)
+  assert.equal(isEcho('नमस्ते, कुर्ता दिखाइए', ['Welcome to Dhiyona.']), false)
+  // And a Telugu echo of their own Telugu sentence is still caught.
+  const recent = ['స్వాగతం, దయచేసి మీరు చూసే వస్తువులను పరిశీలించండి.']
+  assert.equal(isEcho('స్వాగతం దయచేసి మీరు చూసే వస్తువులను', recent), true)
+})
