@@ -486,6 +486,23 @@ try:
 except tryon.TryOnUnavailable as exc:
     check("an unconfigured provider refuses loudly", "local try-on" in str(exc))
 
+# The Anywear extension is picked by name only. A key in .env must never move a
+# cabinet's camera flow over to it, and naming it must.
+_ext, _was = tryon.ExtensionProvider(), tryon.config.TRYON_PROVIDER
+tryon.config.TRYON_PROVIDER = "fal"
+check("the extension is not picked unless named", not _ext.available())
+tryon.config.TRYON_PROVIDER = "extension"
+tryon._PROVIDERS = {"local": tryon.LocalProvider(), "extension": _ext}
+check("naming it picks it", tryon.provider().name == "extension")
+check("and the kiosk is told the picture leaves the cabinet", tryon.status()["on_device"] is False)
+try:
+    tryon.try_on(b"\x89PNG fake", "https://example.com/s.jpg", consent=True)
+    check("the server never swaps when the extension does", False)
+except tryon.TryOnUnavailable as exc:
+    check("the server never swaps when the extension does", "extension" in str(exc))
+tryon.config.TRYON_PROVIDER = _was
+tryon._PROVIDERS = {"local": tryon.LocalProvider()}
+
 check(
     "a public garment url is passed through untouched",
     tryon.garment_source("https://example.com/shirt.jpg") == "https://example.com/shirt.jpg",

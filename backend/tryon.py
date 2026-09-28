@@ -326,10 +326,33 @@ class LocalProvider:
         )
 
 
+class ExtensionProvider:
+    """The Anywear browser extension on the cabinet does the swap, live.
+
+    Chosen on 2026-09-28, after a hands-on test on the cabinet beat every model
+    benched here. Nothing reaches this server: the visitor drags the product photo
+    into the extension's own window, and the camera feed and the model are
+    Decart's. So the kiosk's only job is to point the visitor at it, and `swap` is
+    never the path. Picked only by name, never by falling through, because it is
+    a property of how a cabinet was set up rather than of a key being present.
+    """
+
+    name = "extension"
+
+    def available(self) -> bool:
+        return config.TRYON_PROVIDER == "extension"
+
+    def swap(self, person: bytes, garment_url: str, description: str) -> Result:
+        raise TryOnUnavailable(
+            "try-on on this cabinet runs in the Anywear browser extension, not on the server"
+        )
+
+
 _PROVIDERS: dict[str, TryOnProvider] = {
     "local": LocalProvider(),
     "replicate": ReplicateProvider(),
     "fal": FalProvider(),
+    "extension": ExtensionProvider(),
 }
 
 

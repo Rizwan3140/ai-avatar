@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
 import { requestConsent, tryOnProduct } from '../provider/http.ts'
@@ -25,10 +26,14 @@ import { useStore } from '../state/store.ts'
  * The server refuses without an explicit consent flag, so a future caller that
  * forgets this component cannot quietly skip the step.
  */
-type Stage = 'consent' | 'camera' | 'working' | 'result' | 'refused'
+type Stage = 'consent' | 'camera' | 'working' | 'result' | 'refused' | 'extension'
 
 export function TryOn({ product }: { product: Product }) {
   const capability = useStore((s) => s.tryon)
+  // Set up on this cabinet as `TRYON_PROVIDER=extension`: the Anywear browser
+  // extension does the try-on, live, in its own window. No page can open another
+  // extension's window, so here the button gives directions instead of a camera.
+  const viaExtension = capability.provider === 'extension'
   const [stage, setStage] = useState<Stage>('consent')
   const [open, setOpen] = useState(false)
   const [result, setResult] = useState('')
@@ -65,10 +70,16 @@ export function TryOn({ product }: { product: Product }) {
   useEffect(
     () =>
       bus.on('TRYON_REQUESTED', ({ product: wanted }) => {
-        if (wanted.id === product.id) setOpen(true)
+        if (wanted.id === product.id) begin()
       }),
-    [product.id],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [product.id, viaExtension],
   )
+
+  function begin() {
+    setStage(viaExtension ? 'extension' : 'consent')
+    setOpen(true)
+  }
 
   function close() {
     release()
@@ -142,7 +153,7 @@ export function TryOn({ product }: { product: Product }) {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={begin}
         className="rounded-full border border-line px-4 py-2 text-sm transition-colors hover:bg-line/40"
       >
         See it on you
@@ -150,7 +161,11 @@ export function TryOn({ product }: { product: Product }) {
     )
   }
 
-  return (
+  // Portalled to the panel. The button sits in a corner slot of the product card,
+  // and rendered there this full-screen step was sized by that slot and clipped by
+  // the card: a 48px box nobody could see. `fixed` does not escape either, since
+  // the shelf's backdrop blur makes it the containing block.
+  return createPortal(
     <div className="animate-[rise_var(--duration-quick)_var(--ease-human)] absolute inset-0 z-30 flex flex-col gap-5 bg-canvas px-safe py-safe">
       <div className="flex items-start justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-tight text-balance">{product.name}</h2>
@@ -266,6 +281,29 @@ export function TryOn({ product }: { product: Product }) {
         </div>
       )}
 
+      {stage === 'extension' && (
+        <div className="flex min-h-0 flex-1 flex-col gap-5">
+          <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg leading-relaxed">
+            <li>
+              Tap <strong>Anywear</strong> at the top right of the screen.
+            </li>
+            <li>Drag this picture into the Anywear window.</li>
+            <li>Step back until the camera can see all of you.</li>
+          </ol>
+          <img
+            src={product.image}
+            alt={product.name}
+            // Dropped into another window, so it stays a plain draggable image
+            // with its public address — the extension fetches the garment from it.
+            className="min-h-0 flex-1 cursor-grab rounded-lg object-contain"
+          />
+          <p className="text-ink-soft text-sm">
+            Anywear sends your live camera picture to Decart, the company that makes the
+            try-on, while you use it. This shop does not record it.
+          </p>
+        </div>
+      )}
+
       {stage === 'refused' && (
         <div className="flex flex-1 flex-col justify-center gap-4">
           <p className="text-lg leading-relaxed text-balance">{problem}</p>
@@ -278,6 +316,7 @@ export function TryOn({ product }: { product: Product }) {
           </button>
         </div>
       )}
-    </div>
+    </div>,
+    document.querySelector('.kiosk-root') ?? document.body,
   )
 }
