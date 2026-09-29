@@ -104,6 +104,9 @@ body {
    widget just goes back to its own corner. */
 :root {
   --anywear-top: 14vh;
+  /* How far below the exact middle the product shelf sits. The one number to
+     tune for eye level in front of the real cabinet. */
+  --shelf-offset: 10vh;
 }
 
 /* The status pill's sound bars. */

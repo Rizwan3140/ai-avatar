@@ -28,7 +28,12 @@ export function Showcase() {
       className={`lay-down absolute inset-x-0 bottom-0 z-10 flex flex-col gap-[clamp(10px,1.1vh,40px)] ${
         selected
           ? 'bg-canvas/85 px-safe pb-safe pt-[clamp(12px,1.3vh,48px)] backdrop-blur-md'
-          : 'px-[clamp(28px,3vh,110px)] pb-[clamp(24px,3vh,110px)]'
+          : // Eye level, not the floor: centred on the panel so a visitor
+            // standing at a tall cabinet looks straight at the pieces instead of
+            // down at their knees. --shelf-offset nudges it below centre.
+            // Stops short of the mic/end column on the right, which sits at
+            // this same height; centred, the shelf ran underneath it.
+            'top-0 pointer-events-none justify-center pl-[clamp(28px,3vh,110px)] pr-[clamp(88px,9.5vh,340px)] pt-(--shelf-offset) [&>*]:pointer-events-auto'
       }`}
     >
       {selected ? (
