@@ -44,6 +44,30 @@ export function TryOn({ product }: { product: Product }) {
   const objectUrl = useRef('')
   // Issued by the server the moment the visitor agrees, spent on one photograph.
   const consent = useRef('')
+  const guideImage = useRef<HTMLImageElement>(null)
+
+  /**
+   * One tap instead of a drag. Anywear puts its own "try on" button over any
+   * product picture that is hovered, and that button opens its window with the
+   * garment already in it — so hovering our picture and pressing that button does
+   * what a visitor would otherwise do by hand.
+   * ponytail: tied to Anywear 2.10's `#__decart-imgbtn`; if an update renames it
+   * nothing happens and the steps on screen still work.
+   */
+  function handToAnywear() {
+    const img = guideImage.current
+    if (!img) return
+    const box = img.getBoundingClientRect()
+    img.dispatchEvent(
+      new MouseEvent('mouseover', {
+        bubbles: true,
+        clientX: box.left + box.width / 2,
+        clientY: box.top + box.height / 2,
+      }),
+    )
+    const button = document.getElementById('__decart-imgbtn')
+    if (button && button.style.display !== 'none') button.click()
+  }
 
   /** Everything that could outlive this dialogue, torn down in one place. */
   function release() {
@@ -285,12 +309,15 @@ export function TryOn({ product }: { product: Product }) {
         <div className="flex min-h-0 flex-1 flex-col gap-5">
           <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg leading-relaxed">
             <li>
-              Tap <strong>Anywear</strong> at the top right of the screen.
+              <strong>Anywear</strong> opens at the top right with this piece. If it
+              does not, tap Anywear there.
             </li>
-            <li>Drag this picture into the Anywear window.</li>
+            <li>If it asks for a garment, drag this picture into it.</li>
             <li>Step back until the camera can see all of you.</li>
           </ol>
           <img
+            ref={guideImage}
+            onLoad={handToAnywear}
             src={product.image}
             alt={product.name}
             // Dropped into another window, so it stays a plain draggable image

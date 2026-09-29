@@ -95,6 +95,23 @@ body {
   overscroll-behavior: none;
 }
 
+/* The Anywear try-on extension injects its pill and window into this page at the
+   bottom left, where a visitor at a tall cabinet has to bend to reach it. It
+   places them with inline style and no !important, so this wins, on this page
+   only. Its own fullscreen (inset: 0) is left alone.
+   --anywear-top is the one number to tune in front of the real cabinet.
+   ponytail: tied to Anywear 2.10's element id; if an update renames it, the
+   widget just goes back to its own corner. */
+:root {
+  --anywear-top: 14vh;
+}
+#__decart-tryon-widget:not([style*='inset']) {
+  top: var(--anywear-top) !important;
+  right: 24px !important;
+  bottom: auto !important;
+  left: auto !important;
+}
+
 /* Studio only. The kiosk has no form controls and never will — an installation
    with input fields is an interface, not a person. */
 .input {
