@@ -404,6 +404,15 @@ def main() -> int:
     check("and filters to it", {p.category for p in catalog.search("show me kurta sets")},
           {"Kurta Sets"})
 
+    # Spoken, the men's shelf has no apostrophe. "show mens products" found one
+    # product with "Mens" in its name and left the Men's Kurtas shelf unshown.
+    _cats = catalog.categories
+    catalog.categories = lambda org_id=catalog.DEFAULT_ORG: ["Men's Kurtas", "Kurtas", "Sarees"]
+    check("mens finds the men's shelf", catalog.parse_category("show mens products")[1], "Men's Kurtas")
+    check("so does gents", catalog.parse_category("gents collection")[1], "Men's Kurtas")
+    check("womens is not mens", catalog.parse_category("womens kurtas")[1], "Kurtas")
+    catalog.categories = _cats
+
     # difflib covers what the alias table does not: plurals, typos, and the
     # transcription errors a microphone in a mall will produce.
     check("a singular finds a plural category", catalog.resolve_category("saree"), "Sarees")

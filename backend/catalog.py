@@ -510,6 +510,13 @@ CATEGORY_ALIASES = {
     "potli": "Ethnic Bags",
     "palazzo": "Palazzos",
     "sharara": "Shararas",
+    # Nobody says the apostrophe, and Whisper does not write it: "show mens
+    # products" matched one product with "Mens" in its name while the whole
+    # Men's Kurtas shelf went unshown, and the avatar described kurtas the
+    # visitor could not see.
+    "men": "Men's Kurtas",
+    "mens": "Men's Kurtas",
+    "gents": "Men's Kurtas",
 }
 
 #: How close a word must be to a category name before we treat it as that
