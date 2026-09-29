@@ -22,7 +22,15 @@ export function Showcase() {
     // Translucent and blurred rather than the opaque `bg-canvas` this used to
     // be — the whole point is that they are still visible behind it, full
     // height, while what they are showing sits over the lower part of them.
-    <aside className="lay-down absolute inset-x-0 bottom-0 z-10 bg-canvas/85 px-safe pb-safe flex flex-col gap-[clamp(10px,1.1vh,40px)] pt-[clamp(12px,1.3vh,48px)] backdrop-blur-md">
+    // The shelf of results is its own floating panel, so here the band is
+    // transparent and only keeps it off the edges; one product keeps the band.
+    <aside
+      className={`lay-down absolute inset-x-0 bottom-0 z-10 flex flex-col gap-[clamp(10px,1.1vh,40px)] ${
+        selected
+          ? 'bg-canvas/85 px-safe pb-safe pt-[clamp(12px,1.3vh,48px)] backdrop-blur-md'
+          : 'px-[clamp(28px,3vh,110px)] pb-[clamp(24px,3vh,110px)]'
+      }`}
+    >
       {selected ? (
         <Detail product={selected} siblings={products.length} />
       ) : (
@@ -120,53 +128,115 @@ function useSideScroll(ref: RefObject<HTMLDivElement | null>) {
   }, [ref])
 }
 
+/** "Dhiyona FL Women's Pink Top" as its brand over what it is — the two lines a
+ *  card has room for, instead of one name cut off mid-word. */
+function splitName(product: Product): [string, string] {
+  const brand = String(product.attributes?.brand ?? '').trim()
+  if (brand && product.name.startsWith(brand) && product.name.length > brand.length) {
+    return [brand, product.name.slice(brand.length).trim()]
+  }
+  return [product.name, product.category ?? '']
+}
+
 function Rail({ products }: { products: Product[] }) {
   const shelf = sharedCategory(products)
   const row = useRef<HTMLDivElement>(null)
+  const [all, setAll] = useState(false)
+  const [edge, setEdge] = useState({ start: true, end: products.length <= 3 })
   useSideScroll(row)
 
-  return (
-    <>
-      <Heading shelf={shelf} count={products.length} />
+  // Which arrows mean anything right now. An arrow that does nothing at the end
+  // of the row reads as a broken button.
+  useEffect(() => {
+    const el = row.current
+    if (!el) return
+    const measure = () =>
+      setEdge({
+        start: el.scrollLeft <= 4,
+        end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4,
+      })
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    return () => el.removeEventListener('scroll', measure)
+  }, [products, all])
 
-      {/* One row, scrolled sideways, rather than a two-column grid in a tall
-          panel. A portrait screen has width to spare and height that belongs to
-          the person standing in it, so the shelf runs across rather than down —
-          and a row that continues past the edge says "there is more" without a
-          control saying it.
-          Snap points, because this is a touch panel: a flick that lands
-          half-way through a garment reads as a page that failed to finish
-          moving. */}
+  const page = (dir: 1 | -1) =>
+    row.current?.scrollBy({ left: dir * row.current.clientWidth, behavior: 'smooth' })
+
+  return (
+    // A panel floating over them rather than a band across the bottom: three
+    // pieces at a time, so each is big enough to judge from where a visitor
+    // stands. Swipe and drag still move the row; the arrows are for the visitor
+    // who does not think to.
+    <div className="lay-down bg-canvas/70 border-line/60 shadow-float relative flex flex-col gap-[clamp(12px,1.3vh,48px)] rounded-[clamp(18px,2vh,64px)] border p-[clamp(14px,1.6vh,56px)] backdrop-blur-xl">
+      <Heading
+        shelf={shelf}
+        count={products.length}
+        all={all}
+        onToggle={products.length > 3 ? () => setAll((a) => !a) : undefined}
+      />
+
       <div
         ref={row}
-        className="-mx-safe px-safe flex snap-x snap-mandatory gap-[clamp(10px,1.1vh,40px)] overflow-x-auto pb-[0.4em] select-none"
+        className={`flex gap-[clamp(10px,1.1vh,40px)] select-none [scrollbar-width:none] ${
+          all ? 'flex-wrap' : 'snap-x snap-mandatory overflow-x-auto'
+        }`}
       >
-        {products.map((product, i) => (
-          <button
-            key={product.id}
-            type="button"
-            onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
-            // Laid out one after another rather than all at once. Capped at
-            // eight steps so a longer list never turns the wait into a queue —
-            // past that they arrive together, which nobody reads as a fault.
-            className="lay-down border-line/70 bg-canvas group flex w-[26%] shrink-0 snap-start flex-col overflow-hidden rounded-xl border text-left shadow-sm transition-shadow duration-500 ease-(--ease-human) hover:shadow-float"
-            style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
-          >
-            <Image
-              product={product}
-              className="aspect-[3/4] w-full transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
-              fit="cover"
-            />
-            <span className="flex flex-col gap-[0.25em] p-[clamp(8px,0.9vh,32px)]">
-              <span className="font-display line-clamp-2 text-body leading-[1.15] text-balance">
-                {product.name}
+        {products.map((product, i) => {
+          const [brand, rest] = splitName(product)
+          return (
+            <button
+              key={product.id}
+              type="button"
+              onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
+              // Laid out one after another rather than all at once. Capped at
+              // eight steps so a longer list never turns the wait into a queue —
+              // past that they arrive together, which nobody reads as a fault.
+              className="lay-down border-line/60 bg-canvas group flex w-[calc((100%-2*clamp(10px,1.1vh,40px))/3)] shrink-0 snap-start flex-col overflow-hidden rounded-[clamp(12px,1.3vh,44px)] border text-left shadow-sm transition-[box-shadow,transform] duration-300 ease-(--ease-human) hover:shadow-float active:scale-[0.98]"
+              style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
+            >
+              <Image
+                product={product}
+                className="aspect-[4/5] w-full transition-transform duration-700 ease-(--ease-human) group-hover:scale-[1.03]"
+                fit="cover"
+              />
+              <span className="flex flex-col gap-[0.15em] p-[clamp(10px,1.1vh,40px)]">
+                <span className="font-display text-body line-clamp-1 leading-tight">{brand}</span>
+                {rest && <span className="text-ink-soft text-label line-clamp-1">{rest}</span>}
+                <span className="text-body mt-[0.3em] font-semibold tabular-nums">
+                  {product.spoken_price}
+                </span>
               </span>
-              <span className="text-ink-soft text-label tabular-nums">{product.spoken_price}</span>
-            </span>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
-    </>
+
+      {!all && products.length > 3 && (
+        <>
+          <Arrow side="left" hidden={edge.start} onClick={() => page(-1)} />
+          <Arrow side="right" hidden={edge.end} onClick={() => page(1)} />
+        </>
+      )}
+    </div>
+  )
+}
+
+function Arrow({ side, hidden, onClick }: { side: 'left' | 'right'; hidden: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={side === 'left' ? 'Previous pieces' : 'More pieces'}
+      onClick={onClick}
+      tabIndex={hidden ? -1 : 0}
+      className={`bg-canvas text-ink shadow-float absolute top-[55%] flex size-[clamp(40px,4.4vh,150px)] -translate-y-1/2 items-center justify-center rounded-full border border-line/60 transition-opacity duration-300 active:scale-95 ${
+        side === 'left' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'
+      } ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+    >
+      <svg viewBox="0 0 24 24" className="size-[45%]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={side === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+      </svg>
+    </button>
   )
 }
 
@@ -386,25 +456,39 @@ function Gallery({ product }: { product: Product }) {
   )
 }
 
-function Heading({ shelf, count }: { shelf: string; count: number }) {
+function Heading({
+  shelf,
+  count,
+  all,
+  onToggle,
+}: {
+  shelf: string
+  count: number
+  all?: boolean
+  onToggle?: () => void
+}) {
   const piece = count === 1 ? 'piece' : 'pieces'
 
   return (
-    <div className="flex shrink-0 flex-col gap-[0.5em]">
-      <div className="flex items-baseline justify-between gap-[1em]">
-        <h2 className="font-display text-title leading-none tracking-[-0.01em]">
-          {shelf || 'Selected for you'}
-        </h2>
+    <div className="flex shrink-0 items-baseline justify-between gap-[1em]">
+      <h2 className="font-display text-title leading-none tracking-[-0.01em]">
+        {shelf || 'Selected for you'}
+      </h2>
+      {onToggle ? (
+        // Opens the row out to every piece at once, and back.
+        <button
+          type="button"
+          onClick={onToggle}
+          className="text-ink-soft text-label flex shrink-0 items-center gap-[0.4em] tabular-nums active:opacity-60"
+        >
+          {all ? 'Show fewer' : `See all (${count})`}
+          <span aria-hidden>{all ? '↑' : '→'}</span>
+        </button>
+      ) : (
         <span className="text-ink-soft text-label shrink-0 tabular-nums">
           {count} {piece}
         </span>
-      </div>
-      {/* Drawn from the left as the products land, so the page reads as being
-          set rather than as having been there all along. */}
-      <span
-        aria-hidden
-        className="bg-line h-px origin-left animate-[draw_520ms_var(--ease-human)]"
-      />
+      )}
     </div>
   )
 }

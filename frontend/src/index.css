@@ -105,6 +105,15 @@ body {
 :root {
   --anywear-top: 14vh;
 }
+
+/* The status pill's sound bars. */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*='wave'] { animation: none !important; }
+}
 #__decart-tryon-widget:not([style*='inset']) {
   top: var(--anywear-top) !important;
   right: 24px !important;

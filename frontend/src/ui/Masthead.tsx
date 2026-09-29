@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { bus } from '../bus/bus.ts'
 import { useStore } from '../state/store.ts'
 
@@ -57,9 +57,8 @@ export function Masthead({ name }: { name?: string }) {
         </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-[0.9em] p-[clamp(14px,1.6vh,58px)]">
+      <div className="flex shrink-0 items-center p-[clamp(14px,1.6vh,58px)]">
         <Presence status={status} />
-        <Clock />
       </div>
     </header>
   )
@@ -107,52 +106,48 @@ function Wordmark({ name }: { name?: string }) {
  */
 function Presence({ status }: { status: string }) {
   const listening = status === 'listening'
-  const busy = status === 'thinking' || status === 'speaking'
-  const label = listening ? 'Listening' : busy ? 'Speaking' : 'Ready'
+  const speaking = status === 'speaking'
+  const thinking = status === 'thinking'
+  const awake = listening || speaking || thinking
+  // "Thinking" is its own word now: it used to read "Speaking" while they
+  // were still silent, which a visitor waiting for an answer takes as a fault.
+  const label = listening ? 'Listening…' : speaking ? 'Speaking' : thinking ? 'Thinking…' : 'Ready'
 
   return (
-    <span className="flex items-center gap-[0.5em] text-label">
+    <span
+      role="status"
+      className="bg-canvas/85 border-line/50 shadow-float flex items-center gap-[0.65em] rounded-full border px-[1.1em] py-[0.6em] text-label backdrop-blur-md"
+    >
       <span className="relative flex size-[0.6em]">
         {listening && (
           <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/60" />
         )}
         <span
           className="relative size-full rounded-full"
-          style={{ background: busy || listening ? '#10b981' : '#a3a3a3' }}
+          style={{ background: awake ? '#10b981' : '#a3a3a3' }}
         />
       </span>
-      <span className="text-ink-soft">{label}</span>
+      <span className="text-ink">{label}</span>
+      <Bars moving={listening || speaking} />
     </span>
   )
 }
 
-/**
- * Wall-clock time, because a cabinet stands in a mall and people check it.
- *
- * Ticks on the minute rather than the second: a digit changing once a second on
- * a two-metre panel is motion in the corner of the eye, and the whole design
- * spends its motion budget on the person.
- */
-function Clock() {
-  const [now, setNow] = useState(() => new Date())
-
-  useEffect(() => {
-    const tick = () => setNow(new Date())
-    const ms = (60 - new Date().getSeconds()) * 1000
-    let interval: number
-    const timeout = window.setTimeout(() => {
-      tick()
-      interval = window.setInterval(tick, 60_000)
-    }, ms)
-    return () => {
-      window.clearTimeout(timeout)
-      window.clearInterval(interval)
-    }
-  }, [])
-
+/** Sound bars that move while a voice is in the room — theirs or the visitor's. */
+function Bars({ moving }: { moving: boolean }) {
   return (
-    <span className="text-ink-soft text-label tabular-nums">
-      {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+    <span aria-hidden className="flex h-[1em] items-center gap-[0.14em]">
+      {[0.45, 0.8, 1, 0.6, 0.35].map((height, i) => (
+        <span
+          key={i}
+          className="bg-ink-soft w-[0.12em] rounded-full"
+          style={{
+            height: `${height * 100}%`,
+            opacity: moving ? 1 : 0.45,
+            animation: moving ? `wave 900ms ${i * 120}ms ease-in-out infinite` : undefined,
+          }}
+        />
+      ))}
     </span>
   )
 }
