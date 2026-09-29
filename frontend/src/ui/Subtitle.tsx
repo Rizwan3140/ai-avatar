@@ -10,7 +10,10 @@ import { useStore } from '../state/store.ts'
  * a message list would make this a chat application.
  */
 export function Subtitle() {
-  const { status, subtitle, greeting, error } = useStore()
+  const { status, subtitle, greeting, error, products } = useStore()
+  // The prompt chips only show with no products up (`Prompts.tsx`). Reserving
+  // their floor regardless lifted the caption into the product panel.
+  const promptsUp = (status === 'idle' || status === 'listening') && products.length === 0
 
   // Asleep the cabinet says nothing, so there is nothing to make readable — and
   // the scrim is a 120px white gradient held on an OLED all night. `Controls`
@@ -45,11 +48,7 @@ export function Subtitle() {
       // the two are the same property, so which one won came down to their
       // order in the generated stylesheet — it lost, and the greeting stayed
       // printed through the rail.
-      style={
-        status === 'idle' || status === 'listening'
-          ? { paddingBottom: 'clamp(220px, 25vh, 900px)' }
-          : undefined
-      }
+      style={promptsUp ? { paddingBottom: 'clamp(220px, 25vh, 900px)' } : undefined}
     >
       <div className="w-full max-w-[90%] text-center">{content()}</div>
     </div>

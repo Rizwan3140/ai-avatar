@@ -39,8 +39,11 @@ export function Controls() {
       // a video stacks tall enough to reach the vertical centre of the panel,
       // and `Showcase` paints after this in the DOM. Mute and end-conversation
       // must never become unreachable behind a translucent product panel.
-      className="absolute top-1/2 right-safe z-20 flex -translate-y-1/2 flex-col gap-[clamp(16px,1.4vh,54px)] transition-transform duration-1000"
-      style={{ transform: `translate(${shift.x}px, calc(-50% + ${shift.y}px))` }}
+      // Bottom-right corner. Centred on the right edge they sat at the product
+      // shelf's height, now that the shelf is at eye level, and covered the
+      // top-right of its cards — "See it on you" included.
+      className="absolute right-safe bottom-safe z-20 flex flex-col gap-[clamp(16px,1.4vh,54px)] p-[clamp(8px,1vh,36px)] transition-transform duration-1000"
+      style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
     >
       <ControlButton
         label={
@@ -73,19 +76,6 @@ export function Controls() {
         <StopIcon />
       </ControlButton>
 
-      {/* Said in words as well as in an icon. A person deciding whether to speak
-          freely in front of a camera-height display should not have to interpret
-          a glyph, and the microphone really is released underneath this. */}
-      {muted && (
-        // Sized from the panel, not in fixed pixels. `text-sm` with `px-3 py-1`
-        // is nine millimetres of type on a 3840px screen read from two metres
-        // back — the same mistake the type scale was rebuilt to remove, left
-        // behind on the one message that has to be readable from further away
-        // than anything else here.
-        <p className="bg-ink text-label absolute top-1/2 right-full mr-[0.8em] -translate-y-1/2 rounded-full px-[1.1em] py-[0.5em] whitespace-nowrap text-white">
-          Microphone off
-        </p>
-      )}
     </div>
   )
 }

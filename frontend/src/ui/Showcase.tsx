@@ -25,18 +25,13 @@ export function Showcase() {
     // The shelf of results is its own floating panel, so here the band is
     // transparent and only keeps it off the edges; one product keeps the band.
     <aside
-      className={`lay-down absolute inset-x-0 bottom-0 z-10 flex flex-col gap-[clamp(10px,1.1vh,40px)] ${
-        selected
-          ? 'bg-canvas/85 px-safe pb-safe pt-[clamp(12px,1.3vh,48px)] backdrop-blur-md'
-          : // Eye level, not the floor: centred on the panel so a visitor
-            // standing at a tall cabinet looks straight at the pieces instead of
-            // down at their knees. --shelf-offset nudges it below centre.
-            // Stops short of the mic/end column on the right, which sits at
-            // this same height; centred, the shelf ran underneath it.
-            // Landscape has width to spare either side of them, so there the
-            // strip moves beside them instead of across them.
-            'top-0 pointer-events-none justify-center pl-[clamp(28px,3vh,110px)] pr-[clamp(88px,9.5vh,340px)] pt-(--shelf-offset) [&>*]:pointer-events-auto landscape:left-[64%] landscape:pl-0 landscape:pt-0'
-      }`}
+      // Eye level, not the floor, for the list and for one product alike:
+      // centred on the panel so a visitor at a tall cabinet looks straight at
+      // the pieces, --shelf-offset nudging it below centre. Opening a product
+      // swaps the panel in place instead of dropping a band over the person.
+      // Landscape has width to spare either side of them, so there it sits
+      // beside them instead of across them.
+      className="lay-down pointer-events-none absolute inset-0 z-10 flex flex-col justify-center px-[clamp(28px,3vh,110px)] pt-(--shelf-offset) [&>*]:pointer-events-auto landscape:left-[64%] landscape:pl-0 landscape:pt-0"
     >
       {selected ? (
         <Detail product={selected} siblings={products.length} />
@@ -271,7 +266,9 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
       // and cut the dress off — on the one screen whose entire job is showing
       // somebody a dress. The shelf is wide and short, so the picture takes a
       // column of it and keeps its own shape.
-      className="lay-down bg-line/20 relative flex flex-col gap-[clamp(12px,1.4vh,52px)] overflow-hidden rounded-xl p-[clamp(12px,1.4vh,52px)]"
+      // The same floating panel as the list, in the same place, so opening a
+      // piece changes what is in the panel rather than what covers the person.
+      className="lay-down bg-canvas/70 border-line/60 shadow-float relative flex flex-col gap-[clamp(10px,1.2vh,44px)] overflow-hidden rounded-[clamp(16px,1.8vh,60px)] border p-[clamp(10px,1.2vh,44px)] backdrop-blur-xl"
     >
       <div className="flex gap-[clamp(12px,1.4vh,52px)]">
         <Gallery product={product} />
@@ -290,13 +287,13 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
               {toResults ? `Back to ${siblings} results` : 'Back'}
             </button>
             <h2
-              className="font-display lay-down text-ink text-display leading-[1.02] tracking-[-0.015em] text-balance"
+              className="font-display lay-down text-ink text-title line-clamp-3 leading-[1.05] tracking-[-0.01em] text-balance"
               style={{ animationDelay: '90ms' }}
             >
               {product.name}
             </h2>
             <p
-              className="lay-down text-ink-soft text-title leading-none tabular-nums"
+              className="lay-down text-ink text-body leading-none font-semibold tabular-nums"
               style={{ animationDelay: '160ms' }}
             >
               {product.spoken_price}
@@ -311,25 +308,28 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
             )}
           </div>
 
-          {product.url && scope() !== null && (
-            // The card the whole screen is for, floated on the photograph rather
-            // than filed in a footer under it. Arriving last, after the name and
-            // the price, because it is the thing to do once you have decided.
-            <div
-              className="text-ink lay-down border-line/70 flex shrink-0 flex-col items-center gap-[0.5em] self-start rounded-lg border bg-white p-[clamp(8px,0.9vh,32px)]"
-              style={{ animationDelay: '300ms' }}
-            >
-              {/* Ours, not a QR web service — otherwise this is the one element on
-                  screen that goes blank when the network drops. An SVG, so it
-                  scales to the panel without losing a module. */}
-              <img
-                src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
-                alt={`QR code linking to ${product.name}`}
-                className="aspect-square w-[clamp(84px,6vh,232px)]"
-              />
-              <span className="text-label font-medium">Scan to buy</span>
-            </div>
-          )}
+          {/* The two things to do once someone has decided, side by side in the
+              flow. "See it on you" used to float in the panel's top corner,
+              where the mic and end buttons sat on top of it. */}
+          <div className="flex items-end gap-[0.8em]">
+            <TryOn product={product} />
+            {product.url && scope() !== null && (
+              <div
+                className="text-ink lay-down border-line/70 flex shrink-0 flex-col items-center gap-[0.4em] rounded-lg border bg-white p-[clamp(6px,0.7vh,26px)]"
+                style={{ animationDelay: '300ms' }}
+              >
+                {/* Ours, not a QR web service — otherwise this is the one element on
+                    screen that goes blank when the network drops. An SVG, so it
+                    scales to the panel without losing a module. */}
+                <img
+                  src={`/api/products/${encodeURIComponent(product.id)}/qr?${scope()}`}
+                  alt={`QR code linking to ${product.name}`}
+                  className="aspect-square w-[clamp(64px,5vh,190px)]"
+                />
+                <span className="text-label font-medium">Scan to buy</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -346,16 +346,9 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
           loop
           muted
           playsInline
-          className="h-[clamp(200px,26vh,900px)] w-full rounded-lg object-contain"
+          className="h-[clamp(120px,14vh,520px)] w-full rounded-lg object-contain"
         />
       )}
-
-      {/* Offered on the product being discussed, not on the grid — "see it on
-          you" only means anything once there is a single "it". Renders nothing
-          when no provider is configured or the product has no image. */}
-      <div className="absolute top-[clamp(12px,1.4vh,50px)] right-[clamp(12px,1.4vh,50px)]">
-        <TryOn product={product} />
-      </div>
     </div>
   )
 }
@@ -404,7 +397,9 @@ function Gallery({ product }: { product: Product }) {
   return (
     <div className="flex shrink-0 gap-[clamp(8px,0.9vh,32px)]">
       {shots.length > 1 && (
-        <div className="flex flex-col gap-[clamp(6px,0.7vh,24px)] overflow-y-auto">
+        // No taller than the photograph beside it. Seven shots stacked made the
+        // card half the screen high; past the photo's height they scroll.
+        <div className="flex max-h-[clamp(160px,22vh,760px)] flex-col gap-[clamp(6px,0.7vh,24px)] overflow-y-auto [scrollbar-width:none]">
           {shots.map((src, i) => (
             <button
               key={src}
@@ -425,7 +420,7 @@ function Gallery({ product }: { product: Product }) {
       {/* `contain`, and no crop. Whatever the shape of the photograph, the whole
           garment is on screen — which is the difference between a product page
           and a shop window. */}
-      <span className="relative block h-[clamp(200px,26vh,900px)] overflow-hidden rounded">
+      <span className="relative block h-[clamp(160px,22vh,760px)] overflow-hidden rounded">
         {current ? (
           <img
             key={current}
