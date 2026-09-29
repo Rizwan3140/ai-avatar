@@ -37,7 +37,10 @@ export function Subtitle() {
     // readable over it rather than under it — the Card beneath is already
     // near-opaque for exactly this reason.
     <div
-      className="pointer-events-none from-canvas via-canvas/85 absolute inset-x-0 bottom-0 z-20 flex justify-center bg-linear-to-t to-transparent px-safe pt-24 pb-safe"
+      // No scrim. A white gradient rose from the floor to keep bare captions
+      // readable; captions now sit in their own near-opaque Card, so it only
+      // washed out the product shelf underneath.
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-safe pt-24 pb-safe"
       // Inline, not a utility class. `pb-safe` is already on this element and
       // the two are the same property, so which one won came down to their
       // order in the generated stylesheet — it lost, and the greeting stayed
