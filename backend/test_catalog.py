@@ -411,6 +411,9 @@ def main() -> int:
     check("mens finds the men's shelf", catalog.parse_category("show mens products")[1], "Men's Kurtas")
     check("so does gents", catalog.parse_category("gents collection")[1], "Men's Kurtas")
     check("womens is not mens", catalog.parse_category("womens kurtas")[1], "Kurtas")
+    # Real transcripts from the cabinet, 29 September: all matched nothing.
+    for heard in ("Show me some menswear.", "Show me some men's curtes.", "Men's, curtas?"):
+        check(f"heard: {heard}", catalog.parse_category(heard)[1], "Men's Kurtas")
     catalog.categories = _cats
 
     # difflib covers what the alias table does not: plurals, typos, and the

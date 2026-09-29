@@ -517,6 +517,9 @@ CATEGORY_ALIASES = {
     "men": "Men's Kurtas",
     "mens": "Men's Kurtas",
     "gents": "Men's Kurtas",
+    # The word visitors actually used, seven times in one test session, each
+    # matching nothing.
+    "menswear": "Men's Kurtas",
 }
 
 #: How close a word must be to a category name before we treat it as that
