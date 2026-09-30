@@ -7,7 +7,7 @@ import { fetchAvatar, fetchKiosk, resetConversation } from '../provider/http.ts'
 import { setIdentity, setTryOn, useStore } from '../state/store.ts'
 import { applySeason } from './season.ts'
 import * as voice from '../voice/voice.ts'
-import { sessionId } from './session.ts'
+import { endingSessionId } from './session.ts'
 
 // Imported for their bus subscriptions. Nobody holds a reference to anybody.
 import '../conversation/conversation.ts'
@@ -112,12 +112,11 @@ async function step<T>(name: string, work: () => Promise<T>): Promise<T> {
   return work()
 }
 
-// Read the id before the session module clears it — subscriber order on the bus
-// is registration order, and this must not depend on it.
-bus.on('SESSION_ENDED', () => {
-  const ending = sessionId()
-  void resetConversation(ending)
-})
+// The server forgets a conversation when its visitor leaves, by End or by the
+// room going quiet long enough to sleep. `endingSessionId` is right whichever
+// listener runs first.
+bus.on('SESSION_ENDED', () => void resetConversation(endingSessionId()))
+bus.on('SESSION_SLEEP', () => void resetConversation(endingSessionId()))
 
 /**
  * Sleep is the one place pausing the footage is correct: the panel is black and

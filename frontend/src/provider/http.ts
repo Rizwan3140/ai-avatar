@@ -21,7 +21,14 @@ export function scope(): string | null {
 
 /** Fetch the matched products and put them on screen. */
 async function showProducts(ids: string): Promise<void> {
-  const wanted = ids.split(',').filter(Boolean)
+  // Each id is percent-encoded by the server — a sku can hold a comma or Telugu.
+  const wanted = ids.split(',').filter(Boolean).flatMap((id) => {
+    try {
+      return [decodeURIComponent(id)]
+    } catch {
+      return []
+    }
+  })
   // A turn that matched nothing leaves the screen alone. It used to empty it,
   // which meant every sentence that was not itself a product search swept the
   // merchandise away: "what is it made of", "how much is that one", "thanks" —
@@ -120,6 +127,17 @@ export const httpProvider: AiProvider = {
 
     // Which products the catalog matched, on the response header rather than in
     // the body — the screen can fill before the first word is spoken.
+    // Before the new products land, so "the next one" means the list the
+    // visitor was looking at when they said it.
+    const heardAs = response.headers.get('X-Heard-As')
+    if (heardAs) {
+      try {
+        bus.emit('USER_UTTERANCE_TRANSLATED', { text: decodeURIComponent(heardAs) })
+      } catch {
+        // A malformed header costs one navigation, never the reply.
+      }
+    }
+
     const ids = response.headers.get('X-Products')
     if (ids !== null) void showProducts(ids)
 

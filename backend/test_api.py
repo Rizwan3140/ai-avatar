@@ -35,6 +35,13 @@ os.environ["LUXORA_SECRET"] = "test-only-secret"
 # below would be wrong — a side effect at import time is exactly the kind that
 # hides until something depends on it.
 os.environ["LUXORA_SEED"] = "0"
+# The cloud role mounts the conversation routes (voice included) only when a
+# hosted model answers — which was decided by whether this checkout's .env had a
+# Groq key, so the voice checks passed on one machine and 404'd on the next.
+# Pinned here, with a blank key so nothing in this suite can spend real credits.
+os.environ["LLM_PROVIDER"] = "groq"
+os.environ["STT_PROVIDER"] = "groq"
+os.environ["GROQ_API_KEY"] = ""
 
 from backend import accounts, catalog, config, documents, store, tryon  # noqa: E402
 

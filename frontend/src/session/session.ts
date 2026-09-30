@@ -35,15 +35,29 @@ export function sessionId(): string {
   return current || 'default'
 }
 
+/** The session just released, so the server can forget it. */
+let released = ''
+
+/**
+ * The conversation an END or SLEEP is ending — correct from any subscriber, in
+ * either order. `lifecycle.ts` read `sessionId()` for this, but this module is
+ * loaded first and its listener had already blanked the id, so every End reset
+ * "default" and the visitor's words stayed in server memory until they expired.
+ */
+export function endingSessionId(): string {
+  return current || released || 'default'
+}
+
+function release() {
+  if (current) released = current
+  current = ''
+}
+
 bus.on('SESSION_STARTED', () => {
   current = newId()
 })
 
-bus.on('SESSION_ENDED', () => {
-  current = ''
-})
+bus.on('SESSION_ENDED', release)
 
 // Sleep means the room emptied. Whoever wakes it is a new visitor.
-bus.on('SESSION_SLEEP', () => {
-  current = ''
-})
+bus.on('SESSION_SLEEP', release)

@@ -19,6 +19,19 @@ bus.on('USER_UTTERANCE', ({ text }) => {
   // Resolve what they meant on screen before asking the model anything. "Show me
   // the cheaper one" should move the selection immediately — waiting for a reply
   // to finish streaming makes the screen feel a step behind the conversation.
+  navigate(text)
+
+  // Read the state again — resolve may have just changed the selection, and the
+  // model needs to know which product "that" now means.
+  const after = useStore.getState()
+  void run(text, context(after.products, after.selected))
+})
+
+// The same rules for a Telugu or Hindi turn, once the server has said what it
+// meant in English. A second of lag beats navigation that never happens.
+bus.on('USER_UTTERANCE_TRANSLATED', ({ text }) => navigate(text))
+
+function navigate(text: string) {
   const { products, selected } = useStore.getState()
   const nav = resolve(text, products, selected)
   if (nav.kind === 'select') bus.emit('PRODUCT_SELECTED', { product: nav.product })
@@ -29,12 +42,7 @@ bus.on('USER_UTTERANCE', ({ text }) => {
     bus.emit('PRODUCT_SELECTED', { product: nav.product })
     bus.emit('TRYON_REQUESTED', { product: nav.product })
   }
-
-  // Read the state again — resolve may have just changed the selection, and the
-  // model needs to know which product "that" now means.
-  const after = useStore.getState()
-  void run(text, context(after.products, after.selected))
-})
+}
 
 // Barge-in during THINKING. Without this the abandoned stream keeps arriving and
 // its tail gets spoken over the answer to the new question.

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { bus } from '../bus/bus.ts'
-import { sessionId } from './session.ts'
+import { endingSessionId, sessionId } from './session.ts'
 
 /**
  * Session identity is what keeps two cabinets on one backend from sharing a
@@ -37,6 +37,19 @@ test('sleeping releases it — whoever wakes the screen is someone new', () => {
   bus.emit('SESSION_STARTED')
   bus.emit('SESSION_SLEEP')
   assert.equal(sessionId(), 'default')
+})
+
+test('the id being ended is readable after this module has released it', () => {
+  // lifecycle's reset listener runs after this module's; it read "default" and
+  // the server never forgot a visitor who pressed End.
+  bus.emit('SESSION_STARTED')
+  const visitor = sessionId()
+  bus.emit('SESSION_ENDED')
+  assert.equal(endingSessionId(), visitor)
+  bus.emit('SESSION_STARTED')
+  const next = sessionId()
+  bus.emit('SESSION_SLEEP')
+  assert.equal(endingSessionId(), next)
 })
 
 test('works without crypto.randomUUID, as on a plain-http kiosk', () => {

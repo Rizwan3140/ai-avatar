@@ -23,16 +23,16 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 96 checks
-./.venv/bin/python -m backend.test_catalog  # 117 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 221 — accounts, tenancy, knowledge, try-on
+(cd frontend && npm test)                   # 102 checks
+./.venv/bin/python -m backend.test_catalog  # 123 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 257 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-561 checks total. **Never run the Python suites through `unittest`** — they are
+609 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -209,8 +209,20 @@ company's prices out loud.
 - **Do not let the model say a price in Telugu words.** `gemma3:4b` turned $66 into
   "six six thousand rupees" 5 times in 5. The prompt says copy digits; Sarvam reads
   "$66" as "66 US dollars".
-- **`sarvam-m` cannot be the local model.** Its chat template rejects a second
-  system message, and `stream_reply` always sends two — every request is a 400.
+- **`sarvam-m` as the local model needs two things `_stream_ollama` now does.**
+  Its template rejects a second system message (every request was a 400, so the
+  offline fallback was mute), and it is a reasoning model that thinks in the
+  content channel unless sent `"think": false` — 40s, then "Okay, the user
+  asked..." spoken aloud. Both fixed; ~8s a reply on a 6 GB card, which a 24B
+  model does not fit.
+- **FTS5 `UNINDEXED` columns are not indexed.** The triggers deleted index rows
+  `WHERE id = old.id`, a full scan per changed row: an unchanged 5,000-product
+  sync took 11s and a re-import 17s, write-locking the catalog while visitors
+  searched. The index is linked by rowid now, and an unchanged sync is skipped.
+- **Listeners on the bus run in registration order, and module load decides it.**
+  `lifecycle.ts` read `sessionId()` on End after `session.ts` had blanked it, so
+  every End reset "default" and no visitor's conversation was ever forgotten
+  early. Read `endingSessionId()`.
 - **A Windows box with no VC++ Redistributable** fails to load torch, onnxruntime
   and ctranslate2 with "DLL load failed". Copy signed `vcruntime140*.dll` and
   `msvcp140*.dll` into the package folder; the ones bundled with Python 3.11 are

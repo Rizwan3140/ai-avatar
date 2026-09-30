@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { bus } from '../bus/bus.ts'
 import { httpProvider } from './http.ts'
 import { useStore } from '../state/store.ts'
 
@@ -21,6 +22,46 @@ test('chat requests carry the avatar currently shown by the kiosk', async () => 
     assert.deepEqual(chunks, ['hello'])
     assert.equal(request?.avatar_id, 'avatar-blue')
   } finally {
+    globalThis.fetch = originalFetch
+    useStore.setState({ avatarId: '' })
+  }
+})
+
+test('a translated turn is announced, and encoded ids come back whole', async () => {
+  // A Telugu "the cheaper one" navigates only once the server's English reading
+  // reaches the navigation rules. And a sku holding a comma or Telugu must be
+  // fetched as one product, not two fragments.
+  const originalFetch = globalThis.fetch
+  const heard: string[] = []
+  const fetched: string[] = []
+  const off = bus.on('USER_UTTERANCE_TRANSLATED', ({ text }) => heard.push(text))
+
+  useStore.setState({ avatarId: 'avatar-blue' })
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    if (url.startsWith('/api/products/')) {
+      fetched.push(decodeURIComponent(url.slice('/api/products/'.length).split('?')[0]))
+      return new Response('null', { status: 404 })
+    }
+    return new Response('ఇవి చూడండి.', {
+      status: 200,
+      headers: {
+        'X-Heard-As': encodeURIComponent('the cheaper one'),
+        'X-Products': `${encodeURIComponent('సారీ,01')},%E0%A4`,
+      },
+    })
+  }
+
+  try {
+    for await (const _ of httpProvider.stream('తక్కువ ధరది', new AbortController().signal)) {
+      // drain
+    }
+    await new Promise((r) => setTimeout(r, 0))
+    assert.deepEqual(heard, ['the cheaper one'])
+    // The malformed second id is dropped rather than failing the turn.
+    assert.deepEqual(fetched, ['సారీ,01'])
+  } finally {
+    off()
     globalThis.fetch = originalFetch
     useStore.setState({ avatarId: '' })
   }

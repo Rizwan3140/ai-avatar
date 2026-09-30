@@ -21,6 +21,9 @@ export type Events = {
 
   USER_STARTED_SPEAKING: void
   USER_UTTERANCE: { text: string }
+  /** A Telugu or Hindi turn as the server read it in English, for on-screen
+   *  navigation only — "next one" and "the cheaper one" are matched in English. */
+  USER_UTTERANCE_TRANSLATED: { text: string }
   USER_SILENT: void
   /** The turn so far, including words still forming. Diagnostic only. */
   USER_INTERIM: { text: string }

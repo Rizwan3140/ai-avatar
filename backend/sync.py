@@ -158,11 +158,16 @@ def pull_catalog() -> str:
     if not products:
         return "catalog: every row was unusable; keeping local"
 
-    before = len(catalog.all_products(org_id))
-    catalog.replace(products, org_id)
-    if before == len(products):
+    # Every five minutes the platform sends the same catalog it sent last time.
+    # Rewriting it anyway write-locks the database while visitors are searching.
+    def rows(items):
+        return sorted((catalog.to_dict(p) for p in items), key=lambda d: d["id"])
+
+    current = catalog.all_products(org_id)
+    if rows(current) == rows(products):
         return f"catalog: {len(products)} products, unchanged"
-    return f"catalog: {before} -> {len(products)} products"
+    catalog.replace(products, org_id)
+    return f"catalog: {len(current)} -> {len(products)} products"
 
 
 def insecure_platform() -> str:

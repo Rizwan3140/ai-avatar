@@ -9,6 +9,7 @@ which is the failure a showroom actually experiences.
 """
 
 import hashlib
+import urllib.parse
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -168,13 +169,19 @@ def chat(req: ChatRequest, request: Request):
 
         memory.add_message(session, "assistant", reply)
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/plain",
-        # The UI needs to know which products to put on screen, and it must not
-        # wait for the reply to finish streaming to find out.
-        headers={"X-Products": ",".join(p.id for p in products)},
-    )
+    # The UI needs to know which products to put on screen, and it must not
+    # wait for the reply to finish streaming to find out.
+    #
+    # Each id percent-encoded: ids come verbatim from a customer's sku column,
+    # and one with a comma split in two while one in Telugu could not be put in
+    # a latin-1 header at all — a 500 on every turn that found it.
+    headers = {"X-Products": ",".join(urllib.parse.quote(p.id, safe="") for p in products)}
+    if searched != req.message:
+        # What a Telugu or Hindi turn meant in English, so the browser's "next
+        # one" / "cheaper one" rules work in every language. Percent-encoded:
+        # a header is latin-1, and a translation can carry "₹".
+        headers["X-Heard-As"] = urllib.parse.quote(searched)
+    return StreamingResponse(generate(), media_type="text/plain", headers=headers)
 
 
 @router.post("/listen")

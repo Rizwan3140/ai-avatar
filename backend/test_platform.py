@@ -845,8 +845,35 @@ check("and the new ones are there", catalog.get("new-1", SYNC_ORG) is not None)
 check("the gallery survives a network sync",
       catalog.get("new-1", SYNC_ORG).images == ["https://cdn/1.jpg", "https://cdn/2.jpg"])
 check("and so does the video", catalog.get("new-1", SYNC_ORG).video == "https://cdn/clip.mp4")
+# The same payload five minutes later is not rewritten: at 5,000 rows that write
+# locked the database for seconds while visitors searched.
+check("an unchanged catalog is not rewritten", "unchanged" in sync.pull_catalog())
 
 sync._fetch = _fetch
+
+print("\ncatalog index")
+# The search index is linked to its rows by rowid. Matched by id it scanned the
+# whole index per changed row - 11s to re-sync 5,000 products.
+catalog.upsert([catalog.Product(id="new-2", name="Silver Anklet", category="Bangles")], SYNC_ORG)
+check("an updated row is found by its new words",
+      [p.id for p in catalog.search("anklet", org_id=SYNC_ORG)] == ["new-2"])
+check("and not by its old ones", catalog.search("gold", org_id=SYNC_ORG) == [])
+catalog.delete("new-2", SYNC_ORG)
+check("a deleted row leaves the index", catalog.search("anklet", org_id=SYNC_ORG) == [])
+
+# An install indexed by the old id-matched triggers is rebuilt once, in place.
+with catalog._connect() as _conn:
+    _conn.executescript("""
+        DROP TRIGGER products_ad;
+        CREATE TRIGGER products_ad AFTER DELETE ON products BEGIN
+          DELETE FROM products_fts WHERE id = old.id AND org_id = old.org_id;
+        END;
+        DELETE FROM products_fts;
+    """)
+catalog._initialised.clear()
+catalog.init()
+check("an old index is rebuilt on upgrade",
+      [p.id for p in catalog.search("emerald", org_id=SYNC_ORG)] == ["new-1"])
 config.PLATFORM_URL, config.KIOSK_ID = _url, _kiosk
 
 print("\nsnapshot")
@@ -1097,6 +1124,17 @@ check(
 )
 check("an English refusal is unchanged", llm.refusal("en-US") == llm.REFUSAL)
 check("a language with no written refusal falls back to English", llm.refusal("ta-IN") == llm.REFUSAL)
+
+# sarvam-m's template refuses a second system message: every offline reply was a 400.
+_folded = llm._one_system([
+    {"role": "system", "content": "stable"},
+    {"role": "system", "content": "turn"},
+    {"role": "user", "content": "hi"},
+])
+check("the local model is sent one system message",
+      [m["role"] for m in _folded] == ["system", "user"])
+check("stable part first, so the prefix cache holds",
+      _folded[0]["content"].startswith("stable") and _folded[0]["content"].endswith("turn"))
 
 from backend import indic_asr as _indic  # noqa: E402
 

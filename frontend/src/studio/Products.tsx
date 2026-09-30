@@ -3,6 +3,9 @@ import { api, upload, type Principal, type Product } from './api.ts'
 import { importMessage, type ImportResult, type Screen } from './import.ts'
 import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
+/** Rows drawn at once. Search reaches the rest. */
+const ROWS = 200
+
 /**
  * The catalog — what the avatar may recommend, and the only source of a price it
  * is allowed to say out loud.
@@ -19,8 +22,17 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
   const [crawlOpen, setCrawlOpen] = useState(false)
   const [crawlUrl, setCrawlUrl] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [filter, setFilter] = useState('')
 
   const mayWrite = who.role !== 'viewer'
+
+  // A 5,000-row table re-rendered on every keystroke of the edit form, and the
+  // page stuttered. Search narrows; only the first rows are ever drawn.
+  const needle = filter.trim().toLowerCase()
+  const matching = (products.data ?? []).filter(
+    (p) => !needle || `${p.name} ${p.category} ${p.id}`.toLowerCase().includes(needle),
+  )
+  const shown = matching.slice(0, ROWS)
 
   async function act(work: () => Promise<{ text: string; screen?: Screen } | null>) {
     setBusy(true)
@@ -302,6 +314,22 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
             No products yet. Import a CSV, a JSON export or a Word document with a table in it.
           </Empty>
         ) : (
+          <>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <input
+              className="input max-w-xs"
+              type="search"
+              placeholder="Search products"
+              aria-label="Search products"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            <span className="text-ink-soft text-xs">
+              {matching.length > ROWS
+                ? `Showing ${ROWS} of ${matching.length} — search to narrow`
+                : `${matching.length} of ${products.data.length}`}
+            </span>
+          </div>
           <div className="overflow-x-auto rounded border border-line">
             <table className="w-full min-w-[560px] border-collapse bg-white text-sm">
               <thead>
@@ -317,7 +345,7 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                 </tr>
               </thead>
               <tbody>
-                {products.data.map((product) => (
+                {shown.map((product) => (
                   <tr key={product.id} className="border-b border-line last:border-0">
                     <td className="px-3 py-2">
                       <div className="font-medium">{product.name}</div>
@@ -361,6 +389,7 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Section>
 

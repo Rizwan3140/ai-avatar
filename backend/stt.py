@@ -203,8 +203,11 @@ def _transcribe(audio: bytes, partial: bool = False, language: str | None = None
     if language and indic is not None and indic.hears(language):
         try:
             return indic.transcribe(audio, language)
-        except indic.Unavailable as error:
-            print(f"  stt: {error} -- trying sarvam")
+        except Exception as error:  # noqa: BLE001
+            # Not only `Unavailable`. Audio PyAV cannot decode, or an ONNX
+            # runtime error, failed the whole turn with a 500 rather than
+            # letting the next provider try.
+            print(f"  stt: indic_asr failed ({type(error).__name__}: {error}) -- trying sarvam")
 
     # Sarvam, hosted, where the weights are not installed; Whisper under that.
     # Final turns only: a partial is a caption nobody sees, and here it would be

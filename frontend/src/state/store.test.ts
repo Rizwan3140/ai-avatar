@@ -137,6 +137,26 @@ test('sleep and wake', () => {
   assert.equal(status(), 'idle')
 })
 
+test('whoever wakes the cabinet does not find the last visitor\'s shelf', () => {
+  bus.emit('PRODUCTS_SHOWN', { products: [product('A001', 'Linen Shirt')] })
+  bus.emit('SESSION_SLEEP')
+  assert.equal(useStore.getState().products.length, 0)
+  assert.equal(useStore.getState().selected, null)
+})
+
+test('a question tapped while muted does not end on "Listening…"', () => {
+  // The mic is released while muted; the pill must not claim otherwise.
+  untilSpeaking()
+  bus.emit('MIC_MUTED', { muted: true })
+  bus.emit('USER_UTTERANCE', { text: 'What is new?' })
+  bus.emit('SPEECH_STARTED')
+  bus.emit('SPEECH_ENDED')
+  assert.equal(status(), 'idle')
+  bus.emit('USER_UTTERANCE', { text: 'hello' })
+  bus.emit('REPLY_ABORTED')
+  assert.equal(status(), 'idle')
+})
+
 test('naming a product keeps it selected when its results arrive', () => {
   // Navigation selects on the utterance; the catalog answers the same utterance a
   // moment later. The second must not undo the first, or the detail view opens

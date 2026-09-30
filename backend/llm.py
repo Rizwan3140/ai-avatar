@@ -612,12 +612,28 @@ def _hosted_then_local(messages: list[dict], temperature: float = GROUNDED_TEMPE
     yield from stream
 
 
+def _one_system(messages: list[dict]) -> list[dict]:
+    """Leading system messages folded into one.
+
+    Some local chat templates refuse a second system message — `sarvam-m`
+    answered every request with a 400, so the offline fallback was mute exactly
+    when it was needed. Stable part first, so the prefix cache still holds.
+    """
+    head = [m["content"] for m in messages if m["role"] == "system"]
+    rest = [m for m in messages if m["role"] != "system"]
+    return ([{"role": "system", "content": NL2.join(head)}] if head else []) + rest
+
+
 def _stream_ollama(messages: list[dict], temperature: float = GROUNDED_TEMPERATURE) -> Iterator[str]:
     payload = {
         "model": MODEL,
-        "messages": messages,
+        "messages": _one_system(messages),
         "stream": True,
         "keep_alive": KEEP_ALIVE,
+        # A reasoning model (sarvam-m) otherwise thinks in the content channel:
+        # 40s on a small card, then "Okay, the user asked..." spoken aloud.
+        # Ignored by models that cannot think.
+        "think": False,
         "options": {
             # Low, not conversational. At 0.7 the model quoted a price that was
             # not in its prompt two times in five — with a single correct product
@@ -658,6 +674,11 @@ def _stream_ollama(messages: list[dict], temperature: float = GROUNDED_TEMPERATU
                 text = message.get("message", {}).get("content", "")
                 if text:
                     yield text
+    except urllib.error.HTTPError as error:
+        # Ollama is up and refused: a missing model, a template error. Saying
+        # "is it running?" here sent the sarvam-m 400 looking in the wrong place.
+        detail = error.read().decode("utf-8", "replace")[:200]
+        raise RuntimeError(f"Ollama refused {MODEL} ({error.code}): {detail}") from error
     except urllib.error.URLError as error:
         raise RuntimeError(
             f"Cannot reach Ollama at {HOST}. Is `ollama serve` running? ({error})"

@@ -218,19 +218,50 @@ _SCHEMA = """
     CREATE VIRTUAL TABLE IF NOT EXISTS products_fts
     USING fts5(org_id UNINDEXED, id UNINDEXED, name, category, description, attributes);
 
+    -- `categories()` runs up to three times per spoken turn; without this it is
+    -- a full-table scan each time.
+    CREATE INDEX IF NOT EXISTS products_org_category ON products(org_id, category);
+
+    -- Linked by rowid, never by `id`/`org_id`. Those are UNINDEXED in FTS5, so
+    -- `WHERE id = old.id` scanned the whole index once per changed row: a sync
+    -- tick replacing 5,000 unchanged products took 11s and a re-import 17s,
+    -- write-locking the database while every visitor's search waited behind it.
     CREATE TRIGGER IF NOT EXISTS products_ai AFTER INSERT ON products BEGIN
-      INSERT INTO products_fts(org_id, id, name, category, description, attributes)
-      VALUES (new.org_id, new.id, new.name, new.category, new.description, new.attributes);
+      INSERT INTO products_fts(rowid, org_id, id, name, category, description, attributes)
+      VALUES (new.rowid, new.org_id, new.id, new.name, new.category, new.description, new.attributes);
     END;
     CREATE TRIGGER IF NOT EXISTS products_ad AFTER DELETE ON products BEGIN
-      DELETE FROM products_fts WHERE id = old.id AND org_id = old.org_id;
+      DELETE FROM products_fts WHERE rowid = old.rowid;
     END;
     CREATE TRIGGER IF NOT EXISTS products_au AFTER UPDATE ON products BEGIN
-      DELETE FROM products_fts WHERE id = old.id AND org_id = old.org_id;
-      INSERT INTO products_fts(org_id, id, name, category, description, attributes)
-      VALUES (new.org_id, new.id, new.name, new.category, new.description, new.attributes);
+      DELETE FROM products_fts WHERE rowid = old.rowid;
+      INSERT INTO products_fts(rowid, org_id, id, name, category, description, attributes)
+      VALUES (new.rowid, new.org_id, new.id, new.name, new.category, new.description, new.attributes);
     END;
 """
+
+
+def _link_fts_by_rowid(conn: sqlite3.Connection) -> None:
+    """Rebuild an index written by the old id-matched triggers.
+
+    `CREATE TRIGGER IF NOT EXISTS` never replaces one, and the old index's
+    rowids are unrelated to the products', so both are rebuilt once from the
+    rows themselves.
+    """
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'products_ad'").fetchone()
+    if row is None or "rowid" in row["sql"]:
+        return
+    conn.executescript("""
+        DROP TRIGGER IF EXISTS products_ai;
+        DROP TRIGGER IF EXISTS products_ad;
+        DROP TRIGGER IF EXISTS products_au;
+        DROP TABLE IF EXISTS products_fts;
+    """)
+    conn.executescript(_SCHEMA)
+    conn.execute("""
+        INSERT INTO products_fts(rowid, org_id, id, name, category, description, attributes)
+        SELECT rowid, org_id, id, name, category, description, attributes FROM products
+    """)
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
@@ -297,11 +328,21 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     )
 
 
+#: Databases already brought up to date by this process. `init()` runs at the top
+#: of every read, and three of them happen per spoken turn.
+_initialised: set[str] = set()
+
+
 def init() -> None:
+    # Re-run if the file went away: tests point DB_PATH at fresh temp files.
+    if str(DB_PATH) in _initialised and DB_PATH.exists():
+        return
     with _connect() as conn:
         _migrate(conn)
+        _link_fts_by_rowid(conn)
         conn.executescript(_SCHEMA)
         _add_facet_columns(conn)
+    _initialised.add(str(DB_PATH))
 
 
 def _row_to_product(row: sqlite3.Row) -> Product:
@@ -808,7 +849,7 @@ def search(
     if query.strip():
         expression = _fts_query(query)
         if expression:
-            joined = "products_fts f JOIN products p ON p.id = f.id AND p.org_id = f.org_id"
+            joined = "products_fts f JOIN products p ON p.rowid = f.rowid"
             clauses.append("products_fts MATCH ?")
             params.append(expression)
             # bm25 favours rarer terms, so a specific model name beats a generic

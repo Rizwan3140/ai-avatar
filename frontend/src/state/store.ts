@@ -129,15 +129,19 @@ bus.on('SESSION_WAKE', () => set({ status: 'idle', subtitle: '' }))
 bus.on('USER_STARTED_SPEAKING', () => set({ status: 'listening', subtitle: '' }))
 bus.on('USER_UTTERANCE', () => set({ status: 'thinking', error: null }))
 
+/** Where a finished reply lands. Muted, a tapped question is still answered,
+ *  and afterwards the pill must not say "Listening…" over a released mic. */
+const afterReply = (): Status => (useStore.getState().muted ? 'idle' : 'listening')
+
 bus.on('SPEECH_STARTED', () => set({ status: 'speaking' }))
 bus.on('SPEECH_SENTENCE', ({ text }) => set({ subtitle: text }))
-bus.on('SPEECH_ENDED', () => set({ status: 'listening', subtitle: '' }))
+bus.on('SPEECH_ENDED', () => set({ status: afterReply(), subtitle: '' }))
 bus.on('SPEECH_CANCELLED', () => set({ subtitle: '' }))
 
 // A reply that produced no speech (empty or aborted) must not strand them in
 // thinking — they would stand there considering forever.
 bus.on('REPLY_ABORTED', () => {
-  if (useStore.getState().status === 'thinking') set({ status: 'listening' })
+  if (useStore.getState().status === 'thinking') set({ status: afterReply() })
 })
 
 bus.on('EMOTION_CHANGED', ({ emotion }) => set({ emotion }))
@@ -169,8 +173,10 @@ bus.on('PRODUCT_SELECTED', ({ product }) => {
 })
 bus.on('PRODUCT_DESELECTED', () => set({ selected: null }))
 bus.on('PRODUCTS_CLEARED', () => set({ products: [], selected: null }))
-// Ending the conversation returns the screen to them alone.
+// Ending the conversation returns the screen to them alone. So does sleep: the
+// room emptied, and whoever wakes it must not find the last visitor's shelf.
 bus.on('SESSION_ENDED', () => set({ products: [], selected: null }))
+bus.on('SESSION_SLEEP', () => set({ products: [], selected: null }))
 
 export function setIdentity(avatarId: string, name: string, greeting: string) {
   set({ avatarId, name, greeting })

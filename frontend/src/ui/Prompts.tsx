@@ -61,10 +61,11 @@ export function Prompts() {
               // A prompt is a way into the same conversation, not a shortcut
               // around it. Start the session first so the voice engine and
               // history are ready before the utterance reaches the model.
-              if (status === 'idle') {
-                if (muted) bus.emit('MIC_MUTED', { muted: false })
-                else bus.emit('SESSION_STARTED')
-              }
+              // Muted, the session is already open and the microphone stays
+              // off: the line below promises a tap works without it, and
+              // reopening the mic behind that promise is the one thing a mute
+              // a stranger can verify must never do.
+              if (status === 'idle' && !muted) bus.emit('SESSION_STARTED')
               bus.emit('USER_UTTERANCE', { text: say })
             }}
             // Arriving in sequence, like the products do. Four things appearing

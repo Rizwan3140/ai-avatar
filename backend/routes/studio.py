@@ -13,7 +13,7 @@ can name is not a tenant id — it is a parameter for reading someone else's dat
 from dataclasses import asdict, replace
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon, tts
 from backend.accounts import AuthError, Principal
@@ -706,7 +706,9 @@ def delete_knowledge(source: str, caller: Principal = Depends(editor)):
 
 class CrawlRequest(BaseModel):
     url: str
-    limit: int = 40
+    # Bounded: pages are fetched half a second apart on a server thread, so an
+    # unbounded limit was a crawl that ran for hours.
+    limit: int = Field(40, ge=1, le=500)
 
 
 @router.post("/studio/products/crawl")
