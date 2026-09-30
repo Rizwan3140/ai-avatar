@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { splitSentences, isEcho } from './logic.ts'
+import { splitSentences, isEcho, stripEcho } from './logic.ts'
 
 test('splits a complete multi-sentence chunk', () => {
   const { sentences, remainder } = splitSentences('Hello there. How can I help? ')
@@ -106,4 +106,21 @@ test('isEcho hears Indian scripts instead of discarding them as silence', () => 
   // And a Telugu echo of their own Telugu sentence is still caught.
   const recent = ['స్వాగతం, దయచేసి మీరు చూసే వస్తువులను పరిశీలించండి.']
   assert.equal(isEcho('స్వాగతం దయచేసి మీరు చూసే వస్తువులను', recent), true)
+})
+
+test('stripEcho keeps the visitor\'s words when their last sentence is glued on', () => {
+  // A real transcript: their refusal came back through the microphone joined to
+  // the visitor's next request, and the whole thing was searched as one question.
+  const recent = ["I'm afraid we don't carry Curtis."]
+  assert.equal(
+    stripEcho("I'm afraid we don't carry Curtis. Show me black T-shirt.", recent),
+    'Show me black T-shirt.',
+  )
+  // Every sentence theirs: nothing is left to answer.
+  assert.equal(stripEcho("I'm afraid we don't carry Curtis. I'm afraid we don't carry Curtis.", recent), '')
+  // One sentence is left to isEcho, and a short one is never stripped.
+  assert.equal(stripEcho('Show me kurtas.', recent), 'Show me kurtas.')
+  assert.equal(stripEcho('Curtis. Show me kurtas.', recent), 'Curtis. Show me kurtas.')
+  // Nothing recent, nothing removed.
+  assert.equal(stripEcho('Hello there. Show me sarees.', []), 'Hello there. Show me sarees.')
 })

@@ -120,6 +120,28 @@ export function isEcho(transcript: string, spoken: string | string[]): boolean {
   return words.length <= 3 ? overlap === 1 : overlap >= 0.7
 }
 
+/**
+ * The turn with any of their own recent sentences taken out.
+ *
+ * A whole-turn echo is caught by `isEcho`. This is the other shape, from the
+ * event log: the tail of their last sentence and the visitor's new request in
+ * one transcript — "I'm afraid we don't carry Curtis. Show me black T-shirt." —
+ * which as a whole overlaps too little to be an echo, so it was searched as
+ * one question and the refusal's own words went looking for products.
+ *
+ * Only sentences of four words or more are removed: a short one like "Yes."
+ * overlaps anything, and the whole-turn check still covers a short echo.
+ */
+export function stripEcho(transcript: string, spoken: string[]): string {
+  const { sentences, remainder } = splitSentences(transcript + ' ')
+  const parts = [...sentences, remainder.trim()].filter(Boolean)
+  if (parts.length < 2) return transcript
+  const kept = parts.filter(
+    (part) => normalize(part).split(' ').length < 4 || !isEcho(part, spoken),
+  )
+  return kept.join(' ')
+}
+
 // Any script, not just a-z: `[^a-z0-9]` turned a Telugu transcript into "",
 // which reads as echo, so every word a Telugu avatar heard was discarded here.
 // \p{M} keeps vowel signs and the virama, or "నమస్కారం" splits into fragments.

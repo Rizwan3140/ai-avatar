@@ -23,16 +23,16 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 102 checks
-./.venv/bin/python -m backend.test_catalog  # 123 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 257 — accounts, tenancy, knowledge, try-on
+(cd frontend && npm test)                   # 103 checks
+./.venv/bin/python -m backend.test_catalog  # 135 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 278 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-609 checks total. **Never run the Python suites through `unittest`** — they are
+643 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -333,6 +333,17 @@ company's prices out loud.
   dialog — unpickable, with no error anywhere. Client-side filtering makes a
   refusal invisible; the server is the only place that can say why. Pickers take
   `video/*` and `save_media` converts what a browser cannot play.
+- **"We don't carry those" was mostly a mishearing.** 400 of 780 logged
+  questions matched nothing, and most were shelves this shop stocks: "Curtis",
+  "saddies", "quarter sets", "series". A turn with real words and no match now
+  asks the model which shelf was meant (`llm.closest_shelf`, a listed shelf or
+  nothing; with Groq answering it never falls back to the slow local model) and
+  tells the avatar it is showing the closest; garbled
+  words get "say that again" instead of a refusal. Measured on hard cases the
+  model recovers most and occasionally picks a neighbouring shelf; questions
+  about the product on screen came back NONE every run. Its answers vary run to
+  run even at temperature 0, so compare prompt wordings on more than 14 cases
+  before believing one beats another.
 - **An empty result must not empty the screen.** A turn matching nothing emitted
   `PRODUCTS_CLEARED`, so every sentence that was not itself a search swept the
   merchandise away — a visitor asking "what is it made of" watched the saree

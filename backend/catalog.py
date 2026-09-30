@@ -561,6 +561,18 @@ CATEGORY_ALIASES = {
     # The word visitors actually used, seven times in one test session, each
     # matching nothing.
     "menswear": "Men's Kurtas",
+    # How Whisper writes these shelves, from the event log — each one a visitor
+    # asking for something we stock and being told we do not carry it.
+    "curtis": "Kurtas",
+    "curtas": "Kurtas",
+    "courtes": "Kurtas",
+    "saddies": "Sarees",
+    "sadies": "Sarees",
+    "jewelry": "Jewellery Sets",
+    "jewelries": "Jewellery Sets",
+    "jewellery": "Jewellery Sets",
+    "handbag": "Ethnic Bags",
+    "handbags": "Ethnic Bags",
 }
 
 #: How close a word must be to a category name before we treat it as that
@@ -726,6 +738,12 @@ def styles(org_id: str = DEFAULT_ORG) -> list[str]:
 #: rail, and each was searching: "made" put a shawl and two shararas in front of
 #: somebody asking what their saree was woven from.
 #:
+#: The last two lines are chatter from the event log that was pulling products
+#: up — "Hello, good morning", "Nice to meet you", "Listen", "One more" — and
+#: "Does this come in other colours?", which swapped the saree being discussed
+#: for three co-ords whose copy said "comes in two colours". A named colour is
+#: still a filter: `parse_facets` lifts "red" before these words are read.
+#:
 #: The group before it is the shop's own vocabulary for itself — "category", "range",
 #: "clothing", "wear". They are never a thing on a rail, and `ungrounded_claim`
 #: reads this list too: without them "what categories do you have" was answered
@@ -747,6 +765,8 @@ selections stuff type types wear
 anything anyone best better cheap cheaper cheapest cost costs everything
 expensive first fifth fourth last less made next previous price priced prices
 second third
+good meet listen more welcome well yeah okay right sure maybe
+come comes colour colours color colors
 """.split())
 
 

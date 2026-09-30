@@ -108,6 +108,14 @@ _CLAIMS_STOCK = re.compile(
     re.I,
 )
 
+#: Pointing at the screen. Checked only when nothing is on it, where it is
+#: false whatever it names: "The black shirts are right here" was said, by the
+#: local fallback model, to a visitor looking at an empty panel.
+#: "is/are" in front, so "I'm right here if you need me" is still a greeting.
+_POINTS_AT_SCREEN = re.compile(
+    r"\b(are|is)\s+(right\s+here|on\s+(the\s+)?screen)\b", re.I
+)
+
 #: What they say instead. Fixed words, because the whole point is that the model
 #: does not get a say in this one.
 REFUSAL = "I'm afraid we don't carry those."
@@ -170,6 +178,64 @@ def search_text(said: str) -> str:
         print(f"  llm: could not translate for search -- searching as said ({error})")
         return said
     return english.strip() or said
+
+
+#: No example shelf, on purpose: a sample in a prompt becomes the answer.
+CLOSEST = (
+    # `{kind}` is the org's vertical. Naming it measurably matters: "clothing"
+    # heard "series" as sarees, and a bare "showroom" lost two of 14 hard cases.
+    "A shopper in a {kind}showroom said the words below. Speech recognition "
+    "in a busy showroom often mishears shop words, so read them for what the "
+    "shopper most likely meant, matching by how the words sound rather than how "
+    "they are spelled. If they were asking to see or buy something, "
+    "reply with the one shelf name from the list that is closest to what they "
+    "wanted, copied exactly as written. If they were not asking to see a kind "
+    "of product - a greeting, small talk, thanks, a question about the shop, a "
+    "question about a product they are already looking at, or noise - or "
+    "nothing on the list is close, reply NONE. Words with no request to see "
+    "something and no word that sounds like a shelf are noise. If you are not "
+    "confident which shelf they meant, reply NONE. Reply with the "
+    "shelf name or NONE "
+    "and nothing else.\n\nShelves:\n"
+)
+
+
+def closest_shelf(said: str, shelves: list[str], kind: str = "") -> str:
+    """The shelf a visitor meant when the catalog matched none of their words.
+
+    Half of all questions in the event log matched nothing, and the avatar
+    answered each one "I'm afraid we don't carry those" — to "Show me some
+    Curtis", "Show me the saddies", "Show me some quarter sets", every one a
+    shelf this shop stocks, misheard. No word list reaches every mishearing;
+    the shelf list is short and the model knows what a showroom sells.
+
+    Only ever a shelf from `shelves`: anything else it says is discarded, so
+    this can narrow to real stock and never invent any. With Groq answering,
+    Groq only — no local fallback, because offline the local model takes
+    seconds a call and a turn that found nothing should not also wait for
+    that. Never fatal: "" means nothing to show.
+    """
+    if not shelves or not said.strip():
+        return ""
+    messages = [
+        {
+            "role": "system",
+            # `replace`, not `format`: a vertical is typed by a customer.
+            "content": CLOSEST.replace("{kind}", f"{kind.strip()} " if kind.strip() else "")
+            + "\n".join(shelves),
+        },
+        {"role": "user", "content": said},
+    ]
+    try:
+        if config.llm_provider() == "groq":
+            answer = "".join(_stream_groq(messages, 0.0))
+        else:
+            answer = "".join(_stream_ollama(messages, 0.0))
+    except (RuntimeError, config.ProviderUnreachable) as error:
+        print(f"  llm: could not find a closest shelf ({error})")
+        return ""
+    known = {s.lower(): s for s in shelves}
+    return known.get(answer.strip().strip(".\"'").lower(), "")
 
 
 def _language_rule(language: str) -> str:
@@ -245,7 +311,11 @@ def ungrounded_claim(
     Indian-language avatar claiming stock it does not have, add that language's
     claim phrases here — not a translation step in front of every reply.
     """
-    if products or not _CLAIMS_STOCK.search(reply):
+    if products:
+        return False
+    if _POINTS_AT_SCREEN.search(reply):
+        return True
+    if not _CLAIMS_STOCK.search(reply):
         return False
     lowered = reply.lower()
     shelves = [c.lower() for c in (categories or []) if c.strip()]
@@ -297,11 +367,27 @@ def _shop_sells(categories: list[str]) -> str:
     )
 
 
+def _closest_note(closest: str) -> str:
+    """Said when the products on screen are the nearest shelf to the visitor's
+    words rather than a match for them — so the avatar says "here are our
+    kurtas" rather than claiming the thing they named."""
+    if not closest:
+        return ""
+    return (
+        "The visitor's words did not match the catalog directly - speech "
+        f"recognition may have misheard them. You are showing {closest} as the "
+        "closest thing to what they said. Say in a few words what you are "
+        "showing. If they clearly asked for something else, say we do not have "
+        "exactly that.\n\n"
+    )
+
+
 def _turn_prompt(
     products: list[Product],
     on_screen: str = '',
     knowledge: str = '',
     categories: list[str] | None = None,
+    closest: str = '',
 ) -> str:
     """Catalog first, model second.
 
@@ -384,11 +470,18 @@ def _turn_prompt(
             "small talk, a question about you or about the conversation. Reply "
             "naturally in one short sentence. Do NOT tell them we do not carry "
             "something: they did not ask for a product.\n\n"
+            # Most of what matched nothing in the event log was not a request
+            # for something we lack — it was speech recognition mishearing a
+            # busy room, and "we don't carry those" answered words nobody said.
+            "(c) Their words do not make sense as a sentence, or look garbled - "
+            "speech recognition in a busy showroom often mishears. Do NOT say "
+            "we do not carry something. Ask them, in one short sentence, to say "
+            "that again.\n\n"
             # The case that was missing, and it is the first question a person
             # standing in front of a shop window asks. It is neither (a) nor (b),
             # so it fell into (a) and a showroom with twenty-nine categories
             # answered "I'm afraid we don't carry those" when asked what it sold.
-            "(c) They asked what this shop sells, or what you have, or what is "
+            "(d) They asked what this shop sells, or what you have, or what is "
             "here. Name a few of the categories listed below in one short "
             "sentence. Do not list them all. Do not invent one that is not "
             "listed."
@@ -412,7 +505,7 @@ def _turn_prompt(
         else ""
     )
 
-    return grounding + NL2 + company + screen
+    return _closest_note(closest if products else "") + grounding + NL2 + company + screen
 
 
 def _stable_prompt(persona: str, language: str = "") -> str:
@@ -550,6 +643,7 @@ def stream_reply(
     knowledge: str = "",
     categories: list[str] | None = None,
     language: str = "",
+    closest: str = "",
 ) -> Iterator[str]:
     # Warm when there is nothing to get wrong, cold the moment there is.
     temperature = GROUNDED_TEMPERATURE if (products or knowledge) else CHAT_TEMPERATURE
@@ -563,7 +657,7 @@ def stream_reply(
     # which is the signature of prompt evaluation rather than generation.
     messages = [
         {"role": "system", "content": _stable_prompt(persona, language)},
-        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge, categories)},
+        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge, categories, closest)},
         *history,
     ]
 

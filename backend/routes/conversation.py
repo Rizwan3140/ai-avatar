@@ -9,6 +9,7 @@ which is the failure a showroom actually experiences.
 """
 
 import hashlib
+import re
 import urllib.parse
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -16,7 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend import analytics, catalog, config, documents, llm, memory, stt
+from backend import accounts, analytics, catalog, config, documents, llm, memory, stt
 from backend.routes.platform import avatar_or_404
 
 router = APIRouter(prefix="/api", tags=["conversation"])
@@ -64,6 +65,13 @@ def _key(request: Request, session: str) -> str:
     """
     client = request.client.host if request.client else "unknown"
     return hashlib.sha256(f"{client}|{session}".encode()).hexdigest()[:32]
+
+
+def _names(said: str, shelf: str) -> bool:
+    """Whether the visitor said the shelf's own name ("sarees", "saree", "men's
+    kurta"), rather than something that only resolved to it."""
+    words = {llm._stem(w) for w in re.findall(r"[a-z]+", said.lower())}
+    return any(llm._stem(w) in words for w in re.findall(r"[a-z]+", shelf.lower()) if len(w) > 2)
 
 
 def warm() -> None:
@@ -115,6 +123,28 @@ def chat(req: ChatRequest, request: Request):
     # don't carry those".
     shelves = catalog.categories(org_id)
 
+    # Words were said and none of them matched. Half the event log is this, and
+    # most of it was a shelf we stock, misheard — "Curtis", "saddies", "quarter
+    # sets" — answered "I'm afraid we don't carry those". Ask which shelf they
+    # meant; show it, and tell the model it is the closest, not a match.
+    # Skipped when nothing but stopwords was said: "hello", "thank you".
+    closest = ""
+    if not products and not passages and catalog._fts_terms(query):
+        org = accounts.get_org(org_id) or {}
+        closest = llm.closest_shelf(searched, shelves, org.get("vertical", ""))
+        if closest:
+            products = catalog.search(
+                "", closest, max_price, org_id=org_id, color=color, style=style
+            ) or catalog.search("", closest, org_id=org_id)
+    elif products:
+        # Matched through an alias or a fuzzy match: "Show me some Curtis" put
+        # the kurtas up, and the model — never told what "Curtis" was — said it
+        # only had this shop's own brand. Name the shelf when its words were not
+        # the ones said.
+        shelf = catalog.parse_category(query, org_id)[1]
+        if shelf and not _names(searched, shelf):
+            closest = shelf
+
     # What was asked and what it matched. A question that matched nothing is the
     # most useful line in the whole log — it is a customer wanting something the
     # company does not stock.
@@ -126,6 +156,7 @@ def chat(req: ChatRequest, request: Request):
         text=req.message,
         results=len(products),
         passages=len(passages),
+        closest=closest,
     )
     for product in products:
         analytics.record("product_shown", product=product.id, name=product.name, org=org_id)
@@ -153,6 +184,7 @@ def chat(req: ChatRequest, request: Request):
             documents.as_context(passages),
             shelves,
             avatar.language,
+            closest,
         ):
             reply += chunk
             if not withhold:

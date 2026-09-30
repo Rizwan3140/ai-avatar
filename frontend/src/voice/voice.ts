@@ -1,5 +1,5 @@
 import { bus } from '../bus/bus.ts'
-import { isEcho } from '../logic.ts'
+import { isEcho, stripEcho } from '../logic.ts'
 import * as recognition from './recognition.ts'
 import * as tts from './tts.ts'
 
@@ -91,8 +91,12 @@ function stopEverything() {
  * Voice activity detection decides where a turn ends, so a transcript arriving
  * here is already a whole thought. There is nothing left to buffer.
  */
-function onFinal(text: string) {
+function onFinal(heard: string) {
   if (!active) return
+  // Their last sentence can arrive glued to the visitor's next one; answer only
+  // the visitor's part. Empty when every sentence was theirs.
+  const text = stripEcho(heard, tts.recentlySpoken())
+  if (!text) return bus.emit('USER_DISCARDED', { text: heard, reason: 'echo' })
   // Their own voice coming back through the microphone is not a question.
   //
   // No `isSpeaking()` guard. That guard is why a cabinet spent four minutes

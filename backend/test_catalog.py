@@ -414,7 +414,23 @@ def main() -> int:
     # Real transcripts from the cabinet, 29 September: all matched nothing.
     for heard in ("Show me some menswear.", "Show me some men's curtes.", "Men's, curtas?"):
         check(f"heard: {heard}", catalog.parse_category(heard)[1], "Men's Kurtas")
+    # From the event log, 30 September: shelves we stock, heard as other words,
+    # each answered "we don't carry those".
+    for heard, shelf in (("Show me some Curtis.", "Kurtas"), ("Show me pink curtas.", "Kurtas"),
+                         ("Show me the saddies.", "Sarees"), ("show me some sadies.", "Sarees")):
+        check(f"heard: {heard}", catalog.parse_category(heard)[1], shelf)
     catalog.categories = _cats
+
+    # Chatter that put products on screen: "morning", "meet", "listen" and
+    # "more" each matched somebody's product copy.
+    for said in ("Hello, good morning.", "Nice to meet you", "Listen.", "One more.", "Okay, well, yeah.",
+                 "Does this come in other colours?"):
+        check(f"not a search: {said}", catalog._fts_terms(said), [])
+    # And "maybe" was the one word stopping a colour from browsing on its own.
+    check("something in black is a colour, not a search",
+          catalog.parse_facets("Maybe something in black.")[1:], ("Black", ""))
+    check("with nothing left to search for",
+          catalog._fts_terms(catalog.parse_facets("Maybe something in black.")[0]), [])
 
     # difflib covers what the alias table does not: plurals, typos, and the
     # transcription errors a microphone in a mall will produce.

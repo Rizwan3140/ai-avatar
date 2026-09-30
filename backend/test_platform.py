@@ -622,8 +622,15 @@ for said in (
     "We do carry a range of washing machines, including a top-of-the-line model.",
     "Yes, we have washing machines from Euroline for twenty-five hundred dollars.",
     "I can show you our range of home textiles if you'd like.",
+    # Said by the local fallback model to an empty panel, 30 September.
+    "Certainly! The black shirts are right here - please take a look.",
+    "The sarees are on the screen in front of you.",
 ):
     check(f"caught: {said[:44]}...", llm.ungrounded_claim(said, []))
+check("pointing at the screen is fine when something is on it",
+      not llm.ungrounded_claim("The kurtas are right here.", [catalog.Product(id="k", name="Kurta")]))
+check("and being right here is a greeting, not a claim",
+      not llm.ungrounded_claim("I'm right here if you need anything.", []))
 
 check("a real refusal passes", not llm.ungrounded_claim(llm.REFUSAL, []))
 check("so does a greeting", not llm.ungrounded_claim("Welcome to our showroom.", []))
@@ -1135,6 +1142,66 @@ check("the local model is sent one system message",
       [m["role"] for m in _folded] == ["system", "user"])
 check("stable part first, so the prefix cache holds",
       _folded[0]["content"].startswith("stable") and _folded[0]["content"].endswith("turn"))
+
+print("\nclosest shelf")
+# Half the logged questions matched nothing and were answered "we don't carry
+# those" — most of them a shelf we stock, misheard. The model names a shelf; the
+# rules below are what keep that from ever showing something we do not sell.
+_real = llm._stream_groq, llm._stream_ollama
+_sent: list = []
+
+
+def _answers(text):
+    def fake(messages, temperature=0.2):
+        _sent.append(messages)
+        if isinstance(text, Exception):
+            raise text
+        yield text
+    llm._stream_groq = llm._stream_ollama = fake
+
+
+_shelves = ["Sarees", "Kurta Sets", "Men's Kurtas"]
+_answers("Kurta Sets")
+check("a listed shelf comes back", llm.closest_shelf("show me some quarter sets", _shelves) == "Kurta Sets")
+_answers(' "kurta sets." ')
+check("in the catalog's own spelling", llm.closest_shelf("quarter sets", _shelves) == "Kurta Sets")
+_answers("Washing Machines")
+check("a shelf we do not have is discarded", llm.closest_shelf("washing machines", _shelves) == "")
+_answers("NONE")
+check("NONE shows nothing", llm.closest_shelf("hello there", _shelves) == "")
+_answers(config.ProviderUnreachable("wifi"))
+check("an unreachable model shows nothing", llm.closest_shelf("saddies", _shelves) == "")
+_answers(RuntimeError("bad key"))
+check("and so does a refused one", llm.closest_shelf("saddies", _shelves) == "")
+_sent.clear()
+check("no shelves, no call", llm.closest_shelf("saddies", []) == "" and not _sent)
+_answers("Sarees")
+llm.closest_shelf("black series", _shelves, "clothing {x}")
+check("the shop's vertical is named, literally",
+      "clothing {x} showroom" in _sent[-1][0]["content"] and "{kind}" not in _sent[-1][0]["content"])
+llm.closest_shelf("black series", _shelves, "")
+check("and left out when there is none", "a showroom said" in _sent[-1][0]["content"])
+llm._stream_groq, llm._stream_ollama = _real
+
+# The avatar is told the shelf is the closest, so it says "here are our kurtas"
+# rather than claiming the thing the visitor named.
+_one = [catalog.Product(id="k", name="Kurta", category="Kurtas")]
+check("a closest shelf is said to be the closest",
+      "closest thing to what they said" in llm._turn_prompt(_one, closest="Kurtas"))
+check("and not when the words matched",
+      "closest thing" not in llm._turn_prompt(_one))
+check("a turn with nothing to show can ask them to say it again",
+      "say that again" in llm._turn_prompt([]))
+
+# The same note when an alias matched: "Curtis" put the kurtas up, and the model,
+# never told what Curtis was, said it only had this shop's own brand.
+from backend.routes import conversation as _conv  # noqa: E402
+
+check("a shelf named outright needs no note", _conv._names("show me the sarees", "Sarees"))
+check("in the singular too", _conv._names("a red saree please", "Sarees"))
+check("men's kurtas, said as mens", _conv._names("show mens kurta", "Men's Kurtas"))
+check("a misheard shelf gets the note", not _conv._names("Show me some Curtis.", "Kurtas"))
+check("so does a sari", not _conv._names("show me a sari", "Sarees"))
 
 from backend import indic_asr as _indic  # noqa: E402
 
