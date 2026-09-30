@@ -182,3 +182,18 @@ test('a selection that is no longer in the results is dropped', () => {
   // One result still selects itself.
   assert.equal(useStore.getState().selected?.id, 'P002')
 })
+
+test('the try-on screen mutes mid-reply without silencing the reply', () => {
+  // "Can I try it on?" opens the try-on screen while they are still answering.
+  // TryOn mutes on open: the reply is still spoken, then they wait at idle
+  // rather than claiming to listen, and closing the screen listens again.
+  untilSpeaking()
+  bus.emit('MIC_MUTED', { muted: true })
+  bus.emit('SPEECH_STARTED')
+  assert.equal(status(), 'speaking')
+  bus.emit('SPEECH_ENDED')
+  assert.equal(status(), 'idle')
+  bus.emit('MIC_MUTED', { muted: false })
+  assert.equal(status(), 'listening')
+  assert.equal(useStore.getState().muted, false)
+})

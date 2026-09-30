@@ -100,6 +100,25 @@ export function TryOn({ product }: { product: Product }) {
     [product.id, viaExtension],
   )
 
+  // The microphone is off while this is open. The visitor is posing, turning,
+  // talking to whoever came with them — none of it is a question, and the
+  // cabinet answering it over the try-on is the avatar talking to itself.
+  // `MIC_MUTED` releases the mic outright, so the recording light goes out too.
+  //
+  // Only a live conversation is muted, and only a mute still standing is undone:
+  // reopening a mic nobody had turned on, or one the visitor muted themselves,
+  // would be the cabinet listening when it was told not to. Ending the session
+  // or sleeping resets `muted`, so neither is undone either.
+  useEffect(() => {
+    if (!open) return
+    const { status, muted } = useStore.getState()
+    if (muted || !['listening', 'thinking', 'speaking'].includes(status)) return
+    bus.emit('MIC_MUTED', { muted: true })
+    return () => {
+      if (useStore.getState().muted) bus.emit('MIC_MUTED', { muted: false })
+    }
+  }, [open])
+
   function begin() {
     setStage(viaExtension ? 'extension' : 'consent')
     setOpen(true)

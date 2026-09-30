@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 103 checks
+(cd frontend && npm test)                   # 104 checks
 ./.venv/bin/python -m backend.test_catalog  # 135 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 278 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
@@ -32,7 +32,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-643 checks total. **Never run the Python suites through `unittest`** — they are
+644 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
