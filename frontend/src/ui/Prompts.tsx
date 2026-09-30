@@ -21,11 +21,15 @@ import { useStore } from '../state/store.ts'
  * interface interrupting them.
  */
 
+// The three shelves visitors head for. "Help me choose", "Try it on" and
+// "Opening hours" were rarely tapped. Each `say` is checked against the real
+// catalog: "womenswear" as one word matched nothing, "women's wear" finds eight
+// across the shelves.
 const PROMPTS = [
   { label: 'What is new?', say: 'What is new?' },
-  { label: 'Help me choose', say: 'Help me choose something.' },
-  { label: 'Try it on', say: 'Can I try something on?' },
-  { label: 'Opening hours', say: 'What are your opening hours?' },
+  { label: "Men's wear", say: 'Show me menswear.' },
+  { label: "Women's wear", say: "Show me women's wear." },
+  { label: 'Jewellery', say: 'Show me jewellery.' },
 ]
 
 export function Prompts() {
