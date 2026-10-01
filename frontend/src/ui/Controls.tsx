@@ -32,7 +32,8 @@ export function Controls({ above = false }: { above?: boolean }) {
   if (status === 'sleeping') return null
   // One pair, two homes. With products up it rides just above their card —
   // `Showcase` renders that one, anchored to the card so it follows the list
-  // and the taller detail view alike. With none, the corner.
+  // and the taller detail view alike. With none, where it began: the right
+  // edge at middle height.
   if (showcase !== above) return null
   // Muting parks them at idle, so `status` alone would report the conversation
   // over and disable the very button needed to switch the microphone back on.
@@ -45,14 +46,21 @@ export function Controls({ above = false }: { above?: boolean }) {
       // covered its cards — "See it on you" included — or sat a long reach
       // below the thing the visitor was looking at.
       //
-      // The corner, with nothing on screen: `z-20` keeps mute and
-      // end-conversation above anything painted after them.
+      // With nothing on screen: the right edge, middle height, stacked — the
+      // original position, and free again because the card that used to sit
+      // there is exactly what is absent. The bottom corner was only ever a way
+      // out from under that card. The -50% that centres it lives in the inline
+      // transform, alongside the burn-in shift, since both write `transform`.
       className={
         above
           ? 'absolute right-0 bottom-full z-20 flex flex-row gap-[clamp(16px,1.4vh,54px)] pb-[clamp(10px,1.2vh,44px)] transition-transform duration-1000'
-          : 'absolute right-safe bottom-safe z-20 flex flex-col gap-[clamp(16px,1.4vh,54px)] p-[clamp(8px,1vh,36px)] transition-transform duration-1000'
+          : 'absolute top-1/2 right-safe z-20 flex flex-col gap-[clamp(16px,1.4vh,54px)] transition-transform duration-1000'
       }
-      style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
+      style={{
+        transform: above
+          ? `translate(${shift.x}px, ${shift.y}px)`
+          : `translate(${shift.x}px, calc(-50% + ${shift.y}px))`,
+      }}
     >
       <ControlButton
         label={
