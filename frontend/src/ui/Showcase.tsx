@@ -3,6 +3,7 @@ import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
 import { scope } from '../provider/http.ts'
 import { useStore } from '../state/store.ts'
+import { Controls } from './Controls.tsx'
 import { TryOn } from './TryOn.tsx'
 
 /**
@@ -33,11 +34,17 @@ export function Showcase() {
       // beside them instead of across them.
       className="lay-down pointer-events-none absolute inset-0 z-10 flex flex-col justify-center px-[clamp(28px,3vh,110px)] pt-(--shelf-offset) [&>*]:pointer-events-auto landscape:left-[64%] landscape:pl-0 landscape:pt-0"
     >
-      {selected ? (
-        <Detail product={selected} siblings={products.length} />
-      ) : (
-        <Rail products={products} />
-      )}
+      {/* The card and, riding on its top-right corner, the mic and stop
+          buttons. `relative` is what they anchor to, so they follow the card
+          whether it is the slim list or the taller single product. */}
+      <div className="relative">
+        <Controls above />
+        {selected ? (
+          <Detail product={selected} siblings={products.length} />
+        ) : (
+          <Rail products={products} />
+        )}
+      </div>
     </aside>
   )
 }

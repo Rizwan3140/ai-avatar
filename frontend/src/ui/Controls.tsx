@@ -18,9 +18,10 @@ import { useBurnInShift } from './useBurnInShift.ts'
  * page has no edge, so the control and its icon both disappear. Filling them is
  * the only way the affordance survives the background.
  */
-export function Controls() {
+export function Controls({ above = false }: { above?: boolean }) {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
+  const showcase = useStore((s) => s.products.length > 0)
   const shift = useBurnInShift()
 
   const live = status !== 'booting' && status !== 'initializing' && status !== 'sleeping'
@@ -29,20 +30,28 @@ export function Controls() {
   // floating over it all night are interface with no job: they cannot be used,
   // because any touch wakes the cabinet before it reaches them.
   if (status === 'sleeping') return null
+  // One pair, two homes. With products up it rides just above their card —
+  // `Showcase` renders that one, anchored to the card so it follows the list
+  // and the taller detail view alike. With none, the corner.
+  if (showcase !== above) return null
   // Muting parks them at idle, so `status` alone would report the conversation
   // over and disable the very button needed to switch the microphone back on.
   const inConversation = live && (status !== 'idle' || muted)
 
   return (
     <div
-      // `z-20`, not `z-10`: a product detail view with both a photo gallery and
-      // a video stacks tall enough to reach the vertical centre of the panel,
-      // and `Showcase` paints after this in the DOM. Mute and end-conversation
-      // must never become unreachable behind a translucent product panel.
-      // Bottom-right corner. Centred on the right edge they sat at the product
-      // shelf's height, now that the shelf is at eye level, and covered the
-      // top-right of its cards — "See it on you" included.
-      className="absolute right-safe bottom-safe z-20 flex flex-col gap-[clamp(16px,1.4vh,54px)] p-[clamp(8px,1vh,36px)] transition-transform duration-1000"
+      // Above the card: a row at its top-right corner, off the card entirely.
+      // Centred on the right edge, and later in the bottom corner, they either
+      // covered its cards — "See it on you" included — or sat a long reach
+      // below the thing the visitor was looking at.
+      //
+      // The corner, with nothing on screen: `z-20` keeps mute and
+      // end-conversation above anything painted after them.
+      className={
+        above
+          ? 'absolute right-0 bottom-full z-20 flex flex-row gap-[clamp(16px,1.4vh,54px)] pb-[clamp(10px,1.2vh,44px)] transition-transform duration-1000'
+          : 'absolute right-safe bottom-safe z-20 flex flex-col gap-[clamp(16px,1.4vh,54px)] p-[clamp(8px,1vh,36px)] transition-transform duration-1000'
+      }
       style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
     >
       <ControlButton
