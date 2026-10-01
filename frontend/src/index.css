@@ -95,6 +95,16 @@ body {
   overscroll-behavior: none;
 }
 
+/* No pointer on the avatar's page. It is a touch panel with a person standing
+   inside it, and an arrow parked on their face says "this is a computer".
+   Scoped by `:has` to the page holding the kiosk, so the Studio keeps its
+   cursor; `*` and `!important` because buttons, the draggable shelf and the
+   Anywear window (injected on `body`, outside `.kiosk-root`) each set one. */
+html:has(.kiosk-root),
+html:has(.kiosk-root) * {
+  cursor: none !important;
+}
+
 /* The Anywear try-on extension injects its pill and window into this page at the
    bottom left, where a visitor at a tall cabinet has to bend to reach it. It
    places them with inline style and no !important, so this wins, on this page
