@@ -147,7 +147,7 @@ DEPARTMENT_LABELS = {
 
 #: Bumped when the rules below change, so catalogs derived under the old ones
 #: are derived again. See `_add_facet_columns`.
-DEPARTMENT_RULES = 3
+DEPARTMENT_RULES = 4
 
 #: Shelf names that are jewellery, and shelf names that are accessories.
 #: Matched against the shelf's own words: a dress tagged "with belt" is still a
@@ -413,13 +413,24 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     # rule would keep them there — `user_version` is the rules it was derived
     # under, and an older one derives the lot again.
     stale = conn.execute("PRAGMA user_version").fetchone()[0] < DEPARTMENT_RULES
+    conn.execute(f"PRAGMA user_version = {DEPARTMENT_RULES}")
+    _categorise(conn, everything=stale)
+
+
+def _categorise(conn: sqlite3.Connection, everything: bool) -> int:
+    """File products already on disk: shelf, colour, occasion, department.
+
+    The same four steps a product goes through when it is written — `shelved`,
+    `facets_of`, `department_of`, `_settle_departments` — run over rows that are
+    already stored. `everything` is every row; otherwise only the rows that are
+    missing a derived value. Returns how many rows it went over.
+    """
     rows = conn.execute(
         "SELECT org_id, id, name, category, description, attributes FROM products"
-        + ("" if stale else " WHERE color IS NULL OR style IS NULL OR department IS NULL")
+        + ("" if everything else " WHERE color IS NULL OR style IS NULL OR department IS NULL")
     ).fetchall()
-    conn.execute(f"PRAGMA user_version = {DEPARTMENT_RULES}")
     if not rows:
-        return
+        return 0
     # Each org's own shelves, for the rows that have none. See `shelved`.
     shelves_of: dict[str, list[str]] = {}
     for found in conn.execute(
@@ -446,6 +457,23 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
         "WHERE org_id = ? AND id = ?",
         updates,
     )
+    # And then each shelf answers for its unlabelled pieces. After the loop
+    # above, which has just put every row back to its own label.
+    for org in {row["org_id"] for row in rows}:
+        _settle_departments(conn, org)
+    return len(rows)
+
+
+def categorise() -> int:
+    """File every product in the catalog again, by the rules as they stand now.
+
+    Nothing has to call this for new products: every write files what it
+    writes. It is for looking at a catalog already on disk — `python -m
+    backend.categorize` runs it and says what it found.
+    """
+    init()
+    with _connect() as conn:
+        return _categorise(conn, everything=True)
 
 
 #: Databases already brought up to date by this process. `init()` runs at the top
@@ -573,11 +601,81 @@ def shelved(products: list[Product], also: list[str] | None = None) -> list[Prod
     return out
 
 
+#: A shelf speaks for its unlabelled pieces when at least this many of its pieces
+#: say who they are for, and this share of those agree.
+_SHELF_SPEAKS_FROM = 5
+_SHELF_AGREES = 0.95
+
+
+def _settle_departments(
+    conn: sqlite3.Connection, org_id: str, only: set[str] | None = None
+) -> None:
+    """Give a piece that says nothing about who it is for its shelf's answer.
+
+    Three of this shop's largest suppliers tag a kurta set "Kurta Sets, Casual
+    Wear" and never "Women", and the name does not say either. Of its first
+    20,000 products 4,646 had no department — so they were on neither rail, and
+    the Women's wear tiles counted a fraction of the women's wear. The shelf
+    knows: all 4,609 labelled Kurta Sets are women's.
+
+    So a shelf with enough labelled pieces, nearly all agreeing, answers for the
+    rest of it. A shelf that is genuinely mixed does not: this shop's Kurtas are
+    705 women's to 39 men's, 94.8%, and its 47 unlabelled kurtas stay
+    unlabelled rather than being guessed onto the wrong rail.
+
+    Counted from each row's *own* label every time, never from what is stored.
+    A stored department may itself be an inference from an earlier run, and a
+    shelf that counted its inferences as evidence would vote itself into a
+    department. For the same reason an inference is taken back when the shelf
+    stops being one-sided.
+
+    `only` is the shelves a write touched; the whole org when the catalog is
+    replaced or first brought up to date.
+    """
+    query = (
+        "SELECT id, name, category, attributes, IFNULL(department, '') AS department "
+        "FROM products WHERE org_id = ? AND IFNULL(category, '') != ''"
+    )
+    args: list[Any] = [org_id]
+    if only is not None:
+        only = {shelf for shelf in only if shelf and shelf.strip()}
+        # SQLite binds at most 999 values; a write touching more shelves than
+        # that is a whole catalog, and is settled as one.
+        if not only:
+            return
+        if len(only) <= 900:
+            query += f" AND category IN ({', '.join('?' * len(only))})"
+            args += sorted(only)
+
+    shelves_: dict[str, list[tuple[str, str, str]]] = {}
+    for row in conn.execute(query, args).fetchall():
+        try:
+            attributes = json.loads(row["attributes"] or "{}")
+        except (TypeError, ValueError):
+            attributes = {}
+        own = department_of(row["name"] or "", row["category"], attributes)
+        shelves_.setdefault(row["category"], []).append((row["id"], own, row["department"]))
+
+    updates = []
+    for pieces in shelves_.values():
+        men = sum(1 for _, own, _ in pieces if own == MEN)
+        women = sum(1 for _, own, _ in pieces if own == WOMEN)
+        labelled = men + women
+        agreed = ""
+        if labelled >= _SHELF_SPEAKS_FROM and max(men, women) / labelled >= _SHELF_AGREES:
+            agreed = MEN if men > women else WOMEN
+        updates += [
+            (agreed, org_id, pid) for pid, own, stored in pieces if own == "" and stored != agreed
+        ]
+    conn.executemany("UPDATE products SET department = ? WHERE org_id = ? AND id = ?", updates)
+
+
 def upsert(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
     init()
     products = shelved(products, categories(org_id))
     with _connect() as conn:
         conn.executemany(_UPSERT_SQL, _bind(products, org_id))
+        _settle_departments(conn, org_id, {p.category for p in products})
     return len(products)
 
 
@@ -606,6 +704,7 @@ def replace(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
     with _connect() as conn:
         conn.execute("DELETE FROM products WHERE org_id = ?", (org_id,))
         conn.executemany(_UPSERT_SQL, _bind(products, org_id))
+        _settle_departments(conn, org_id)
     return len(products)
 
 

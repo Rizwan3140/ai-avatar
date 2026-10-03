@@ -723,7 +723,10 @@ def crawl_site(req: CrawlRequest, caller: Principal = Depends(editor)):
         raise HTTPException(422, f"could not crawl {req.url}: {exc}") from exc
     if products:
         catalog.upsert(products, caller.org_id)
-    return {"imported": len(products), "products": [catalog.to_dict(p) for p in products]}
+    # The count, not the products. The studio reads only the count and then
+    # reloads its own list; sending every product back as well was a 46 MB reply
+    # to an import of 25,000.
+    return {"imported": len(products)}
 
 
 # --- campaigns ---------------------------------------------------------------

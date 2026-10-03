@@ -347,7 +347,15 @@ def _listing(values) -> str:
     return ", ".join(str(v) for v in values if v)
 
 
-def shopify(base: str, limit: int = 5000) -> list[Product] | None:
+#: How far a storefront's own product list goes: 100 pages of 250. Page 101 comes
+#: back empty whatever the store holds — Dhiyona's sitemap lists 32,832 products
+#: and this list ends at exactly 25,000.
+#: ponytail: the list's cap is ours too. Read the sitemap's product pages for
+#: the rest the day a store past 25,000 needs all of them on a cabinet.
+SHOPIFY_LIST_CAP = 25_000
+
+
+def shopify(base: str, limit: int = SHOPIFY_LIST_CAP) -> list[Product] | None:
     """Every product a Shopify store sells, from the JSON it already publishes.
 
     Shopify serves `/products.json` on every storefront, paginated, without a key.
@@ -454,7 +462,13 @@ def crawl(start: str, max_pages: int = 60) -> list[Product]:
     # Ask the storefront for its catalog before walking it. A store that hands
     # over the whole thing in eleven requests should not be crawled page by page
     # for a subset of the same data.
-    catalog_json = shopify(base, limit=max(max_pages, 250) * 20)
+    #
+    # All of it, not `max_pages` worth. That number is a budget for walking
+    # pages, and here it was being turned into a product count: the studio's 40
+    # pages became 5,000 products, the first 5,000 of the store's list. Dhiyona's
+    # first men's product is the 8,294th, so a shop with 1,777 men's pieces
+    # imported none and its Men's wear screen was empty.
+    catalog_json = shopify(base)
     if catalog_json:
         return catalog_json
 

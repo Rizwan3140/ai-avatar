@@ -261,6 +261,45 @@ def main() -> int:
     )
     check("shopify: merchant bookkeeping is dropped", tagged.attributes["tags"], "Blue, Silk")
 
+    # The whole store, not the first 5,000 of it. The studio's budget of 40
+    # pages was being turned into a product count, 250 x 20. Dhiyona's first
+    # men's product is the 8,294th in its list, so a shop with 1,777 men's
+    # pieces imported none of them.
+    import urllib.parse
+
+    from backend import crawl as crawling
+
+    asked = []
+
+    def fake_json(url):
+        asked.append(url)
+        if url.endswith("/meta.json"):
+            return {"currency": "INR"}
+        page = int(urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["page"][0])
+        if page > 30:
+            return {"products": []}
+        return {"products": [
+            {"handle": f"p{page}-{i}", "title": "Men's Sherwani" if page == 30 else "Kurta Set",
+             "product_type": "Sherwani Sets" if page == 30 else "Kurta Sets",
+             "variants": [{"price": "999", "available": True}]}
+            for i in range(250)
+        ]}
+
+    real = crawling._json, crawling._public_url, crawling.DELAY
+    crawling._json, crawling.DELAY = fake_json, 0
+    crawling._public_url = lambda url: urllib.parse.urlparse(url)
+    try:
+        everything = crawling.crawl("https://shop.example", max_pages=40)
+    finally:
+        crawling._json, crawling._public_url, crawling.DELAY = real
+    check("shopify: a store of 7,500 is read whole, past the old 5,000", len(everything), 7500)
+    check("shopify: and so are the men's pieces at the end of its list",
+          sum(1 for p in everything if p.category == "Sherwani Sets"), 250)
+    check("shopify: it stops where the store's list does",
+          max(int(u.split("page=")[1]) for u in asked if "page=" in u), 31)
+    check("shopify: and never asks past the list's own cap",
+          crawling.SHOPIFY_LIST_CAP, 25_000)
+
     check("product urls jump the queue", bool(PRODUCT_PATH.search("https://s/products/a")), True)
     check("collections do not", bool(PRODUCT_PATH.search("https://s/collections/all")), False)
     check("plain text survives _plain", _plain("a  <br> b"), "a b")
@@ -616,6 +655,87 @@ def main() -> int:
     check("an existing catalog is filed on its next open", catalog.get("s2", FILED).category, "Sarees")
     check("and found under that shelf",
           "s2" in {p.id for p in catalog.search("", "Sarees", org_id=FILED)}, True)
+
+    # ---- pieces that do not say who they are for ----------------------------
+    print("\nunlabelled")
+
+    # Three of this shop's largest suppliers tag a kurta set "Kurta Sets, Casual
+    # Wear" and never "Women". 4,646 of its first 20,000 products had no
+    # department, so Women's wear counted a fraction of the women's wear. The
+    # shelf knows: every labelled Kurta Set is a woman's.
+    SETTLED = "settled"
+
+    def rows(shelf, tags, count, prefix):
+        return [P(id=f"{prefix}{i}", name=f"Piece {prefix}{i}", category=shelf,
+                  attributes={"tags": tags}) for i in range(count)]
+
+    catalog.replace(
+        rows("Co-ords", "Women", 19, "cw") + rows("Co-ords", "Casual Wear", 30, "cu")
+        + rows("Sherwani Sets", "Men", 5, "sm") + rows("Sherwani Sets", "Festive", 1, "su")
+        # Mixed: five to one is 83%, and an unlabelled kurta could be either.
+        + rows("Kurtas", "Women", 5, "kw") + rows("Kurtas", "Men", 1, "km") + rows("Kurtas", "", 1, "ku")
+        # Too few labelled to speak for anything.
+        + rows("Suits", "Women", 2, "tw") + rows("Suits", "", 1, "tu")
+        + rows("Earrings", "", 2, "eu"),
+        SETTLED,
+    )
+
+    def stored(pid):
+        with catalog._connect() as conn:
+            return conn.execute(
+                "SELECT department FROM products WHERE org_id = ? AND id = ?", (SETTLED, pid)
+            ).fetchone()[0]
+
+    check("an unlabelled piece takes its shelf's department", stored("cu0"), "women")
+    check("on a men's shelf too", stored("su0"), "men")
+    check("a mixed shelf does not answer for its unlabelled pieces", stored("ku0"), "")
+    check("nor does a shelf with too few labelled", stored("tu0"), "")
+    check("jewellery is not a question of who it is for", stored("eu0"), "jewellery")
+    check("the tile counts every piece on the shelf",
+          [s["count"] for s in catalog.shelves(SETTLED, "women") if s["category"] == "Co-ords"], [49])
+
+    # Saved again, the piece arrives saying nothing — and is settled again.
+    catalog.upsert(rows("Co-ords", "Casual Wear", 1, "cu"), SETTLED)
+    check("it stays settled when it is saved again", stored("cu0"), "women")
+
+    # An inference is not evidence. Two men's co-ords make the labelled ones 19
+    # to 2, 90%: mixed. Counted with the 30 inferred it would read 49 to 2, 96%,
+    # and the shelf would have voted itself into a department.
+    catalog.upsert(rows("Co-ords", "Men", 2, "cm"), SETTLED)
+    check("a shelf that turns out mixed gives its inferences back", stored("cu0"), "")
+    check("and keeps the labels the shop set", (stored("cw0"), stored("cm0")), ("women", "men"))
+
+    # A catalog already on disk is settled the next time it is opened.
+    catalog.delete("cm0", SETTLED)
+    catalog.delete("cm1", SETTLED)
+    check("removing them alone settles nothing", stored("cu0"), "")
+    with catalog._connect() as conn:
+        conn.execute("PRAGMA user_version = 3")
+    catalog._initialised.clear()
+    catalog.init()
+    check("an existing catalog is settled on its next open", stored("cu0"), "women")
+
+    # `python -m backend.categorize`: the same filing, run over what is on disk,
+    # and a report of what could not be placed — which is the useful half.
+    from backend import categorize
+
+    with catalog._connect() as conn:
+        conn.execute("UPDATE products SET department = 'men' WHERE org_id = ? AND id = 'cw0'", (SETTLED,))
+    check("the program files every product again", catalog.categorise() > 0, True)
+    check("putting right a department that had gone wrong", stored("cw0"), "women")
+    check("and leaving a settled piece settled", stored("cu0"), "women")
+
+    said = categorize.report(SETTLED)
+    check("the report counts each department",
+          [line.split() for line in said.splitlines() if line.strip().startswith("Women's wear")],
+          [["Women's", "wear", "56", "on", "3", "shelves"]])
+    check("it names a shelf it could not place, and why",
+          [line.split(None, 2)[2] for line in said.splitlines() if " Kurtas " in line],
+          ["mixed: 5 women's, 1 men's (83.3%, under the 95% it takes)"])
+    check("a shelf with too few labelled says so",
+          [line.split(None, 2)[2] for line in said.splitlines() if " Suits " in line],
+          ["only 2 of its pieces say who they are for"])
+    check("the report changes nothing", (categorize.report(SETTLED), stored("ku0")), (said, ""))
 
     # A row saved by an older release, picked from the version menu, has no
     # department at all. It is filled in the next time the catalog is opened.

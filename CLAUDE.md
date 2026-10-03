@@ -24,7 +24,7 @@ Full scope: `Docs/`, and the plan at
 
 ```bash
 (cd frontend && npm test)                   # 114 checks
-./.venv/bin/python -m backend.test_catalog  # 193 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_catalog  # 215 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 285 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 135 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
@@ -32,7 +32,12 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-727 checks total. **Never run the Python suites through `unittest`** — they are
+```bash
+./.venv/bin/python -m backend.categorize           # file every product again, and report what could not be placed
+./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
+```
+
+749 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -354,6 +359,26 @@ company's prices out loud.
   with one, carrying `opens`, that leads on to the accessories' own tiles. A
   product with no shelf at all is placed by its tags — a potli filed nowhere
   and tagged "Ethnic Bags" was being counted as women's clothing.
+- **A page budget is not a product count.** The studio's "Read a website" sent
+  40 pages and `crawl()` turned that into `250 x 20` products, so the importer
+  took the first 5,000 of the store's list. Dhiyona's first men's product is
+  the 8,294th: a shop with 1,777 men's pieces imported none, and Men's wear was
+  an empty screen. The Shopify path now reads the whole list — which itself
+  ends at 25,000 (`crawl.SHOPIFY_LIST_CAP`); the store's sitemap lists 32,832.
+- **Most products do not say who they are for; the shelf does.** Three of this
+  shop's largest suppliers never tag "Women", and 4,665 of its 25,000 listed
+  products had no department. `_settle_departments` gives such a piece its
+  shelf's department when at least 5 of the shelf's pieces are labelled and 95%
+  agree — 431 are left, on shelves that are mixed (Kurtas, 94.8% women's) or
+  say nothing at all. **It counts each row's own label, never the stored
+  department:** a stored one may be an earlier inference, and a shelf that
+  counted its inferences as evidence would vote itself into a department.
+- **Every write files what it writes; `python -m backend.categorize` is for
+  what is already on disk.** Shelf, colour, occasion, department, then the
+  shelf's answer — all inside `catalog.upsert` and `catalog.replace`, so the
+  importer, a file upload, a studio edit and a cabinet's sync need no step of
+  their own. The command re-files a stored catalog and reports what it could
+  not place and why (`--report` changes nothing).
 - **A product with no shelf is filed under the one its tags name.** This shop
   exported twelve sarees and a potli with no product type; search found them, a
   visitor choosing a category never could, and the Sarees tile counted 22 of
