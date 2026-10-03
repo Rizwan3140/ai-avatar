@@ -92,16 +92,27 @@ export type Product = {
   attributes: Record<string, string>
 }
 
-/** One department, as the server lists it: "men", "women" or "accessories". */
+/** One department, as the server lists it: "men", "women", "jewellery" or
+ *  "accessories". */
 export type Shelves = {
   department: string
   /** "Men's wear" — the panel's heading. */
   title: string
   shelves: Shelf[]
+  /** The tiles these were opened from — Jewellery, behind Accessories. What
+   *  their Back returns to. */
+  back?: Shelves
 }
 
 /** One tile: a shelf, how many of this department's pieces are on it, and one
  *  of them to stand for it. */
-export type Shelf = { category: string; count: number; image: string }
+export type Shelf = {
+  category: string
+  count: number
+  image: string
+  /** Set on a tile that leads to another department's tiles rather than to
+   *  products: Accessories, last under Jewellery. */
+  opens?: string
+}
 
 export type EventName = keyof Events

@@ -130,34 +130,57 @@ def facets_of(name: str, description: str, attributes: dict[str, Any]) -> tuple[
 #: The rails a showroom is browsed by. A visitor tapping "Men's wear" is not
 #: asking for one shelf — this shop's men's pieces sit on three — and nobody
 #: asking for clothes wants a nose ring in the middle of them.
-MEN, WOMEN, EXTRAS = "men", "women", "accessories"
+MEN, WOMEN, JEWELLERY, ACCESSORIES = "men", "women", "jewellery", "accessories"
+
+#: The two that are not garments. Kept apart from clothes in every list, and
+#: from each other on the panel: a rakhi and a potli are accessories, and
+#: filing them with the earrings put Rakhis first among the jewellery.
+EXTRAS = (JEWELLERY, ACCESSORIES)
 
 #: What each is called out loud, for the prompt and the panel's heading.
-DEPARTMENT_LABELS = {MEN: "Men's wear", WOMEN: "Women's wear", EXTRAS: "Jewellery & accessories"}
+DEPARTMENT_LABELS = {
+    MEN: "Men's wear",
+    WOMEN: "Women's wear",
+    JEWELLERY: "Jewellery",
+    ACCESSORIES: "Accessories",
+}
 
-#: The shop's own label for "this is not a garment". Tags only: these two words
-#: are what a storefront files such things under, and a tag is a deliberate act.
-_EXTRAS_TAGS = frozenset({"jewellery", "jewelry", "jewelery", "accessories", "accessory"})
+#: Bumped when the rules below change, so catalogs derived under the old ones
+#: are derived again. See `_add_facet_columns`.
+DEPARTMENT_RULES = 2
 
-#: And the shelf names that say so when the tags are silent — "Ethnic Bags"
-#: carries neither tag. Matched against the shelf's own words and never against
-#: tags or copy: a dress tagged "with belt" is still a dress.
-_EXTRAS_SHELVES = _EXTRAS_TAGS | frozenset(
-    "bag bags belt belts earring earrings bangle bangles ring rings necklace "
-    "necklaces bracelet bracelets anklet anklets nath naths rakhi rakhis watch "
-    "watches wallet wallets clutch clutches".split()
+#: Shelf names that are jewellery, and shelf names that are accessories.
+#: Matched against the shelf's own words: a dress tagged "with belt" is still a
+#: dress, and a shelf called Rakhis is rakhis whatever else it is tagged.
+_JEWELLERY_SHELVES = frozenset(
+    "jewellery jewelry jewelery earring earrings bangle bangles ring rings "
+    "necklace necklaces bracelet bracelets anklet anklets nath naths pendant "
+    "pendants jhumka jhumkas".split()
 )
+_ACCESSORY_SHELVES = frozenset(
+    "accessories accessory bag bags belt belts rakhi rakhis watch watches "
+    "wallet wallets clutch clutches potli potlis".split()
+)
+
+#: The shop's own tag for each, read only when the shelf name says neither.
+_JEWELLERY_TAGS = frozenset({"jewellery", "jewelry", "jewelery"})
+_ACCESSORY_TAGS = frozenset({"accessories", "accessory"})
 
 
 def department_of(name: str, category: str, attributes: dict[str, Any]) -> str:
-    """Which rail one product hangs on: "men", "women", "accessories" or "".
+    """Which rail one product hangs on: "men", "women", "jewellery",
+    "accessories" or "".
 
-    Tags first, for the reason `facets_of` gives — the shop labelled these
-    itself. 193 rows here are tagged Women, 22 Men, 72 Jewellery; the name is
-    read only where the tags say nothing.
+    The shop's own labels, for the reason `facets_of` gives. 193 rows here are
+    tagged Women and 22 Men; the name is read only where the tags say nothing.
+
+    For jewellery against accessories the shelf name is read before the tags,
+    because here the tags do not tell the two apart: this shop's rakhis are
+    tagged "Accessories, Jewellery", and its belts — on a shelf called
+    Accessories — are tagged "Jewellery, Earrings".
 
     Not-a-garment wins over who it is for: earrings tagged Women are jewellery,
-    which is the whole point of keeping the two apart.
+    which is the whole point of keeping them apart from clothes.
 
     Empty means we do not know, or it is for anyone (tagged both, or Unisex).
     Such a row is still found by search; it simply sits on neither gendered
@@ -166,9 +189,19 @@ def department_of(name: str, category: str, attributes: dict[str, Any]) -> str:
     # A tag is a phrase ("Mens collection", "Ethnic Bags", `Women"` with a stray
     # quote in this export), so it is read as words.
     words = {w for tag in _tags_of(attributes) for w in re.findall(r"[a-z]+", tag.lower())}
-    shelf = set(re.findall(r"[a-z]+", (category or "").lower()))
-    if words & _EXTRAS_TAGS or shelf & _EXTRAS_SHELVES:
-        return EXTRAS
+    # A product with no shelf at all is placed by its tags instead: this shop
+    # has a potli filed nowhere and tagged "Ethnic Bags", which was being
+    # counted as women's clothing.
+    shelf = set(re.findall(r"[a-z]+", (category or "").lower())) or words
+    if shelf & _JEWELLERY_SHELVES:
+        return JEWELLERY
+    if shelf & _ACCESSORY_SHELVES:
+        return ACCESSORIES
+    # An Accessories tag before a Jewellery one: it is the narrower claim.
+    if words & _ACCESSORY_TAGS:
+        return ACCESSORIES
+    if words & _JEWELLERY_TAGS:
+        return JEWELLERY
 
     men = bool(words & {"men", "mens", "gents"})
     women = bool(words & {"women", "womens", "ladies"})
@@ -374,10 +407,17 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     # written since by an older release chosen from the version menu, which
     # knows nothing of `department`. Derived values are never NULL once set
     # ("" means "not known"), so a healthy catalog selects nothing here.
+    #
+    # And every row when the rules themselves have changed. A department is
+    # derived once and stored, so a catalog that filed its rakhis under the old
+    # rule would keep them there — `user_version` is the rules it was derived
+    # under, and an older one derives the lot again.
+    stale = conn.execute("PRAGMA user_version").fetchone()[0] < DEPARTMENT_RULES
     rows = conn.execute(
-        "SELECT org_id, id, name, category, description, attributes FROM products "
-        "WHERE color IS NULL OR style IS NULL OR department IS NULL"
+        "SELECT org_id, id, name, category, description, attributes FROM products"
+        + ("" if stale else " WHERE color IS NULL OR style IS NULL OR department IS NULL")
     ).fetchall()
+    conn.execute(f"PRAGMA user_version = {DEPARTMENT_RULES}")
     if not rows:
         return
     updates = []
@@ -680,9 +720,9 @@ def resolve_category(text: str, org_id: str = DEFAULT_ORG) -> str:
 
     words = [w for w in re.findall(r"[a-z]+", text.lower()) if w not in STOPWORDS]
     for word in words:
-        target = CATEGORY_ALIASES.get(word, "")
-        if target and target.lower() in known:
-            return known[target.lower()]
+        hit = _aliased(word, known)
+        if hit:
+            return hit
 
     for word in words:
         match = _closest(word, list(known))
@@ -737,14 +777,35 @@ def parse_category(text: str, org_id: str = DEFAULT_ORG) -> tuple[str, str]:
     for word in words:
         if word in STOPWORDS:
             continue
-        target = CATEGORY_ALIASES.get(word, "")
-        hit = known.get(target.lower()) if target else None
+        hit = _aliased(word, known)
         if not hit:
             match = _closest(word, list(known))
             hit = known[match] if match else None
         if hit:
             return lift(hit, {word})
     return text, ""
+
+
+def _aliased(word: str, known: dict[str, str]) -> str:
+    """The shelf a word names outright or by alias, or "" — before any fuzzy
+    match is tried.
+
+    A shelf's own name comes first, singular or plural. "Bracelet" is listed
+    as an alias for Bangles, which is right for a shop with no Bracelets shelf
+    and wrong for one that has it.
+
+    Then the alias, and the alias of the word's singular. Only "bag" was
+    listed, so "show me bags" fell through to the fuzzy match — where "bags"
+    is 0.73 against "bangles" — and a visitor asking for bags was shown bangles.
+    """
+    for shelf in known:
+        if _stem(shelf) == _stem(word):
+            return known[shelf]
+    for form in (word, _stem(word)):
+        target = CATEGORY_ALIASES.get(form, "")
+        if target and target.lower() in known:
+            return known[target.lower()]
+    return ""
 
 
 def _facet_values(column: str, org_id: str) -> list[str]:
@@ -899,8 +960,8 @@ def _corroborated(terms: list[str], found: list[Product]) -> list[Product]:
 DEPARTMENT_WORDS = {
     "men": MEN, "mens": MEN, "gents": MEN, "menswear": MEN, "male": MEN,
     "women": WOMEN, "womens": WOMEN, "ladies": WOMEN, "womenswear": WOMEN, "female": WOMEN,
-    "jewellery": EXTRAS, "jewelry": EXTRAS, "jewelery": EXTRAS, "jewelries": EXTRAS,
-    "accessories": EXTRAS, "accessory": EXTRAS,
+    "jewellery": JEWELLERY, "jewelry": JEWELLERY, "jewelery": JEWELLERY, "jewelries": JEWELLERY,
+    "accessories": ACCESSORIES, "accessory": ACCESSORIES,
 }
 
 
@@ -950,6 +1011,29 @@ def shelves(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
     return [{"category": r["category"], "count": r["count"], "image": r["image"] or ""} for r in rows]
 
 
+def tiles(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
+    """What the panel offers for a department: its shelves — and, under
+    Jewellery, one last tile that leads on to the accessories.
+
+    A visitor reaches both from the one Jewellery chip, so the accessories have
+    to be reachable from there; and they are not jewellery, so they are not
+    among its tiles. That last tile carries `opens`, the department it leads
+    to, and stands for all of it: the count is every accessory, the picture is
+    its fullest shelf's.
+    """
+    found = shelves(org_id, department)
+    if department == JEWELLERY:
+        beyond = shelves(org_id, ACCESSORIES)
+        if beyond:
+            found.append({
+                "category": DEPARTMENT_LABELS[ACCESSORIES],
+                "count": sum(shelf["count"] for shelf in beyond),
+                "image": beyond[0]["image"],
+                "opens": ACCESSORIES,
+            })
+    return found
+
+
 def shelf_in(department: str, text: str, org_id: str = DEFAULT_ORG) -> str:
     """The shelf of this department a sentence names, or "".
 
@@ -963,26 +1047,42 @@ def shelf_in(department: str, text: str, org_id: str = DEFAULT_ORG) -> str:
     words aside ("men's" in Men's Kurtas, "jewellery" in Jewellery Sets). The
     longest such shelf wins, so "kurta sets" is not answered with Kurtas.
     """
-    said = set()
-    for word in re.findall(r"[a-z]+", text.lower()):
-        if word in STOPWORDS:
-            continue
-        # An alias is how the word is spelled on the shelf: "curtas" -> Kurtas.
-        for spelling in re.findall(r"[a-z]+", CATEGORY_ALIASES.get(word, word).lower()):
-            said.add(_stem(spelling))
+    words = [w for w in re.findall(r"[a-z]+", text.lower()) if w not in STOPWORDS]
+    rails = [
+        (
+            shelf["category"],
+            [
+                _stem(w)
+                for w in re.findall(r"[a-z]+", shelf["category"].lower())
+                if len(w) > 2 and w not in DEPARTMENT_WORDS
+            ],
+        )
+        for shelf in shelves(org_id, department)
+    ]
 
-    best, most = "", 0
-    for shelf in shelves(org_id, department):
-        words = [
-            _stem(w)
-            for w in re.findall(r"[a-z]+", shelf["category"].lower())
-            if len(w) > 2 and w not in DEPARTMENT_WORDS
-        ]
-        if words and len(words) > most and all(
-            w in said or _closest(w, list(said)) for w in words
-        ):
-            best, most = shelf["category"], len(words)
-    return best
+    def named(said: set[str]) -> str:
+        best, most = "", 0
+        for shelf, needed in rails:
+            if needed and len(needed) > most and all(
+                w in said or _closest(w, list(said)) for w in needed
+            ):
+                best, most = shelf, len(needed)
+        return best
+
+    # What was said, as said — and only if that names nothing, as its aliases
+    # spell it: "curtas" -> Kurtas, "bags" -> Ethnic Bags by its singular. In
+    # that order for the reason `_aliased` gives: "bracelet" is an alias for
+    # Bangles, and must not beat a Bracelets shelf that is right there.
+    own = {_stem(w) for w in words}
+    aliases = {
+        _stem(spelling)
+        for w in words
+        for spelling in re.findall(
+            r"[a-z]+",
+            (CATEGORY_ALIASES.get(w) or CATEGORY_ALIASES.get(_stem(w)) or "").lower(),
+        )
+    }
+    return named(own) or named(own | aliases)
 
 
 def _stem(word: str) -> str:
@@ -1110,8 +1210,9 @@ def search(
     # visitor looking at clothes is not helped by what is not clothes, and the
     # other way round. A named shelf or department has already chosen; anything
     # else is one kind or the other, decided here.
-    garments = f"IFNULL(p.department, '') != '{EXTRAS}'"
-    extras = f"IFNULL(p.department, '') = '{EXTRAS}'"
+    listed = ", ".join(f"'{d}'" for d in EXTRAS)
+    garments = f"IFNULL(p.department, '') NOT IN ({listed})"
+    extras = f"IFNULL(p.department, '') IN ({listed})"
     if department:
         clauses.append("IFNULL(p.department, '') = ?")
         params.append(department)
@@ -1126,9 +1227,9 @@ def search(
         # Ranked: the best match says which kind was meant. "Necklace" must not
         # lose to a kurta set whose blurb mentions one.
         rows = fetch()
-        kinds = {(r["department"] or "") == EXTRAS for r in rows}
+        kinds = {(r["department"] or "") in EXTRAS for r in rows}
         if len(kinds) > 1:
-            rows = fetch(extras if (rows[0]["department"] or "") == EXTRAS else garments)
+            rows = fetch(extras if (rows[0]["department"] or "") in EXTRAS else garments)
     found = _corroborated(_fts_terms(query), [_row_to_product(r) for r in rows])
 
     # The words left over after lifting a shelf are a ranking hint, not a second

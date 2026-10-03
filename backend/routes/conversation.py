@@ -123,7 +123,7 @@ def chat(req: ChatRequest, request: Request):
     )
     # Also where "men's sarees" lands: nothing of that kind, so what there is.
     tiles = (
-        [shelf["category"] for shelf in catalog.shelves(org_id, department)]
+        [tile["category"] for tile in catalog.tiles(org_id, department)]
         if department and not products
         else []
     )

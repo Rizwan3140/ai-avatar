@@ -447,9 +447,29 @@ def main() -> int:
     check("a Men tag is men's wear", dept("m1"), "men")
     check("a Women tag is women's wear", dept("w1"), "women")
     check("a stray quote in the tag does not hide it", dept("w3"), "women")
-    check("jewellery is not clothing, whoever it is for", dept("j1"), "accessories")
-    check("a bag is not clothing though no tag says so", dept("j4"), "accessories")
-    check("an Accessories tag is not clothing", dept("u1"), "accessories")
+    check("jewellery is not clothing, whoever it is for", dept("j1"), "jewellery")
+    check("a bag is an accessory though no tag says so", dept("j4"), "accessories")
+    check("a rakhi is an accessory", dept("u1"), "accessories")
+    # Jewellery and accessories are told apart by the shelf, because this
+    # shop's tags do not: its rakhis are tagged both, and its belts — on a shelf
+    # called Accessories — are tagged "Jewellery, Earrings". Filed together,
+    # Rakhis was the first tile under Jewellery.
+    check("a rakhi tagged Jewellery as well is still an accessory",
+          catalog.department_of("Thread Rakhi", "Rakhis", {"tags": "Accessories, Jewellery, Rakhi"}),
+          "accessories")
+    check("a belt on the Accessories shelf is one, whatever it is tagged",
+          catalog.department_of("Sequin Belt", "Accessories", {"tags": "Jewellery, Earrings, Women"}),
+          "accessories")
+    check("an Accessories tag outranks a Jewellery one where the shelf is silent",
+          catalog.department_of("Hair Clip", "Extras", {"tags": "Jewellery, Accessories"}),
+          "accessories")
+    # Filed nowhere, tagged "Ethnic Bags": it was being counted as women's
+    # clothing, and turning up among the sarees.
+    check("a potli with no shelf is placed by its tags",
+          catalog.department_of("Mirror Work Potli", "", {"tags": "Ethnic Bags, Women"}),
+          "accessories")
+    check("and a saree with no shelf is still clothing",
+          catalog.department_of("Cotton Saree", "", {"tags": "Sarees, Women"}), "women")
     check("with no tag the name is read", dept("n2"), "women")
     check("and with nothing to read, nothing is guessed", dept("n1"), "")
     check("a dress tagged 'with belt' is still a dress",
@@ -457,7 +477,8 @@ def main() -> int:
 
     for said, want in (("Show me menswear.", "men"), ("show mens products", "men"),
                        ("gents collection", "men"), ("Show me women's wear.", "women"),
-                       ("something for ladies", "women"), ("Show me jewellery.", "accessories"),
+                       ("something for ladies", "women"), ("Show me jewellery.", "jewellery"),
+                       ("show me accessories", "accessories"),
                        ("show me sarees", ""), ("for men and women", "")):
         check(f"department of: {said}", catalog.parse_department(said)[1], want)
     check("the department's words are taken out",
@@ -471,9 +492,22 @@ def main() -> int:
     check("women's wear has no jewellery among its shelves",
           {s["category"] for s in catalog.shelves(RAILS, "women")},
           {"Kurtas", "Pants", "Sarees", "Dresses", "Kurta Sets", "Capes"})
-    check("jewellery and accessories are their own",
+    check("jewellery is its own, with no rakhi or bag in it",
+          {s["category"] for s in catalog.shelves(RAILS, "jewellery")},
+          {"Earrings", "Jewellery Sets", "Bangles"})
+    check("and accessories are theirs",
           {s["category"] for s in catalog.shelves(RAILS, "accessories")},
-          {"Earrings", "Jewellery Sets", "Bangles", "Ethnic Bags", "Rakhis"})
+          {"Ethnic Bags", "Rakhis"})
+    # Both are reached from the one Jewellery chip. The accessories are not
+    # among its tiles; one last tile leads on to them.
+    _tiles = catalog.tiles(RAILS, "jewellery")
+    check("the jewellery tiles end with one that leads to accessories",
+          [(t["category"], t["count"], t.get("opens")) for t in _tiles[-1:]],
+          [("Accessories", 2, "accessories")])
+    check("and every tile before it is a shelf of jewellery",
+          [t.get("opens") for t in _tiles[:-1]], [None, None, None])
+    check("other departments have no such tile",
+          [t for t in catalog.tiles(RAILS, "men") if t.get("opens")], [])
 
     def ids(query, **kw):
         return {p.id for p in catalog.search(query, org_id=RAILS, **kw)}
@@ -494,14 +528,40 @@ def main() -> int:
     # Never one list. A browse is clothes; a ranked search is the kind its best
     # match is; a named shelf or department has already chosen.
     def kinds(found):
-        return {catalog.department_of(p.name, p.category, p.attributes) == "accessories" for p in found}
+        return {catalog.department_of(p.name, p.category, p.attributes) in catalog.EXTRAS for p in found}
 
     check("a browse is clothes only", kinds(catalog.search("", org_id=RAILS)), {False})
     check("a colour on its own is clothes only",
           ids("", color="Black"), {"m1", "m3"})
     check("earring is jewellery, not the set whose blurb mentions one", ids("earring"), {"j1"})
     check("a jewellery colour still reaches jewellery when asked",
-          ids("", color="Black", department="accessories"), {"j3"})
+          ids("", color="Black", department="jewellery"), {"j3"})
+
+    # "Show me bags" was answered with bangles. Only "bag" was an alias, so the
+    # plural fell through to the fuzzy match, where "bags" is 0.73 against
+    # "bangles".
+    check("bags are bags, not bangles", ids("show me bags"), {"j4"})
+    check("and so is one bag", ids("show me a bag"), {"j4"})
+    # "Bracelet" is an alias for Bangles — right for a shop with no Bracelets
+    # shelf, and it must not beat that shelf where there is one.
+    check("an alias stands in where there is no such shelf",
+          catalog._aliased("bracelet", {"bangles": "Bangles"}), "Bangles")
+    check("and gives way to the shelf itself where there is",
+          catalog._aliased("bracelet", {"bangles": "Bangles", "bracelets": "Bracelets"}), "Bracelets")
+
+    # A catalog derived under the old rules filed its rakhis with the jewellery,
+    # and a department is stored, not recomputed. The rules carry a version, and
+    # an older one derives every row again.
+    with catalog._connect() as conn:
+        conn.execute("UPDATE products SET department = 'jewellery' WHERE org_id = ? AND id = 'u1'", (RAILS,))
+        conn.execute("PRAGMA user_version = 1")
+    catalog._initialised.clear()
+    catalog.init()
+    check("a catalog filed under the old rules is filed again",
+          {s["category"] for s in catalog.shelves(RAILS, "accessories")}, {"Ethnic Bags", "Rakhis"})
+    with catalog._connect() as conn:
+        check("and remembers which rules it was filed under",
+              conn.execute("PRAGMA user_version").fetchone()[0], catalog.DEPARTMENT_RULES)
 
     # A row saved by an older release, picked from the version menu, has no
     # department at all. It is filled in the next time the catalog is opened.

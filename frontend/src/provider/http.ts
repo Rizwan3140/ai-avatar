@@ -63,7 +63,7 @@ async function showProducts(ids: string): Promise<void> {
  * count and a picture each — are fetched here, so the header stays an id and
  * a shop with thirty shelves does not travel in one.
  */
-async function showShelves(department: string): Promise<void> {
+export async function showShelves(department: string, back?: Shelves): Promise<void> {
   const asking = scope()
   if (asking === null) return
   try {
@@ -72,7 +72,9 @@ async function showShelves(department: string): Promise<void> {
     )
     if (!response.ok) return
     const shelves = (await response.json()) as Shelves
-    if (shelves.shelves?.length) bus.emit('SHELVES_SHOWN', shelves)
+    // `back` when one set of tiles led here — the Accessories tile under
+    // Jewellery — so these have a way back to those.
+    if (shelves.shelves?.length) bus.emit('SHELVES_SHOWN', { ...shelves, back })
   } catch {
     // The same rule as a failed product lookup: they keep talking, the screen
     // just does not change.

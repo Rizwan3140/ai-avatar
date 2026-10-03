@@ -173,7 +173,7 @@ def product_shelves(department: str, avatar: str = ""):
     return {
         "department": department,
         "title": catalog.DEPARTMENT_LABELS.get(department, ""),
-        "shelves": catalog.shelves(org_for(avatar), department),
+        "shelves": catalog.tiles(org_for(avatar), department),
     }
 
 

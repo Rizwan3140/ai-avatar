@@ -1,7 +1,7 @@
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 import { bus } from '../bus/bus.ts'
 import type { Product, Shelf, Shelves } from '../bus/events.ts'
-import { openShelf, scope } from '../provider/http.ts'
+import { openShelf, scope, showShelves } from '../provider/http.ts'
 import { useStore } from '../state/store.ts'
 import { Controls } from './Controls.tsx'
 import { TryOn } from './TryOn.tsx'
@@ -300,13 +300,26 @@ function Tiles({ shelves }: { shelves: Shelves }) {
     <Strip
       title={shelves.title}
       tally={`${count} ${count === 1 ? 'category' : 'categories'}`}
+      // Accessories, reached from the Jewellery tiles, goes back to them.
+      back={
+        shelves.back
+          ? { label: shelves.back.title, to: () => bus.emit('SHELVES_SHOWN', shelves.back!) }
+          : undefined
+      }
       watch={shelves}
     >
       {shelves.shelves.map((shelf, i) => (
         <button
           key={shelf.category}
           type="button"
-          onClick={() => void openShelf(shelves.department, shelf.category)}
+          // Most tiles open a shelf. One leads on to another department's
+          // tiles: Accessories, last under Jewellery — rakhis and bags are
+          // reached from the Jewellery chip without being filed as jewellery.
+          onClick={() =>
+            void (shelf.opens
+              ? showShelves(shelf.opens, shelves)
+              : openShelf(shelves.department, shelf.category))
+          }
           className={CARD}
           style={arriving(i)}
         >

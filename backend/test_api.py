@@ -381,6 +381,8 @@ _rails = [
     catalog.Product(id="t-w1", name="Cream Pants", category="Pants", attributes={"tags": "Women"}),
     catalog.Product(id="t-j1", name="Drop Earring", category="Earrings",
                     attributes={"tags": "Jewellery, Women"}),
+    catalog.Product(id="t-a1", name="Thread Rakhi", category="Rakhis",
+                    attributes={"tags": "Accessories, Jewellery"}),
 ]
 catalog.upsert(_rails, NORTH)
 r = client.get(f"/api/products/shelves?department=men&avatar={AVATAR}")
@@ -393,8 +395,16 @@ check(
 )
 r = client.get(f"/api/products?category=Pants&department=men&avatar={AVATAR}")
 check("a tile opens its shelf in its department", [p["id"] for p in r.json()] == ["t-m2"], r.text[:160])
+r = client.get(f"/api/products/shelves?department=jewellery&avatar={AVATAR}")
+check(
+    "jewellery is its own department, ending in a tile that leads to accessories",
+    [(s["category"], s.get("opens")) for s in r.json()["shelves"]]
+    == [("Earrings", None), ("Accessories", "accessories")],
+    r.text[:200],
+)
 r = client.get(f"/api/products/shelves?department=accessories&avatar={AVATAR}")
-check("jewellery is its own department", [s["category"] for s in r.json()["shelves"]] == ["Earrings"])
+check("and a rakhi is an accessory, not jewellery",
+      [s["category"] for s in r.json()["shelves"]] == ["Rakhis"], r.text[:160])
 check(
     "the shelves of an unidentified cabinet are refused",
     client.get("/api/products/shelves?department=men&avatar=no-such-avatar").status_code == 404,

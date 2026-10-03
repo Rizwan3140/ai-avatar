@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { bus } from '../bus/bus.ts'
-import { httpProvider, openShelf } from './http.ts'
+import { httpProvider, openShelf, showShelves } from './http.ts'
 import { useStore } from '../state/store.ts'
 
 test('chat requests carry the avatar currently shown by the kiosk', async () => {
@@ -182,5 +182,39 @@ test('a tile is not opened for a cabinet that does not know who it is', async ()
     assert.equal(called, false)
   } finally {
     globalThis.fetch = originalFetch
+  }
+})
+
+test('a tile that leads to another department opens its tiles, with a way back', async () => {
+  // Accessories, last under Jewellery. Rakhis and bags are reached from the
+  // Jewellery chip without being filed as jewellery, and Back returns there.
+  const originalFetch = globalThis.fetch
+  let asked = ''
+  const shown: { title: string; back?: string }[] = []
+  const off = bus.on('SHELVES_SHOWN', (s) => shown.push({ title: s.title, back: s.back?.title }))
+  const jewellery = {
+    department: 'jewellery',
+    title: 'Jewellery',
+    shelves: [{ category: 'Accessories', count: 44, image: '', opens: 'accessories' }],
+  }
+
+  useStore.setState({ avatarId: 'avatar-blue' })
+  globalThis.fetch = async (input) => {
+    asked = String(input)
+    return Response.json({
+      department: 'accessories',
+      title: 'Accessories',
+      shelves: [{ category: 'Rakhis', count: 21, image: '' }],
+    })
+  }
+
+  try {
+    await showShelves('accessories', jewellery)
+    assert.equal(asked, '/api/products/shelves?department=accessories&avatar=avatar-blue')
+    assert.deepEqual(shown, [{ title: 'Accessories', back: 'Jewellery' }])
+  } finally {
+    off()
+    globalThis.fetch = originalFetch
+    useStore.setState({ avatarId: '', shelves: null })
   }
 })

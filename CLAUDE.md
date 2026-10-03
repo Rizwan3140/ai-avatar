@@ -23,16 +23,16 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 113 checks
-./.venv/bin/python -m backend.test_catalog  # 166 — catalog, ingest, crawler
+(cd frontend && npm test)                   # 114 checks
+./.venv/bin/python -m backend.test_catalog  # 182 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 282 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 134 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 135 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-695 checks total. **Never run the Python suites through `unittest`** — they are
+713 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -336,19 +336,37 @@ company's prices out loud.
 - **A department is not a shelf.** "Menswear" was an alias for the Men's Kurtas
   shelf, so a shop with men's kurtas, pyjamas and pants answered "men's wear"
   with kurtas alone. Each product now carries a `department` — `men`, `women`,
-  `accessories` or empty — derived at write time by `catalog.department_of`
-  from the shop's own tags (Women, Men, Jewellery, Accessories), then the shelf
-  name ("Ethnic Bags" carries no tag), then the product name. A department on
-  its own is answered with its shelves as tiles (`catalog.shelves`,
-  `X-Shelves`, `SHELVES_SHOWN`) and the visitor picks; a tile opens its shelf
+  `jewellery`, `accessories` or empty — derived at write time by
+  `catalog.department_of` from the shop's own tags (Women, Men), then the
+  product name. A department on its own is answered with its shelves as tiles
+  (`catalog.tiles`, `X-Shelves`, `SHELVES_SHOWN`) and the visitor picks; a tile
+  opens its shelf
   *within* its department, because Pants holds two women's pieces and one
   men's. Within a department a shelf is matched word by word (`shelf_in`):
   "kurtas" scores 0.67 against "Men's Kurtas" as a phrase, under the cutoff,
   and matches the women's Kurtas shelf exactly.
-- **Garments and jewellery are never one list.** A browse or a colour on its own
-  is clothes; a ranked search is whichever kind its best match is; a named
-  shelf or department has already chosen. "What is new" used to put a nose ring
-  between a saree and a kurta.
+- **A rakhi and a bag are accessories, not jewellery — and the tags will not
+  tell you.** This shop's rakhis are tagged "Accessories, Jewellery" and its
+  belts, on a shelf called Accessories, "Jewellery, Earrings". So jewellery
+  against accessories is read from the *shelf name* first and the tags only
+  where it is silent; filed together, Rakhis was the first tile under
+  Jewellery. Both are still reached from the one Jewellery chip: its tiles end
+  with one, carrying `opens`, that leads on to the accessories' own tiles. A
+  product with no shelf at all is placed by its tags — a potli filed nowhere
+  and tagged "Ethnic Bags" was being counted as women's clothing.
+- **A stored derivation needs a version.** `department` is derived once and
+  kept, so changing the rule left every catalog filed under the old one.
+  `PRAGMA user_version` holds `catalog.DEPARTMENT_RULES`; bump it with the
+  rules and every row is derived again on the next open.
+- **A plural is not in the alias list.** Only "bag" was, so "show me bags" fell
+  to the fuzzy match, where "bags" is 0.73 against "bangles", and a visitor
+  asking for bags was shown bangles. `_aliased` tries the shelf's own name,
+  then the alias, then the alias of the singular — in that order, because
+  "bracelet" is an alias for Bangles and must not beat a Bracelets shelf.
+- **Garments are never in one list with jewellery or accessories.** A browse or
+  a colour on its own is clothes; a ranked search is whichever kind its best
+  match is; a named shelf or department has already chosen. "What is new" used
+  to put a nose ring between a saree and a kurta.
 - **A derived column is NULL on any row an older release wrote.** The version
   menu can run v1.0.0, which knows nothing of `department`, so the backfill
   selects rows whose derived values are NULL rather than running only when the
