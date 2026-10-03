@@ -142,14 +142,14 @@ function useSideScroll(ref: RefObject<HTMLDivElement | null>) {
   }, [ref])
 }
 
-/** "Dhiyona FL Women's Pink Top" as its brand over what it is — the two lines a
- *  card has room for, instead of one name cut off mid-word. */
-function splitName(product: Product): [string, string] {
+/** "Dhiyona FL Women's Pink Top" without the brand every name on the panel
+ *  starts with — a card has room for about four words. A name that does not
+ *  start with its brand is shown whole: this used to fall back to the category,
+ *  so another vendor's shirts were all labelled "Shirts". */
+function shortName(product: Product): string {
   const brand = String(product.attributes?.brand ?? '').trim()
-  if (brand && product.name.startsWith(brand) && product.name.length > brand.length) {
-    return [brand, product.name.slice(brand.length).trim()]
-  }
-  return [product.name, product.category ?? '']
+  const rest = brand && product.name.startsWith(brand) ? product.name.slice(brand.length).trim() : ''
+  return rest || product.name
 }
 
 /**
@@ -259,7 +259,6 @@ function Rail({ products, from }: { products: Product[]; from: Shelves | null })
       watch={products}
     >
       {products.map((product, i) => {
-        const [brand, rest] = splitName(product)
         return (
           <button
             key={product.id}
@@ -273,7 +272,7 @@ function Rail({ products, from }: { products: Product[]; from: Shelves | null })
               {/* Four across leaves room for about two words a line, so the
                   "Women's" every name starts with gives way to what the piece is. */}
               <span className="text-label line-clamp-2 leading-tight">
-                {withoutWhose(rest || brand)}
+                {withoutWhose(shortName(product))}
               </span>
               <span className="text-label font-semibold tabular-nums">{product.spoken_price}</span>
             </span>
