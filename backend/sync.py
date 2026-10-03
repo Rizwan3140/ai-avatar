@@ -163,8 +163,12 @@ def pull_catalog() -> str:
     def rows(items):
         return sorted((catalog.to_dict(p) for p in items), key=lambda d: d["id"])
 
+    # Compared as they will be stored. `replace` files a product that arrived
+    # with no shelf under the one its tags name, so a platform that sends twelve
+    # unshelved sarees is holding something that never equals what is on disk —
+    # and the catalog would be rewritten every five minutes after all.
     current = catalog.all_products(org_id)
-    if rows(current) == rows(products):
+    if rows(current) == rows(catalog.shelved(products)):
         return f"catalog: {len(products)} products, unchanged"
     catalog.replace(products, org_id)
     return f"catalog: {len(current)} -> {len(products)} products"

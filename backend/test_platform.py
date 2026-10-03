@@ -856,6 +856,26 @@ check("and so does the video", catalog.get("new-1", SYNC_ORG).video == "https://
 # locked the database for seconds while visitors searched.
 check("an unchanged catalog is not rewritten", "unchanged" in sync.pull_catalog())
 
+# A product the platform sends with no shelf is filed, on the way in, under the
+# shelf its tags name. What is on disk then differs from what the platform
+# holds — and must still compare as unchanged, or the mirror rewrites the whole
+# catalog every five minutes, which is the stall the check above exists for.
+_synced = sync._fetch
+sync._fetch = lambda path: {
+    "org_id": "sync-filed",
+    "products": [
+        {"id": "sh-1", "name": "Blue Saree", "category": "Sarees", "attributes": {"tags": "Sarees"}},
+        {"id": "sh-2", "name": "Handloom Cotton", "category": "",
+         "attributes": {"tags": "Sarees, Women"}},
+    ],
+}
+check("a mirrored catalog arrives", "0 -> 2 products" in sync.pull_catalog())
+check("its unshelved product filed by its tag",
+      catalog.get("sh-2", "sync-filed").category == "Sarees")
+check("and the same payload again is unchanged, not rewritten forever",
+      "unchanged" in sync.pull_catalog())
+sync._fetch = _synced
+
 sync._fetch = _fetch
 
 print("\ncatalog index")

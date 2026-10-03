@@ -563,6 +563,60 @@ def main() -> int:
         check("and remembers which rules it was filed under",
               conn.execute("PRAGMA user_version").fetchone()[0], catalog.DEPARTMENT_RULES)
 
+    # ---- products that came with no shelf ------------------------------------
+    print("\nunshelved")
+
+    # This shop exported twelve sarees and a potli with no product type, each
+    # tagged with the shelf it belongs on. Search found them; a visitor choosing
+    # a category never could, and the Sarees tile counted 22 of 34.
+    FILED = "filed"
+    catalog.upsert(
+        [
+            P(id="s1", name="Blue Saree", category="Sarees", attributes={"tags": "Sarees, Women"}),
+            P(id="b1", name="Clutch Bag", category="Ethnic Bags", attributes={"tags": "Women"}),
+        ],
+        FILED,
+    )
+    catalog.upsert(
+        [
+            P(id="s2", name="Handloom Cotton", attributes={"tags": "Women, Sarees"}),
+            P(id="b2", name="Mirror Potli", attributes={"tags": 'Ethnic Bags, Women"'}),
+            P(id="x1", name="Mystery Piece", attributes={"tags": "Women, Saree lovers, New"}),
+            P(id="k1", name="Silk Kurta", category="Kurtas", attributes={"tags": "Sarees"}),
+        ],
+        FILED,
+    )
+    check("a saree with no shelf is filed under its Sarees tag", catalog.get("s2", FILED).category, "Sarees")
+    check("and a potli under its Ethnic Bags tag", catalog.get("b2", FILED).category, "Ethnic Bags")
+    check("which makes it an accessory, on the accessories rail",
+          [(s["category"], s["count"]) for s in catalog.shelves(FILED, "accessories")],
+          [("Ethnic Bags", 2)])
+    check("a tag that only mentions a shelf is not one", catalog.get("x1", FILED).category, "")
+    check("a shelf the shop set is never overridden by a tag", catalog.get("k1", FILED).category, "Kurtas")
+    check("the tile now counts every saree",
+          [s["count"] for s in catalog.shelves(FILED, "women") if s["category"] == "Sarees"], [2])
+
+    check("a singular tag names a plural shelf",
+          catalog.shelved([P(id="a", name="A", attributes={"tags": "Saree"}),
+                           P(id="b", name="B", category="Sarees")])[0].category, "Sarees")
+    # A mirror replaces the whole catalog, so its batch is all the shelves
+    # there are: a tag naming a shelf nobody in it is on names nothing.
+    check("a tag cannot name a shelf that does not exist",
+          catalog.shelved([P(id="a", name="A", attributes={"tags": "Sarees"})])[0].category, "")
+    check("unless the org already has it",
+          catalog.shelved([P(id="a", name="A", attributes={"tags": "Sarees"})], ["Sarees"])[0].category,
+          "Sarees")
+
+    # A catalog already on disk is filed the next time it is opened.
+    with catalog._connect() as conn:
+        conn.execute("UPDATE products SET category = '' WHERE org_id = ? AND id = 's2'", (FILED,))
+        conn.execute("PRAGMA user_version = 2")
+    catalog._initialised.clear()
+    catalog.init()
+    check("an existing catalog is filed on its next open", catalog.get("s2", FILED).category, "Sarees")
+    check("and found under that shelf",
+          "s2" in {p.id for p in catalog.search("", "Sarees", org_id=FILED)}, True)
+
     # A row saved by an older release, picked from the version menu, has no
     # department at all. It is filled in the next time the catalog is opened.
     with catalog._connect() as conn:

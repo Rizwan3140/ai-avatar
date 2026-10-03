@@ -24,15 +24,15 @@ Full scope: `Docs/`, and the plan at
 
 ```bash
 (cd frontend && npm test)                   # 114 checks
-./.venv/bin/python -m backend.test_catalog  # 182 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 282 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_catalog  # 193 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 285 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 135 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-713 checks total. **Never run the Python suites through `unittest`** — they are
+727 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -354,6 +354,15 @@ company's prices out loud.
   with one, carrying `opens`, that leads on to the accessories' own tiles. A
   product with no shelf at all is placed by its tags — a potli filed nowhere
   and tagged "Ethnic Bags" was being counted as women's clothing.
+- **A product with no shelf is filed under the one its tags name.** This shop
+  exported twelve sarees and a potli with no product type; search found them, a
+  visitor choosing a category never could, and the Sarees tile counted 22 of
+  34. `catalog.shelved` fills a blank category — only when a tag *is* the name
+  of a shelf the org already has, never from the name or the copy, and never
+  over a shelf the shop set. It runs on every write and once over what is on
+  disk. **The mirror compares incoming rows after the same filing**
+  (`sync.pull_catalog`): otherwise what is on disk never equals what the
+  platform sends, and the catalog is rewritten every five minutes again.
 - **A stored derivation needs a version.** `department` is derived once and
   kept, so changing the rule left every catalog filed under the old one.
   `PRAGMA user_version` holds `catalog.DEPARTMENT_RULES`; bump it with the

@@ -147,7 +147,7 @@ DEPARTMENT_LABELS = {
 
 #: Bumped when the rules below change, so catalogs derived under the old ones
 #: are derived again. See `_add_facet_columns`.
-DEPARTMENT_RULES = 2
+DEPARTMENT_RULES = 3
 
 #: Shelf names that are jewellery, and shelf names that are accessories.
 #: Matched against the shelf's own words: a dress tagged "with belt" is still a
@@ -420,17 +420,30 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     conn.execute(f"PRAGMA user_version = {DEPARTMENT_RULES}")
     if not rows:
         return
+    # Each org's own shelves, for the rows that have none. See `shelved`.
+    shelves_of: dict[str, list[str]] = {}
+    for found in conn.execute(
+        "SELECT DISTINCT org_id, category FROM products WHERE IFNULL(category, '') != ''"
+    ):
+        shelves_of.setdefault(found["org_id"], []).append(found["category"])
+    known = {org: _known_shelves(names) for org, names in shelves_of.items()}
+
     updates = []
     for row in rows:
         try:
             attributes = json.loads(row["attributes"] or "{}")
         except (TypeError, ValueError):
             attributes = {}
+        # A shelf the shop set is left exactly as written; only a blank is filled.
+        category = row["category"]
+        if not (category or "").strip():
+            category = _shelf_from_tags(attributes, known.get(row["org_id"], {})) or category
         color, style = facets_of(row["name"] or "", row["description"] or "", attributes)
-        department = department_of(row["name"] or "", row["category"] or "", attributes)
-        updates.append((color, style, department, row["org_id"], row["id"]))
+        department = department_of(row["name"] or "", category, attributes)
+        updates.append((category, color, style, department, row["org_id"], row["id"]))
     conn.executemany(
-        "UPDATE products SET color = ?, style = ?, department = ? WHERE org_id = ? AND id = ?",
+        "UPDATE products SET category = ?, color = ?, style = ?, department = ? "
+        "WHERE org_id = ? AND id = ?",
         updates,
     )
 
@@ -519,8 +532,50 @@ def _bind(products: list[Product], org_id: str) -> list[dict]:
     ]
 
 
+def _shelf_from_tags(attributes: dict[str, Any], known: dict[str, str]) -> str:
+    """The shelf a product with none belongs on, when its own tags say — or "".
+
+    Only when a tag *is* the name of a shelf, singular or plural: "Sarees",
+    "Ethnic Bags". Nothing is read from the name or the description, and a tag
+    that merely mentions a shelf is not one. `known` maps a shelf's stemmed,
+    lowered name to the shelf as the shop writes it.
+    """
+    for tag in _tags_of(attributes):
+        shelf = known.get(_stem(tag.strip(" \"'").lower()))
+        if shelf:
+            return shelf
+    return ""
+
+
+def _known_shelves(names) -> dict[str, str]:
+    return {_stem(n.strip().lower()): n for n in names if n and n.strip()}
+
+
+def shelved(products: list[Product], also: list[str] | None = None) -> list[Product]:
+    """The same products, with a shelf found for those that came without one.
+
+    This shop exported twelve sarees and a potli with no product type, each
+    tagged with the shelf it plainly belongs on. With no shelf they were
+    findable by search and invisible to a visitor choosing a category: the
+    Sarees tile counted twenty-two of thirty-four.
+
+    The shelves a tag may name are the ones in this batch, plus `also` — the
+    org's existing shelves, for an upsert that adds to them. A mirror replaces
+    the whole catalog, so its batch is all there is; `sync.pull_catalog` runs
+    its incoming rows through this before comparing them with what is on disk,
+    or a catalog that was filed here would never again look unchanged.
+    """
+    known = _known_shelves([*(also or []), *(p.category for p in products)])
+    out = []
+    for product in products:
+        shelf = "" if (product.category or "").strip() else _shelf_from_tags(product.attributes, known)
+        out.append(Product(**{**asdict(product), "category": shelf}) if shelf else product)
+    return out
+
+
 def upsert(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
     init()
+    products = shelved(products, categories(org_id))
     with _connect() as conn:
         conn.executemany(_UPSERT_SQL, _bind(products, org_id))
     return len(products)
@@ -547,6 +602,7 @@ def replace(products: list[Product], org_id: str = DEFAULT_ORG) -> int:
     if not products:
         return 0
     init()
+    products = shelved(products)
     with _connect() as conn:
         conn.execute("DELETE FROM products WHERE org_id = ?", (org_id,))
         conn.executemany(_UPSERT_SQL, _bind(products, org_id))
