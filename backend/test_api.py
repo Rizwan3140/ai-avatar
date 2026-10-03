@@ -371,6 +371,43 @@ check("and opens one", r.json()["spoken_price"] == "\u20b9189,900")
 r = client.post(f"/api/analytics/viewed/titan-pro-16?avatar={AVATAR}")
 check("viewing is recorded", r.json() == {"ok": True})
 
+print("\ndepartments")
+# "Men's wear" is a department, shown as tiles of its shelves; a tapped tile
+# opens that shelf within that department. The module is checked in
+# test_catalog — here, that a cabinet can reach both through the open API.
+_rails = [
+    catalog.Product(id="t-m1", name="Black Kurta", category="Men's Kurtas", attributes={"tags": "Men"}),
+    catalog.Product(id="t-m2", name="Cotton Pant", category="Pants", attributes={"tags": "Men"}),
+    catalog.Product(id="t-w1", name="Cream Pants", category="Pants", attributes={"tags": "Women"}),
+    catalog.Product(id="t-j1", name="Drop Earring", category="Earrings",
+                    attributes={"tags": "Jewellery, Women"}),
+]
+catalog.upsert(_rails, NORTH)
+r = client.get(f"/api/products/shelves?department=men&avatar={AVATAR}")
+check("a cabinet can ask for a department's shelves", r.status_code == 200, r.text[:160])
+check("and is told what to call it", r.json()["title"] == "Men's wear", r.text[:160])
+check(
+    "with that department's shelves and its own counts",
+    [(s["category"], s["count"]) for s in r.json()["shelves"]] == [("Men's Kurtas", 1), ("Pants", 1)],
+    r.text[:200],
+)
+r = client.get(f"/api/products?category=Pants&department=men&avatar={AVATAR}")
+check("a tile opens its shelf in its department", [p["id"] for p in r.json()] == ["t-m2"], r.text[:160])
+r = client.get(f"/api/products/shelves?department=accessories&avatar={AVATAR}")
+check("jewellery is its own department", [s["category"] for s in r.json()["shelves"]] == ["Earrings"])
+check(
+    "the shelves of an unidentified cabinet are refused",
+    client.get("/api/products/shelves?department=men&avatar=no-such-avatar").status_code == 404,
+)
+check(
+    "and a department has to be named",
+    client.get(f"/api/products/shelves?avatar={AVATAR}").status_code == 422,
+)
+# Removed again, for the same reason as the avatar below: counts are asserted
+# further down this file.
+for _p in _rails:
+    catalog.delete(_p.id, NORTH)
+
 print("\na second company")
 r = client.post("/api/studio/members", headers=north, json={"email": "z@z.com", "password": "a-long-enough-one"})
 check("an owner can add a member", r.status_code == 200, r.text[:160])

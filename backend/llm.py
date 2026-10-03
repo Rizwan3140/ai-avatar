@@ -258,10 +258,9 @@ def _language_rule(language: str) -> str:
     )
 
 
-def _stem(word: str) -> str:
-    """Crude singular, so "saree" and "sarees" compare equal. Nothing cleverer is
-    needed — this compares a shopper's noun against a shelf name."""
-    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+#: Crude singular, so "saree" and "sarees" compare equal. The catalog's own, so
+#: a shopper's noun is compared here exactly as it is matched to a shelf there.
+_stem = catalog._stem
 
 
 def ungrounded_claim(
@@ -388,6 +387,8 @@ def _turn_prompt(
     knowledge: str = '',
     categories: list[str] | None = None,
     closest: str = '',
+    rail: str = '',
+    tiles: list[str] | None = None,
 ) -> str:
     """Catalog first, model second.
 
@@ -432,6 +433,20 @@ def _turn_prompt(
             "one. If it does not fit what they asked for, say so plainly rather "
             "than inventing something.\n\n"
             f"- {products[0].as_line()}"
+        )
+    elif tiles:
+        # "Men's wear" is a department, not a shelf. The panel is showing its
+        # categories as tiles for the visitor to pick from; they invite the
+        # choice and stop. The same rule as the product list above: a model
+        # given a list reads it out unless it is told flatly not to.
+        grounding = (
+            f"The visitor asked to browse {rail}. Its categories are NOW ON "
+            "SCREEN as tiles they can tap, each with a picture. They can see "
+            "them.\n"
+            "Say ONE short sentence inviting them to choose a category, then "
+            "stop. Do not read the list out. Do not name a category that is not "
+            "listed below. Do not say we do not carry something.\n\n"
+            + "\n".join(f"- {name}" for name in tiles)
         )
     else:
         # Retrieval runs on every utterance, including "thank you" and "what did
@@ -644,9 +659,12 @@ def stream_reply(
     categories: list[str] | None = None,
     language: str = "",
     closest: str = "",
+    rail: str = "",
+    tiles: list[str] | None = None,
 ) -> Iterator[str]:
-    # Warm when there is nothing to get wrong, cold the moment there is.
-    temperature = GROUNDED_TEMPERATURE if (products or knowledge) else CHAT_TEMPERATURE
+    # Warm when there is nothing to get wrong, cold the moment there is. A list
+    # of real shelves is something to get wrong.
+    temperature = GROUNDED_TEMPERATURE if (products or knowledge or tiles) else CHAT_TEMPERATURE
     # Two system messages, not one, and the order is the point.
     #
     # The first is byte-identical every turn, so the model's prefix cache holds
@@ -657,7 +675,12 @@ def stream_reply(
     # which is the signature of prompt evaluation rather than generation.
     messages = [
         {"role": "system", "content": _stable_prompt(persona, language)},
-        {"role": "system", "content": _turn_prompt(products or [], on_screen, knowledge, categories, closest)},
+        {
+            "role": "system",
+            "content": _turn_prompt(
+                products or [], on_screen, knowledge, categories, closest, rail, tiles
+            ),
+        },
         *history,
     ]
 

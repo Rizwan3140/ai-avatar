@@ -48,8 +48,15 @@ export type Events = {
 
   EMOTION_CHANGED: { emotion: Emotion }
 
-  /** Products the catalog returned for what the visitor just asked. */
-  PRODUCTS_SHOWN: { products: Product[] }
+  /** Products the catalog returned for what the visitor just asked.
+   *  `fromShelf` when a tile was tapped: the tiles stay behind the list, so Back
+   *  returns to them. A list arriving any other way replaces them. */
+  PRODUCTS_SHOWN: { products: Product[]; fromShelf?: boolean }
+  /** A department's shelves, as tiles to choose from — "Men's wear" is three
+   *  shelves in this shop, and the visitor picks which. */
+  SHELVES_SHOWN: Shelves
+  /** Back from a tile's products to the tiles. */
+  SHELF_CLOSED: void
   /** One product moved to the front — by touch, or by being talked about. */
   PRODUCT_SELECTED: { product: Product }
   /** Back to the results. Distinct from clearing them, which throws away the search. */
@@ -84,5 +91,17 @@ export type Product = {
   availability: string
   attributes: Record<string, string>
 }
+
+/** One department, as the server lists it: "men", "women" or "accessories". */
+export type Shelves = {
+  department: string
+  /** "Men's wear" — the panel's heading. */
+  title: string
+  shelves: Shelf[]
+}
+
+/** One tile: a shelf, how many of this department's pieces are on it, and one
+ *  of them to stand for it. */
+export type Shelf = { category: string; count: number; image: string }
 
 export type EventName = keyof Events

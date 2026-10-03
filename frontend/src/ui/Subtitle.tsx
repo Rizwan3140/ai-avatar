@@ -1,4 +1,4 @@
-import { useStore } from '../state/store.ts'
+import { cardShowing, useStore } from '../state/store.ts'
 
 /**
  * One typographic slot, used by every state so nothing shifts position when a
@@ -10,10 +10,11 @@ import { useStore } from '../state/store.ts'
  * a message list would make this a chat application.
  */
 export function Subtitle() {
-  const { status, subtitle, greeting, error, products } = useStore()
-  // The prompt chips only show with no products up (`Prompts.tsx`). Reserving
+  const { status, subtitle, greeting, error } = useStore()
+  const card = useStore(cardShowing)
+  // The prompt chips only show with no card up (`Prompts.tsx`). Reserving
   // their floor regardless lifted the caption into the product panel.
-  const promptsUp = (status === 'idle' || status === 'listening') && products.length === 0
+  const promptsUp = (status === 'idle' || status === 'listening') && !card
 
   // Asleep the cabinet says nothing, so there is nothing to make readable — and
   // the scrim is a 120px white gradient held on an OLED all night. `Controls`

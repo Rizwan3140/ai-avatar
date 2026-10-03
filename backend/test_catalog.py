@@ -404,16 +404,119 @@ def main() -> int:
     check("and filters to it", {p.category for p in catalog.search("show me kurta sets")},
           {"Kurta Sets"})
 
-    # Spoken, the men's shelf has no apostrophe. "show mens products" found one
-    # product with "Mens" in its name and left the Men's Kurtas shelf unshown.
+    # ---- departments ---------------------------------------------------------
+    print("\ndepartments")
+
+    # "Men's wear" used to be an alias for the Men's Kurtas shelf, so a shop
+    # with men's kurtas, pyjamas and pants answered it with kurtas alone. It is
+    # a department now: read from the shop's own tags, browsed as shelves.
+    RAILS = "rails"
+    P = catalog.Product
+    catalog.upsert(
+        [
+            P(id="m1", name="Black Satin Kurta", category="Men's Kurtas",
+              attributes={"tags": "Men, Mens collection, Black"}),
+            P(id="m2", name="White Churidar Pyjama", category="Pyjamas", attributes={"tags": "Men"}),
+            P(id="m3", name="Black Cotton Pant", category="Pants", attributes={"tags": "Men, Black"}),
+            P(id="w1", name="Red Silk Kurta", category="Kurtas", attributes={"tags": "Women"}),
+            P(id="w2", name="Cream Pants", category="Pants", attributes={"tags": "Women"}),
+            # This export really does carry `Women"` with a stray quote.
+            P(id="w3", name="Blue Saree", category="Sarees", attributes={"tags": 'Sarees, Women"'}),
+            P(id="w4", name="Linen Midi Dress", category="Dresses", attributes={"tags": "Women"}),
+            P(id="w5", name="Anarkali Set", category="Kurta Sets", attributes={"tags": "Women"},
+              description="Pairs well with a drop earring."),
+            P(id="j1", name="Drop Earring", category="Earrings", attributes={"tags": "Jewellery, Women"}),
+            P(id="j2", name="Diamond Necklace Set", category="Jewellery Sets",
+              attributes={"tags": "Jewellery, Women"}),
+            P(id="j3", name="Black Beaded Bangle", category="Bangles",
+              attributes={"tags": "Jewellery, Black"}),
+            # No tag says so; the shelf does.
+            P(id="j4", name="Purple Potli", category="Ethnic Bags", attributes={"tags": "Women"}),
+            P(id="u1", name="Thread Rakhi", category="Rakhis", attributes={"tags": "Accessories, Unisex"}),
+            # Nothing says who these are for.
+            P(id="n1", name="Plain Shawl", category="Shawls"),
+            P(id="n2", name="Women's Wool Cape", category="Capes"),
+        ],
+        RAILS,
+    )
+
+    def dept(pid):
+        p = catalog.get(pid, RAILS)
+        return catalog.department_of(p.name, p.category, p.attributes)
+
+    check("a Men tag is men's wear", dept("m1"), "men")
+    check("a Women tag is women's wear", dept("w1"), "women")
+    check("a stray quote in the tag does not hide it", dept("w3"), "women")
+    check("jewellery is not clothing, whoever it is for", dept("j1"), "accessories")
+    check("a bag is not clothing though no tag says so", dept("j4"), "accessories")
+    check("an Accessories tag is not clothing", dept("u1"), "accessories")
+    check("with no tag the name is read", dept("n2"), "women")
+    check("and with nothing to read, nothing is guessed", dept("n1"), "")
+    check("a dress tagged 'with belt' is still a dress",
+          catalog.department_of("Wrap Dress", "Dresses", {"tags": "Women, With Belt"}), "women")
+
+    for said, want in (("Show me menswear.", "men"), ("show mens products", "men"),
+                       ("gents collection", "men"), ("Show me women's wear.", "women"),
+                       ("something for ladies", "women"), ("Show me jewellery.", "accessories"),
+                       ("show me sarees", ""), ("for men and women", "")):
+        check(f"department of: {said}", catalog.parse_department(said)[1], want)
+    check("the department's words are taken out",
+          catalog.parse_department("show me men's kurtas")[0], "show me kurtas")
+
+    # The tiles a visitor picks from. Pants holds one men's piece and one
+    # women's, and each department's tile counts only its own.
+    check("men's wear is three shelves, not one",
+          [(s["category"], s["count"]) for s in catalog.shelves(RAILS, "men")],
+          [("Men's Kurtas", 1), ("Pants", 1), ("Pyjamas", 1)])
+    check("women's wear has no jewellery among its shelves",
+          {s["category"] for s in catalog.shelves(RAILS, "women")},
+          {"Kurtas", "Pants", "Sarees", "Dresses", "Kurta Sets", "Capes"})
+    check("jewellery and accessories are their own",
+          {s["category"] for s in catalog.shelves(RAILS, "accessories")},
+          {"Earrings", "Jewellery Sets", "Bangles", "Ethnic Bags", "Rakhis"})
+
+    def ids(query, **kw):
+        return {p.id for p in catalog.search(query, org_id=RAILS, **kw)}
+
+    # A shelf within a department. "Kurtas" as a phrase matches the women's
+    # shelf exactly and Men's Kurtas at 0.67 — under the cutoff.
+    check("men's kurtas are on the men's shelf", ids("show me men's kurtas"), {"m1"})
+    check("heard without the apostrophe", ids("Men's, curtas?"), {"m1"})
+    check("women's kurtas are not", ids("women's kurtas"), {"w1"})
+    check("men's pants is the men's one", ids("show me men's pants"), {"m3"})
+    check("ladies pants is the women's one", ids("ladies pants"), {"w2"})
+    check("a shelf's own word is not then searched for", ids("show me women's dresses"), {"w4"})
+    check("jewellery sets is a shelf of jewellery", ids("show me jewellery sets"), {"j2"})
+    check("a tile opens its shelf in its department",
+          ids("", category="Pants", department="men"), {"m3"})
+    check("men's sarees is nothing, not the women's sarees", ids("men's sarees"), set())
+
+    # Never one list. A browse is clothes; a ranked search is the kind its best
+    # match is; a named shelf or department has already chosen.
+    def kinds(found):
+        return {catalog.department_of(p.name, p.category, p.attributes) == "accessories" for p in found}
+
+    check("a browse is clothes only", kinds(catalog.search("", org_id=RAILS)), {False})
+    check("a colour on its own is clothes only",
+          ids("", color="Black"), {"m1", "m3"})
+    check("earring is jewellery, not the set whose blurb mentions one", ids("earring"), {"j1"})
+    check("a jewellery colour still reaches jewellery when asked",
+          ids("", color="Black", department="accessories"), {"j3"})
+
+    # A row saved by an older release, picked from the version menu, has no
+    # department at all. It is filled in the next time the catalog is opened.
+    with catalog._connect() as conn:
+        conn.execute("UPDATE products SET department = NULL WHERE org_id = ? AND id = 'm2'", (RAILS,))
+    check("a row with no department is on no rail",
+          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Men's Kurtas", "Pants"])
+    catalog._initialised.clear()
+    catalog.init()
+    check("until the catalog is next opened",
+          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Men's Kurtas", "Pants", "Pyjamas"])
+
     _cats = catalog.categories
     catalog.categories = lambda org_id=catalog.DEFAULT_ORG: ["Men's Kurtas", "Kurtas", "Sarees"]
-    check("mens finds the men's shelf", catalog.parse_category("show mens products")[1], "Men's Kurtas")
-    check("so does gents", catalog.parse_category("gents collection")[1], "Men's Kurtas")
     check("womens is not mens", catalog.parse_category("womens kurtas")[1], "Kurtas")
-    # Real transcripts from the cabinet, 29 September: all matched nothing.
-    for heard in ("Show me some menswear.", "Show me some men's curtes.", "Men's, curtas?"):
-        check(f"heard: {heard}", catalog.parse_category(heard)[1], "Men's Kurtas")
     # From the event log, 30 September: shelves we stock, heard as other words,
     # each answered "we don't carry those".
     for heard, shelf in (("Show me some Curtis.", "Kurtas"), ("Show me pink curtas.", "Kurtas"),
@@ -489,7 +592,9 @@ def main() -> int:
     catalog.upsert(
         from_rows(
             [
-                {"sku": "P1", "title": "Casino Stripe Potli", "type": "Ethnic Bags",
+                # A jacket, not the potli of the original report: a bag and a
+                # dress are no longer one list, and this is about the terms.
+                {"sku": "P1", "title": "Casino Stripe Jacket", "type": "Jackets",
                  "mrp": "900", "details": "Where to keep your phone and money?"},
                 {"sku": "P2", "title": "Mobile Charging Dress", "type": "Dresses",
                  "mrp": "900", "details": "A pocket for your mobile phone"},

@@ -1,7 +1,7 @@
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react'
 import { bus } from '../bus/bus.ts'
-import type { Product } from '../bus/events.ts'
-import { scope } from '../provider/http.ts'
+import type { Product, Shelf, Shelves } from '../bus/events.ts'
+import { openShelf, scope } from '../provider/http.ts'
 import { useStore } from '../state/store.ts'
 import { Controls } from './Controls.tsx'
 import { TryOn } from './TryOn.tsx'
@@ -15,8 +15,8 @@ import { TryOn } from './TryOn.tsx'
  * still being helped by someone rather than browsing alone.
  */
 export function Showcase() {
-  const { products, selected } = useStore()
-  if (!products.length) return null
+  const { products, selected, shelves } = useStore()
+  if (!products.length && !shelves) return null
 
   return (
     // A shelf floating over them, not one that pushes them up to make room.
@@ -39,10 +39,15 @@ export function Showcase() {
           whether it is the slim list or the taller single product. */}
       <div className="relative">
         <Controls above />
+        {/* One product, a list of them, or — with neither — a department's
+            shelves to choose from. `shelves` is still set behind a tapped
+            tile's products, which is what their Back returns to. */}
         {selected ? (
-          <Detail product={selected} siblings={products.length} />
+          <Detail product={selected} siblings={products.length} from={shelves} />
+        ) : products.length ? (
+          <Rail products={products} from={shelves} />
         ) : (
-          <Rail products={products} />
+          shelves && <Tiles shelves={shelves} />
         )}
       </div>
     </aside>
@@ -147,8 +152,28 @@ function splitName(product: Product): [string, string] {
   return [product.name, product.category ?? '']
 }
 
-function Rail({ products }: { products: Product[] }) {
-  const shelf = sharedCategory(products)
+/**
+ * The floating strip itself: a heading, one scrolling row of cards, and dots
+ * for where in the row the visitor is.
+ *
+ * Shared by the product list and the category tiles on purpose. A visitor
+ * choosing a category and then a piece from it is doing one thing, and two
+ * panels that scrolled or sat differently would make it feel like two.
+ */
+function Strip({
+  title,
+  tally,
+  back,
+  watch,
+  children,
+}: {
+  title: string
+  tally: string
+  back?: Back
+  /** Whatever the row is showing. The dots are re-measured when it changes. */
+  watch: unknown
+  children: ReactNode
+}) {
   const row = useRef<HTMLDivElement>(null)
   const [pages, setPages] = useState({ count: 1, at: 0 })
   useSideScroll(row)
@@ -170,7 +195,7 @@ function Rail({ products }: { products: Product[] }) {
       el.removeEventListener('scroll', measure)
       window.removeEventListener('resize', measure)
     }
-  }, [products])
+  }, [watch])
 
   return (
     // A slim strip at eye level. Tall enough to judge a garment by, short enough
@@ -179,7 +204,7 @@ function Rail({ products }: { products: Product[] }) {
     // Portrait (the cabinet): four across. Landscape: it sits beside them, two
     // across.
     <div className="lay-down bg-canvas/70 border-line/60 shadow-float flex flex-col gap-[clamp(8px,0.9vh,32px)] rounded-[clamp(16px,1.8vh,60px)] border p-[clamp(10px,1.2vh,44px)] backdrop-blur-xl">
-      <Heading shelf={shelf} count={products.length} />
+      <Heading title={title} tally={tally} back={back} />
 
       <div
         ref={row}
@@ -188,31 +213,7 @@ function Rail({ products }: { products: Product[] }) {
         onContextMenu={(e) => e.preventDefault()}
         className="flex snap-x snap-mandatory gap-[clamp(8px,0.9vh,32px)] overflow-x-auto select-none [scrollbar-width:none]"
       >
-        {products.map((product, i) => {
-          const [brand, rest] = splitName(product)
-          return (
-            <button
-              key={product.id}
-              type="button"
-              onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
-              // Laid out one after another rather than all at once. Capped at
-              // eight steps so a longer list never turns the wait into a queue —
-              // past that they arrive together, which nobody reads as a fault.
-              className="lay-down border-line/60 bg-canvas group flex w-[calc((100%-3*clamp(8px,0.9vh,32px))/4)] shrink-0 snap-start flex-col overflow-hidden rounded-[clamp(10px,1.1vh,36px)] border text-left shadow-sm transition-[box-shadow,transform] duration-300 ease-(--ease-human) hover:shadow-float active:scale-[0.98] landscape:w-[calc((100%-clamp(8px,0.9vh,32px))/2)]"
-              style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
-            >
-              <Image product={product} thumb className="aspect-[3/4] w-full bg-white" fit="contain" />
-              <span className="flex flex-col gap-[0.1em] px-[0.6em] py-[0.5em]">
-                {/* Four across leaves room for about two words a line, so the
-                    "Women's" every name starts with gives way to what the piece is. */}
-                <span className="text-label line-clamp-2 leading-tight">
-                  {(rest || brand).replace(/^(wo)?men['’]s\s+/i, '')}
-                </span>
-                <span className="text-label font-semibold tabular-nums">{product.spoken_price}</span>
-              </span>
-            </button>
-          )
-        })}
+        {children}
       </div>
 
       {pages.count > 1 && (
@@ -231,6 +232,117 @@ function Rail({ products }: { products: Product[] }) {
   )
 }
 
+/** One card in a strip: four across on the cabinet, two beside them in
+ *  landscape. A product and a category tile are the same card with different
+ *  words under the picture. */
+const CARD =
+  'lay-down border-line/60 bg-canvas group flex w-[calc((100%-3*clamp(8px,0.9vh,32px))/4)] shrink-0 snap-start flex-col overflow-hidden rounded-[clamp(10px,1.1vh,36px)] border text-left shadow-sm transition-[box-shadow,transform] duration-300 ease-(--ease-human) hover:shadow-float active:scale-[0.98] landscape:w-[calc((100%-clamp(8px,0.9vh,32px))/2)]'
+
+/** Laid out one after another rather than all at once. Capped at eight steps
+ *  so a longer list never turns the wait into a queue — past that they arrive
+ *  together, which nobody reads as a fault. */
+const arriving = (i: number) => ({ animationDelay: `${Math.min(i, 8) * 55}ms` })
+
+/** "Men's Kurtas" under a heading that already says Men's wear is "Kurtas". */
+const withoutWhose = (text: string) => text.replace(/^(wo)?men['’]s\s+/i, '')
+
+function Rail({ products, from }: { products: Product[]; from: Shelves | null }) {
+  const shelf = sharedCategory(products)
+  const count = products.length
+
+  return (
+    <Strip
+      title={shelf || 'Selected for you'}
+      tally={`${count} ${count === 1 ? 'piece' : 'pieces'}`}
+      // Reached from a tile, the way back is to the tiles.
+      back={from ? { label: from.title, to: () => bus.emit('SHELF_CLOSED') } : undefined}
+      watch={products}
+    >
+      {products.map((product, i) => {
+        const [brand, rest] = splitName(product)
+        return (
+          <button
+            key={product.id}
+            type="button"
+            onClick={() => bus.emit('PRODUCT_SELECTED', { product })}
+            className={CARD}
+            style={arriving(i)}
+          >
+            <Image product={product} thumb className="aspect-[3/4] w-full bg-white" fit="contain" />
+            <span className="flex flex-col gap-[0.1em] px-[0.6em] py-[0.5em]">
+              {/* Four across leaves room for about two words a line, so the
+                  "Women's" every name starts with gives way to what the piece is. */}
+              <span className="text-label line-clamp-2 leading-tight">
+                {withoutWhose(rest || brand)}
+              </span>
+              <span className="text-label font-semibold tabular-nums">{product.spoken_price}</span>
+            </span>
+          </button>
+        )
+      })}
+    </Strip>
+  )
+}
+
+/**
+ * A department's shelves, to choose from — the way a film app offers genres.
+ *
+ * "Men's wear" is not one shelf. This shop's men's pieces are kurtas, pyjamas
+ * and pants, and answering the chip with eight kurtas hid the other two. So the
+ * panel offers the shelves and the visitor says which, by tapping or out loud.
+ *
+ * Each tile is one of that shelf's own pieces, standing for the rest.
+ */
+function Tiles({ shelves }: { shelves: Shelves }) {
+  const count = shelves.shelves.length
+
+  return (
+    <Strip
+      title={shelves.title}
+      tally={`${count} ${count === 1 ? 'category' : 'categories'}`}
+      watch={shelves}
+    >
+      {shelves.shelves.map((shelf, i) => (
+        <button
+          key={shelf.category}
+          type="button"
+          onClick={() => void openShelf(shelves.department, shelf.category)}
+          className={CARD}
+          style={arriving(i)}
+        >
+          <Image product={standIn(shelf)} thumb className="aspect-[3/4] w-full bg-white" fit="contain" />
+          <span className="flex flex-col gap-[0.1em] px-[0.6em] py-[0.5em]">
+            <span className="text-label line-clamp-2 leading-tight font-semibold">
+              {withoutWhose(shelf.category)}
+            </span>
+            <span className="text-ink-soft text-label tabular-nums">
+              {shelf.count} {shelf.count === 1 ? 'piece' : 'pieces'}
+            </span>
+          </span>
+        </button>
+      ))}
+    </Strip>
+  )
+}
+
+/** A shelf as the one product `Image` needs: its picture, and its name for the
+ *  placeholder a shelf with no photograph gets. */
+function standIn(shelf: Shelf): Product {
+  return {
+    id: shelf.category,
+    name: shelf.category,
+    category: shelf.category,
+    image: shelf.image,
+    price: null,
+    currency: '',
+    spoken_price: '',
+    description: '',
+    url: '',
+    availability: '',
+    attributes: {},
+  }
+}
+
 
 /** Short enough to be read at a glance, by someone who is not going to read.
  *
@@ -242,7 +354,16 @@ function Rail({ products }: { products: Product[] }) {
  *  worth scanning, so size is the one fact that stays. */
 const WORTH_READING = ['size', 'colour', 'color']
 
-function Detail({ product, siblings }: { product: Product; siblings: number }) {
+function Detail({
+  product,
+  siblings,
+  from,
+}: {
+  product: Product
+  siblings: number
+  /** The tiles this product's shelf was opened from, if it was. */
+  from: Shelves | null
+}) {
   const facts = WORTH_READING.map((k) => product.attributes[k]).filter(Boolean) as string[]
   // Coming from a list of results, "back" means back to those results. Throwing
   // the whole search away because someone looked at one item is the kind of thing
@@ -288,10 +409,17 @@ function Detail({ product, siblings }: { product: Product; siblings: number }) {
                 exit but asking out loud. */}
             <button
               type="button"
-              onClick={() => bus.emit(toResults ? 'PRODUCT_DESELECTED' : 'PRODUCTS_CLEARED')}
+              // A shelf with one piece on it opens straight to that piece —
+              // this shop's men's Pants tile does. Its way back is the tiles it
+              // came from, not an empty panel.
+              onClick={() =>
+                bus.emit(
+                  toResults ? 'PRODUCT_DESELECTED' : from ? 'SHELF_CLOSED' : 'PRODUCTS_CLEARED',
+                )
+              }
               className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink mb-[0.4em] rounded-full border px-[1em] py-[0.45em] transition-colors"
             >
-              {toResults ? `Back to ${siblings} results` : 'Back'}
+              {toResults ? `Back to ${siblings} results` : from ? `Back to ${from.title}` : 'Back'}
             </button>
             <h2
               className="font-display lay-down text-ink text-title line-clamp-3 leading-[1.05] tracking-[-0.01em] text-balance"
@@ -448,17 +576,27 @@ function Gallery({ product }: { product: Product }) {
   )
 }
 
-function Heading({ shelf, count }: { shelf: string; count: number }) {
-  const piece = count === 1 ? 'piece' : 'pieces'
+/** Where a strip's Back goes, and what it is called. */
+type Back = { label: string; to: () => void }
 
+function Heading({ title, tally, back }: { title: string; tally: string; back?: Back }) {
   return (
-    <div className="flex shrink-0 items-baseline justify-between gap-[1em]">
-      <h2 className="font-display text-body leading-none tracking-[-0.01em]">
-        {shelf || 'Selected for you'}
-      </h2>
-      <span className="text-ink-soft text-label shrink-0 tabular-nums">
-        {count} {piece}
-      </span>
+    <div className="flex shrink-0 items-center justify-between gap-[1em]">
+      <div className="flex min-w-0 items-center gap-[0.7em]">
+        {/* Back to the tiles this list was opened from. The same pill the
+            single-product view uses for its own way back. */}
+        {back && (
+          <button
+            type="button"
+            onClick={back.to}
+            className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink shrink-0 rounded-full border px-[1em] py-[0.45em] transition-colors"
+          >
+            ‹ {back.label}
+          </button>
+        )}
+        <h2 className="font-display text-body truncate leading-none tracking-[-0.01em]">{title}</h2>
+      </div>
+      <span className="text-ink-soft text-label shrink-0 tabular-nums">{tally}</span>
     </div>
   )
 }

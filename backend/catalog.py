@@ -127,6 +127,61 @@ def facets_of(name: str, description: str, attributes: dict[str, Any]) -> tuple[
     return color, style
 
 
+#: The rails a showroom is browsed by. A visitor tapping "Men's wear" is not
+#: asking for one shelf — this shop's men's pieces sit on three — and nobody
+#: asking for clothes wants a nose ring in the middle of them.
+MEN, WOMEN, EXTRAS = "men", "women", "accessories"
+
+#: What each is called out loud, for the prompt and the panel's heading.
+DEPARTMENT_LABELS = {MEN: "Men's wear", WOMEN: "Women's wear", EXTRAS: "Jewellery & accessories"}
+
+#: The shop's own label for "this is not a garment". Tags only: these two words
+#: are what a storefront files such things under, and a tag is a deliberate act.
+_EXTRAS_TAGS = frozenset({"jewellery", "jewelry", "jewelery", "accessories", "accessory"})
+
+#: And the shelf names that say so when the tags are silent — "Ethnic Bags"
+#: carries neither tag. Matched against the shelf's own words and never against
+#: tags or copy: a dress tagged "with belt" is still a dress.
+_EXTRAS_SHELVES = _EXTRAS_TAGS | frozenset(
+    "bag bags belt belts earring earrings bangle bangles ring rings necklace "
+    "necklaces bracelet bracelets anklet anklets nath naths rakhi rakhis watch "
+    "watches wallet wallets clutch clutches".split()
+)
+
+
+def department_of(name: str, category: str, attributes: dict[str, Any]) -> str:
+    """Which rail one product hangs on: "men", "women", "accessories" or "".
+
+    Tags first, for the reason `facets_of` gives — the shop labelled these
+    itself. 193 rows here are tagged Women, 22 Men, 72 Jewellery; the name is
+    read only where the tags say nothing.
+
+    Not-a-garment wins over who it is for: earrings tagged Women are jewellery,
+    which is the whole point of keeping the two apart.
+
+    Empty means we do not know, or it is for anyone (tagged both, or Unisex).
+    Such a row is still found by search; it simply sits on neither gendered
+    rail, which beats guessing a customer's shirt into the wrong one.
+    """
+    # A tag is a phrase ("Mens collection", "Ethnic Bags", `Women"` with a stray
+    # quote in this export), so it is read as words.
+    words = {w for tag in _tags_of(attributes) for w in re.findall(r"[a-z]+", tag.lower())}
+    shelf = set(re.findall(r"[a-z]+", (category or "").lower()))
+    if words & _EXTRAS_TAGS or shelf & _EXTRAS_SHELVES:
+        return EXTRAS
+
+    men = bool(words & {"men", "mens", "gents"})
+    women = bool(words & {"women", "womens", "ladies"})
+    if not men and not women:
+        # `\bmen` cannot match inside "women": the "o" before it is a word character.
+        text = f"{name} {category}".lower()
+        men = bool(re.search(r"\b(men'?s?|gents)\b", text))
+        women = bool(re.search(r"\b(women'?s?|ladies)\b", text))
+    if men == women:
+        return ""
+    return MEN if men else WOMEN
+
+
 @dataclass
 class Product:
     id: str
@@ -306,15 +361,25 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
     if "products" not in tables:
         return
     columns = {r["name"] for r in conn.execute("PRAGMA table_info(products)")}
-    missing = [c for c in ("color", "style", "images", "video") if c not in columns]
+    missing = [c for c in ("color", "style", "images", "video", "department") if c not in columns]
     for column in missing:
         conn.execute(f"ALTER TABLE products ADD COLUMN {column} TEXT")
-    if not missing:
+    # The department rail is browsed and counted on every tile screen.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS products_org_department "
+        "ON products(org_id, department, category)"
+    )
+    # Fill in whichever rows lack a derived value, not "all rows when a column
+    # is new". A column added just now is NULL throughout — and so is any row
+    # written since by an older release chosen from the version menu, which
+    # knows nothing of `department`. Derived values are never NULL once set
+    # ("" means "not known"), so a healthy catalog selects nothing here.
+    rows = conn.execute(
+        "SELECT org_id, id, name, category, description, attributes FROM products "
+        "WHERE color IS NULL OR style IS NULL OR department IS NULL"
+    ).fetchall()
+    if not rows:
         return
-
-    if "color" in columns and "style" in columns:
-        return  # only `images`/`video` were added; neither needs backfilling
-    rows = conn.execute("SELECT org_id, id, name, description, attributes FROM products").fetchall()
     updates = []
     for row in rows:
         try:
@@ -322,9 +387,11 @@ def _add_facet_columns(conn: sqlite3.Connection) -> None:
         except (TypeError, ValueError):
             attributes = {}
         color, style = facets_of(row["name"] or "", row["description"] or "", attributes)
-        updates.append((color, style, row["org_id"], row["id"]))
+        department = department_of(row["name"] or "", row["category"] or "", attributes)
+        updates.append((color, style, department, row["org_id"], row["id"]))
     conn.executemany(
-        "UPDATE products SET color = ?, style = ? WHERE org_id = ? AND id = ?", updates
+        "UPDATE products SET color = ?, style = ?, department = ? WHERE org_id = ? AND id = ?",
+        updates,
     )
 
 
@@ -363,16 +430,18 @@ def _row_to_product(row: sqlite3.Row) -> Product:
 
 _UPSERT_SQL = """
     INSERT INTO products (org_id, id, name, category, price, currency, description,
-                          url, image, availability, attributes, color, style, images, video)
+                          url, image, availability, attributes, color, style, images, video,
+                          department)
     VALUES (:org_id, :id, :name, :category, :price, :currency, :description,
-            :url, :image, :availability, :attributes, :color, :style, :images, :video)
+            :url, :image, :availability, :attributes, :color, :style, :images, :video,
+            :department)
     ON CONFLICT(org_id, id) DO UPDATE SET
         name=excluded.name, category=excluded.category, price=excluded.price,
         currency=excluded.currency, description=excluded.description,
         url=excluded.url, image=excluded.image,
         availability=excluded.availability, attributes=excluded.attributes,
         color=excluded.color, style=excluded.style, images=excluded.images,
-        video=excluded.video
+        video=excluded.video, department=excluded.department
 """
 
 
@@ -404,6 +473,7 @@ def _bind(products: list[Product], org_id: str) -> list[dict]:
             **dict(
                 zip(("color", "style"), facets_of(p.name, p.description, p.attributes))
             ),
+            "department": department_of(p.name, p.category, p.attributes),
         }
         for p in products
     ]
@@ -551,16 +621,10 @@ CATEGORY_ALIASES = {
     "potli": "Ethnic Bags",
     "palazzo": "Palazzos",
     "sharara": "Shararas",
-    # Nobody says the apostrophe, and Whisper does not write it: "show mens
-    # products" matched one product with "Mens" in its name while the whole
-    # Men's Kurtas shelf went unshown, and the avatar described kurtas the
-    # visitor could not see.
-    "men": "Men's Kurtas",
-    "mens": "Men's Kurtas",
-    "gents": "Men's Kurtas",
-    # The word visitors actually used, seven times in one test session, each
-    # matching nothing.
-    "menswear": "Men's Kurtas",
+    # "men", "mens", "gents", "menswear" and "jewellery" are not here any more.
+    # They were — pointing at Men's Kurtas and Jewellery Sets — and a word for a
+    # whole department opened one shelf of it. They are `DEPARTMENT_WORDS` now.
+    #
     # How Whisper writes these shelves, from the event log — each one a visitor
     # asking for something we stock and being told we do not carry it.
     "curtis": "Kurtas",
@@ -568,9 +632,6 @@ CATEGORY_ALIASES = {
     "courtes": "Kurtas",
     "saddies": "Sarees",
     "sadies": "Sarees",
-    "jewelry": "Jewellery Sets",
-    "jewelries": "Jewellery Sets",
-    "jewellery": "Jewellery Sets",
     "handbag": "Ethnic Bags",
     "handbags": "Ethnic Bags",
 }
@@ -828,6 +889,107 @@ def _corroborated(terms: list[str], found: list[Product]) -> list[Product]:
     return kept
 
 
+#: The words a visitor names a department with. Whisper writes "men's" with and
+#: without its apostrophe and "menswear" as one word, so they are read with
+#: everything but letters taken out.
+#:
+#: These used to be shelf aliases — "menswear" meant the Men's Kurtas shelf and
+#: "jewellery" meant Jewellery Sets — which is how a shop with men's kurtas,
+#: pyjamas and pants answered "men's wear" with kurtas and nothing else.
+DEPARTMENT_WORDS = {
+    "men": MEN, "mens": MEN, "gents": MEN, "menswear": MEN, "male": MEN,
+    "women": WOMEN, "womens": WOMEN, "ladies": WOMEN, "womenswear": WOMEN, "female": WOMEN,
+    "jewellery": EXTRAS, "jewelry": EXTRAS, "jewelery": EXTRAS, "jewelries": EXTRAS,
+    "accessories": EXTRAS, "accessory": EXTRAS,
+}
+
+
+def parse_department(text: str) -> tuple[str, str]:
+    """Lift the department out of a sentence, as `parse_facets` lifts a colour.
+
+    Returns the text without the department's words and "men", "women",
+    "accessories" or "". Two different departments in one breath ("for men and
+    women") is not a choice of either, so nothing is lifted.
+    """
+    kept, named = [], set()
+    for token in text.split():
+        department = DEPARTMENT_WORDS.get(re.sub(r"[^a-z]", "", token.lower()))
+        if department:
+            named.add(department)
+        else:
+            kept.append(token)
+    if len(named) != 1:
+        return text, ""
+    return " ".join(kept), named.pop()
+
+
+def shelves(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
+    """The shelves of one department, fullest first — the tiles a visitor picks
+    from, each with a count and one picture to stand for it.
+
+    Counts are of this department's rows only: this shop's Pants shelf holds two
+    women's pieces and one men's, and the men's tile has to say one.
+    """
+    init()
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT p.category AS category, COUNT(*) AS count,
+                   (SELECT q.image FROM products q
+                     WHERE q.org_id = p.org_id AND q.category = p.category
+                       AND IFNULL(q.department, '') = IFNULL(p.department, '')
+                       AND IFNULL(q.image, '') != ''
+                     ORDER BY q.name LIMIT 1) AS image
+              FROM products p
+             WHERE p.org_id = ? AND IFNULL(p.department, '') = ? AND IFNULL(p.category, '') != ''
+             GROUP BY p.category
+             ORDER BY count DESC, p.category
+            """,
+            (org_id, department),
+        ).fetchall()
+    return [{"category": r["category"], "count": r["count"], "image": r["image"] or ""} for r in rows]
+
+
+def shelf_in(department: str, text: str, org_id: str = DEFAULT_ORG) -> str:
+    """The shelf of this department a sentence names, or "".
+
+    Matched word by word against the department's own shelves, not by
+    `parse_category` against all of them. "Men's kurtas" has to reach the Men's
+    Kurtas shelf: as a whole phrase "kurtas" scores 0.67 against it, under the
+    cutoff, while it matches the women's Kurtas shelf exactly — and that shelf
+    has nothing for a man on it.
+
+    A shelf is named when every word of it has been said, the department's own
+    words aside ("men's" in Men's Kurtas, "jewellery" in Jewellery Sets). The
+    longest such shelf wins, so "kurta sets" is not answered with Kurtas.
+    """
+    said = set()
+    for word in re.findall(r"[a-z]+", text.lower()):
+        if word in STOPWORDS:
+            continue
+        # An alias is how the word is spelled on the shelf: "curtas" -> Kurtas.
+        for spelling in re.findall(r"[a-z]+", CATEGORY_ALIASES.get(word, word).lower()):
+            said.add(_stem(spelling))
+
+    best, most = "", 0
+    for shelf in shelves(org_id, department):
+        words = [
+            _stem(w)
+            for w in re.findall(r"[a-z]+", shelf["category"].lower())
+            if len(w) > 2 and w not in DEPARTMENT_WORDS
+        ]
+        if words and len(words) > most and all(
+            w in said or _closest(w, list(said)) for w in words
+        ):
+            best, most = shelf["category"], len(words)
+    return best
+
+
+def _stem(word: str) -> str:
+    """Crude singular, so "kurta" and "kurtas" compare equal."""
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
 def search(
     query: str = "",
     category: str = "",
@@ -837,6 +999,7 @@ def search(
     per_category: bool = True,
     color: str = "",
     style: str = "",
+    department: str = "",
 ) -> list[Product]:
     """Find products. Everything is optional — an empty query with a category is
     "show me your laptops", and an empty everything is "show me what you have".
@@ -848,6 +1011,10 @@ def search(
     """
     init()
 
+    # "Menswear", "for ladies", "jewellery": a rail, lifted before the shelf is.
+    if not department:
+        query, department = parse_department(query)
+
     # A category named in the sentence is a filter, applied before anything is
     # ranked. This used to run only as a fallback on a miss — so "show me sarees"
     # keyword-matched a blouse and an accessory whose copy says "saree", never
@@ -856,7 +1023,15 @@ def search(
     # search, it is a guess with a confident face.
     lifted = False
     if query.strip() and not category:
-        query, category = parse_category(query, org_id)
+        if department:
+            # Among that department's shelves only — see `shelf_in`. The shelf's
+            # own words are then spent: "women's dresses" must not go on to
+            # require the word "dresses" of products named "… Midi Dress".
+            category = shelf_in(department, query, org_id)
+            if category:
+                query = ""
+        else:
+            query, category = parse_category(query, org_id)
         lifted = bool(category)
 
     # Always present, always first. A tenant filter that is one branch among
@@ -875,7 +1050,7 @@ def search(
             # bm25 favours rarer terms, so a specific model name beats a generic
             # category word — which is what someone naming a product expects.
             order = "bm25(products_fts)"
-        elif not (category or color or style or max_price is not None):
+        elif not (category or color or style or department or max_price is not None):
             # Somebody said something, and none of it was about merchandise.
             #
             # An empty `query` means "show me what you have" and browses the
@@ -921,22 +1096,46 @@ def search(
     # had actually asked to see.
     thin = per_category and not category and not color and not style
 
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    sql = f"SELECT p.* FROM {joined} {where} ORDER BY {order} LIMIT ?"
-    # Over-fetch, then thin. The thinning below keeps one row per category, so
-    # asking the database for `limit` rows would return one category's worth of
-    # near-duplicates and thin them to a single product.
-    params.append(limit * FAN_OUT if thin else limit)
+    def fetch(only: str = "") -> list[sqlite3.Row]:
+        where = " AND ".join(clauses + ([only] if only else []))
+        sql = f"SELECT p.* FROM {joined} WHERE {where} ORDER BY {order} LIMIT ?"
+        # Over-fetch, then thin. The thinning below keeps one row per category,
+        # so asking the database for `limit` rows would return one category's
+        # worth of near-duplicates and thin them to a single product.
+        with _connect() as conn:
+            return conn.execute(sql, [*params, limit * FAN_OUT if thin else limit]).fetchall()
 
-    with _connect() as conn:
-        rows = conn.execute(sql, params).fetchall()
+    # Garments and jewellery are never one list. "What is new" put a nose ring
+    # between a saree and a kurta, and "something in gold" was half bangles: a
+    # visitor looking at clothes is not helped by what is not clothes, and the
+    # other way round. A named shelf or department has already chosen; anything
+    # else is one kind or the other, decided here.
+    garments = f"IFNULL(p.department, '') != '{EXTRAS}'"
+    extras = f"IFNULL(p.department, '') = '{EXTRAS}'"
+    if department:
+        clauses.append("IFNULL(p.department, '') = ?")
+        params.append(department)
+        rows = fetch()
+    elif category:
+        rows = fetch()
+    elif order == "p.name":
+        # Nothing to rank by — a browse, or a colour on its own. Clothes are
+        # what a clothes shop shows first; the rest only if there are none.
+        rows = fetch(garments) or fetch(extras)
+    else:
+        # Ranked: the best match says which kind was meant. "Necklace" must not
+        # lose to a kurta set whose blurb mentions one.
+        rows = fetch()
+        kinds = {(r["department"] or "") == EXTRAS for r in rows}
+        if len(kinds) > 1:
+            rows = fetch(extras if (rows[0]["department"] or "") == EXTRAS else garments)
     found = _corroborated(_fts_terms(query), [_row_to_product(r) for r in rows])
 
     # The words left over after lifting a shelf are a ranking hint, not a second
     # filter. "What's the best laptop?" leaves "best", which appears in no
     # laptop's copy — so ANDing it against the category returned nothing at all
     # for a question about a shelf we stock. Fall back to the shelf itself.
-    if not found and lifted:
+    if not found and lifted and query.strip():
         return search(
             "",
             category,
@@ -946,6 +1145,7 @@ def search(
             per_category=False,
             color=color,
             style=style,
+            department=department,
         )
 
     # Nothing matched, and the words might still name something we stock. A
@@ -965,6 +1165,7 @@ def search(
                 per_category=False,
                 color=color,
                 style=style,
+                department=department,
             )
 
     return _one_per_category(found, limit) if thin else found[:limit]

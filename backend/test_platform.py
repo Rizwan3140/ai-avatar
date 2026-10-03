@@ -1193,6 +1193,18 @@ check("and not when the words matched",
 check("a turn with nothing to show can ask them to say it again",
       "say that again" in llm._turn_prompt([]))
 
+# A department offered as tiles. "Men's wear" used to be eight kurtas; it is a
+# choice of shelves now, and the avatar invites the choice rather than refusing
+# or reading the list out.
+_tiles = llm._turn_prompt([], rail="Men's wear", tiles=["Men's Kurtas", "Pyjamas", "Pants"])
+check("the avatar is told a department's shelves are on screen",
+      "Men's wear" in _tiles and "- Pyjamas" in _tiles and "tiles" in _tiles)
+check("and to invite a choice, not recite one", "Do not read the list out" in _tiles)
+check("and is not sent down the nothing-matched path",
+      "Nothing in the catalog matched" not in _tiles)
+check("products on screen outrank tiles behind them",
+      "categories are NOW ON SCREEN" not in llm._turn_prompt(_one, rail="Men's wear", tiles=["Pants"]))
+
 # The same note when an alias matched: "Curtis" put the kurtas up, and the model,
 # never told what Curtis was, said it only had this shop's own brand.
 from backend.routes import conversation as _conv  # noqa: E402

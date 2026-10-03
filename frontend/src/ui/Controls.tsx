@@ -1,5 +1,5 @@
 import { bus } from '../bus/bus.ts'
-import { useStore } from '../state/store.ts'
+import { cardShowing, useStore } from '../state/store.ts'
 import { useBurnInShift } from './useBurnInShift.ts'
 
 /**
@@ -21,7 +21,7 @@ import { useBurnInShift } from './useBurnInShift.ts'
 export function Controls({ above = false }: { above?: boolean }) {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
-  const showcase = useStore((s) => s.products.length > 0)
+  const showcase = useStore(cardShowing)
   const shift = useBurnInShift()
 
   const live = status !== 'booting' && status !== 'initializing' && status !== 'sleeping'

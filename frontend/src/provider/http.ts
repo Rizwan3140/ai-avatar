@@ -1,6 +1,6 @@
 import { bus } from '../bus/bus.ts'
 import { sessionId } from '../session/session.ts'
-import type { Product } from '../bus/events.ts'
+import type { Product, Shelves } from '../bus/events.ts'
 import { useStore } from '../state/store.ts'
 import type { AiProvider } from './provider.types.ts'
 
@@ -53,6 +53,56 @@ async function showProducts(ids: string): Promise<void> {
   } catch {
     // A failed lookup must not interrupt the conversation. They keeps talking;
     // the screen just does not change.
+  }
+}
+
+/**
+ * A department's shelves, put up as tiles to choose from.
+ *
+ * The chat reply names only the department ("men"); the tiles — a shelf, a
+ * count and a picture each — are fetched here, so the header stays an id and
+ * a shop with thirty shelves does not travel in one.
+ */
+async function showShelves(department: string): Promise<void> {
+  const asking = scope()
+  if (asking === null) return
+  try {
+    const response = await fetch(
+      `/api/products/shelves?department=${encodeURIComponent(department)}&${asking}`,
+    )
+    if (!response.ok) return
+    const shelves = (await response.json()) as Shelves
+    if (shelves.shelves?.length) bus.emit('SHELVES_SHOWN', shelves)
+  } catch {
+    // The same rule as a failed product lookup: they keep talking, the screen
+    // just does not change.
+  }
+}
+
+/** How many of a shelf a tapped tile lays out. A browse, so more than a spoken
+ *  request's eight; the strip scrolls. */
+const SHELF_LIMIT = 24
+
+/**
+ * A tile was tapped: that shelf, within that department.
+ *
+ * Both, because a shelf alone is not the tile. This shop's Pants shelf holds
+ * women's pieces and a men's one, and the men's tile has to open the men's.
+ * Fetched directly rather than said to the model: a tap on something already on
+ * screen is a choice, the same as tapping a product, and it must always open
+ * exactly that.
+ */
+export async function openShelf(department: string, category: string): Promise<void> {
+  const asking = scope()
+  if (asking === null) return
+  const query = new URLSearchParams({ department, category, limit: String(SHELF_LIMIT) })
+  try {
+    const response = await fetch(`/api/products?${query}&${asking}`)
+    if (!response.ok) return
+    const products = (await response.json()) as Product[]
+    if (products.length) bus.emit('PRODUCTS_SHOWN', { products, fromShelf: true })
+  } catch {
+    // The tiles stay up; tapping again is the retry.
   }
 }
 
@@ -140,6 +190,10 @@ export const httpProvider: AiProvider = {
 
     const ids = response.headers.get('X-Products')
     if (ids !== null) void showProducts(ids)
+
+    // "Men's wear" on its own: no products, a department to choose within.
+    const department = response.headers.get('X-Shelves')
+    if (department) void showShelves(department)
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()

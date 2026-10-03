@@ -1,5 +1,5 @@
 import { bus } from '../bus/bus.ts'
-import { useStore } from '../state/store.ts'
+import { cardShowing, useStore } from '../state/store.ts'
 
 /**
  * Four things to say, for the visitor who will not speak first.
@@ -21,10 +21,13 @@ import { useStore } from '../state/store.ts'
  * interface interrupting them.
  */
 
-// The three shelves visitors head for. "Help me choose", "Try it on" and
-// "Opening hours" were rarely tapped. Each `say` is checked against the real
-// catalog: "womenswear" as one word matched nothing, "women's wear" finds eight
-// across the shelves.
+// The three departments visitors head for. "Help me choose", "Try it on" and
+// "Opening hours" were rarely tapped.
+//
+// Each of the three is a department rather than a shelf, so its `say` is
+// answered with that department's shelves as tiles to choose from — the same
+// answer the sentence gets when it is spoken, because a chip only ever says it.
+// "Men's wear" used to mean the Men's Kurtas shelf and nothing else.
 const PROMPTS = [
   { label: 'What is new?', say: 'What is new?' },
   { label: "Men's wear", say: 'Show me menswear.' },
@@ -35,7 +38,7 @@ const PROMPTS = [
 export function Prompts() {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
-  const showcase = useStore((s) => s.products.length > 0)
+  const showcase = useStore(cardShowing)
 
   // Only while they are genuinely waiting, and only while there is nothing
   // more specific already on offer. Products floating over the lower frame

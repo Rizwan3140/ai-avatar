@@ -1,4 +1,4 @@
-import type { Product } from '../bus/events.ts'
+import type { Product, Shelves } from '../bus/events.ts'
 
 /**
  * Turning what someone said into which product they meant.
@@ -141,7 +141,17 @@ export function resolve(text: string, products: Product[], selected: Product | n
  * What the model needs to know about what is on screen. Without it, "is that
  * good for gaming?" is answered about nothing in particular.
  */
-export function context(products: Product[], selected: Product | null): string {
+export function context(
+  products: Product[],
+  selected: Product | null,
+  shelves: Shelves | null = null,
+): string {
+  // A department's tiles, when that is what the panel is showing. The same
+  // reason as the products below: "what is in the second one" needs a second.
+  if (!products.length && shelves) {
+    const tiles = shelves.shelves.map((s) => `- ${s.category}`).join('\n')
+    return `Currently on screen, as categories of ${shelves.title} to choose from:\n${tiles}`
+  }
   if (!products.length) return ''
   const lines = products.map(
     (p) => `- ${p.name}${p.spoken_price ? ` at ${p.spoken_price}` : ''}`,

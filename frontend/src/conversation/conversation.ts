@@ -24,7 +24,7 @@ bus.on('USER_UTTERANCE', ({ text }) => {
   // Read the state again — resolve may have just changed the selection, and the
   // model needs to know which product "that" now means.
   const after = useStore.getState()
-  void run(text, context(after.products, after.selected))
+  void run(text, context(after.products, after.selected, after.shelves))
 })
 
 // The same rules for a Telugu or Hindi turn, once the server has said what it

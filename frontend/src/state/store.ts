@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { bus } from '../bus/bus.ts'
-import type { Emotion, Product } from '../bus/events.ts'
+import type { Emotion, Product, Shelves } from '../bus/events.ts'
 
 export type Status =
   | 'booting'
@@ -30,6 +30,15 @@ type State = {
   products: Product[]
   /** The one being discussed — what "this" and "that one" refer to. */
   selected: Product | null
+  /**
+   * A department's shelves, offered as tiles — or null.
+   *
+   * Shown when there are no products. They stay set while a tapped tile's
+   * products are up, which is what Back returns to; products arriving any other
+   * way (a spoken request, a different search) replace them, so Back never
+   * leads to tiles the visitor has moved on from.
+   */
+  shelves: Shelves | null
 
   /**
    * Whether this cabinet can offer to photograph a visitor, and whether that
@@ -85,6 +94,7 @@ export const useStore = create<State>(() => ({
   muted: false,
   products: [],
   selected: null,
+  shelves: null,
   // Off until the kiosk says otherwise. A camera that appears by default because
   // a flag failed to load is the wrong direction for this one to fail in.
   tryon: { available: false, provider: '', on_device: false },
@@ -148,7 +158,9 @@ bus.on('EMOTION_CHANGED', ({ emotion }) => set({ emotion }))
 
 // Products appear only when asked for, and a single result selects itself —
 // nobody says "show me the Titan Pro" and then wants to tap it as well.
-bus.on('PRODUCTS_SHOWN', ({ products }) => {
+bus.on('PRODUCTS_SHOWN', ({ products, fromShelf }) => {
+  // Only a tapped tile keeps the tiles behind its list. See `shelves`.
+  if (!fromShelf) set({ shelves: null })
   // A selection survives a refreshed result list if the product is still in it.
   //
   // "Tell me about the linen shirt" does two things at once: navigation resolves
@@ -172,11 +184,20 @@ bus.on('PRODUCT_SELECTED', ({ product }) => {
   ).catch(() => {})
 })
 bus.on('PRODUCT_DESELECTED', () => set({ selected: null }))
-bus.on('PRODUCTS_CLEARED', () => set({ products: [], selected: null }))
+// A department's tiles take the panel: whatever was on it gives way.
+bus.on('SHELVES_SHOWN', (shelves) => set({ shelves, products: [], selected: null }))
+// Back from a tile's products: the list goes, the tiles it came from stay.
+bus.on('SHELF_CLOSED', () => set({ products: [], selected: null }))
+bus.on('PRODUCTS_CLEARED', () => set({ products: [], selected: null, shelves: null }))
 // Ending the conversation returns the screen to them alone. So does sleep: the
 // room emptied, and whoever wakes it must not find the last visitor's shelf.
-bus.on('SESSION_ENDED', () => set({ products: [], selected: null }))
-bus.on('SESSION_SLEEP', () => set({ products: [], selected: null }))
+bus.on('SESSION_ENDED', () => set({ products: [], selected: null, shelves: null }))
+bus.on('SESSION_SLEEP', () => set({ products: [], selected: null, shelves: null }))
+
+/** Whether the panel is holding a card — a product list, one product, or a
+ *  department's tiles. The controls, the prompt chips and the caption all make
+ *  room for it, and they have to agree about when it is there. */
+export const cardShowing = (s: State) => s.products.length > 0 || s.shelves !== null
 
 export function setIdentity(avatarId: string, name: string, greeting: string) {
   set({ avatarId, name, greeting })

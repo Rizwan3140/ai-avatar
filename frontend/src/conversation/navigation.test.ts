@@ -121,3 +121,19 @@ test('"try" alone is navigation, not a camera', () => {
   assert.equal(tried('what is the return policy on that', titan), 'select')
   assert.equal(tried('is there a discount on it', titan), 'select')
 })
+
+test('the model is told when the panel is showing categories to choose from', () => {
+  const shelves = {
+    department: 'men',
+    title: "Men's wear",
+    shelves: [
+      { category: "Men's Kurtas", count: 15, image: '' },
+      { category: 'Pyjamas', count: 2, image: '' },
+    ],
+  }
+  const text = context([], null, shelves)
+  assert.match(text, /Men's wear/)
+  assert.match(text, /- Men's Kurtas\n- Pyjamas/)
+  // Products on screen are what is described, even with the tiles behind them.
+  assert.doesNotMatch(context(shown, null, shelves), /to choose from/)
+})

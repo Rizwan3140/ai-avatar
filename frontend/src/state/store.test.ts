@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
-import { useStore } from './store.ts'
+import { cardShowing, useStore } from './store.ts'
 
 const status = () => useStore.getState().status
 const subtitle = () => useStore.getState().subtitle
@@ -196,4 +196,69 @@ test('the try-on screen mutes mid-reply without silencing the reply', () => {
   bus.emit('MIC_MUTED', { muted: false })
   assert.equal(status(), 'listening')
   assert.equal(useStore.getState().muted, false)
+})
+
+const menswear = {
+  department: 'men',
+  title: "Men's wear",
+  shelves: [
+    { category: "Men's Kurtas", count: 15, image: '' },
+    { category: 'Pyjamas', count: 2, image: '' },
+    { category: 'Pants', count: 1, image: '' },
+  ],
+}
+
+test('a department is offered as tiles, and takes the panel', () => {
+  // "Men's wear" used to put eight kurtas up. It is three shelves; the visitor
+  // picks, and whatever was on the panel before gives way to the choice.
+  bus.emit('PRODUCTS_SHOWN', { products: [product('A001', 'Linen Shirt')] })
+  bus.emit('SHELVES_SHOWN', menswear)
+  const state = useStore.getState()
+  assert.equal(state.shelves?.title, "Men's wear")
+  assert.equal(state.products.length, 0)
+  assert.equal(state.selected, null)
+  assert.equal(cardShowing(state), true)
+})
+
+test('a tapped tile opens its shelf, and Back returns to the tiles', () => {
+  bus.emit('SHELVES_SHOWN', menswear)
+  bus.emit('PRODUCTS_SHOWN', {
+    products: [product('P1', 'Churidar Pyjama'), product('P2', 'Cotton Pyjama')],
+    fromShelf: true,
+  })
+  assert.equal(useStore.getState().products.length, 2)
+  // Still there behind the list — that is what Back goes to.
+  assert.equal(useStore.getState().shelves?.department, 'men')
+
+  bus.emit('SHELF_CLOSED')
+  assert.equal(useStore.getState().products.length, 0)
+  assert.equal(useStore.getState().shelves?.department, 'men')
+})
+
+test('a shelf of one opens that piece, and its Back is the tiles too', () => {
+  // This shop's men's Pants tile holds exactly one. A single result selects
+  // itself, and going back must not leave an empty panel.
+  bus.emit('SHELVES_SHOWN', menswear)
+  bus.emit('PRODUCTS_SHOWN', { products: [product('P9', 'Cotton Pant')], fromShelf: true })
+  assert.equal(useStore.getState().selected?.id, 'P9')
+  bus.emit('SHELF_CLOSED')
+  assert.equal(useStore.getState().selected, null)
+  assert.equal(cardShowing(useStore.getState()), true)
+})
+
+test('products that arrive any other way replace the tiles', () => {
+  // Said out loud while the tiles are up: "show me sarees". Back from those
+  // must not lead to men's wear, which the visitor has moved on from.
+  bus.emit('SHELVES_SHOWN', menswear)
+  bus.emit('PRODUCTS_SHOWN', { products: [product('S1', 'Blue Saree'), product('S2', 'Red Saree')] })
+  assert.equal(useStore.getState().shelves, null)
+})
+
+test('clearing, ending and sleeping all take the tiles away', () => {
+  for (const event of ['PRODUCTS_CLEARED', 'SESSION_ENDED', 'SESSION_SLEEP'] as const) {
+    bus.emit('SHELVES_SHOWN', menswear)
+    bus.emit(event)
+    assert.equal(useStore.getState().shelves, null, event)
+    assert.equal(cardShowing(useStore.getState()), false, event)
+  }
 })

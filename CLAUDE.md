@@ -23,16 +23,16 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 104 checks
-./.venv/bin/python -m backend.test_catalog  # 135 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 278 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 127 — the same through the real routes
+(cd frontend && npm test)                   # 113 checks
+./.venv/bin/python -m backend.test_catalog  # 166 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_platform # 282 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 134 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
 ```
 
-644 checks total. **Never run the Python suites through `unittest`** — they are
+695 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -333,6 +333,30 @@ company's prices out loud.
   dialog — unpickable, with no error anywhere. Client-side filtering makes a
   refusal invisible; the server is the only place that can say why. Pickers take
   `video/*` and `save_media` converts what a browser cannot play.
+- **A department is not a shelf.** "Menswear" was an alias for the Men's Kurtas
+  shelf, so a shop with men's kurtas, pyjamas and pants answered "men's wear"
+  with kurtas alone. Each product now carries a `department` — `men`, `women`,
+  `accessories` or empty — derived at write time by `catalog.department_of`
+  from the shop's own tags (Women, Men, Jewellery, Accessories), then the shelf
+  name ("Ethnic Bags" carries no tag), then the product name. A department on
+  its own is answered with its shelves as tiles (`catalog.shelves`,
+  `X-Shelves`, `SHELVES_SHOWN`) and the visitor picks; a tile opens its shelf
+  *within* its department, because Pants holds two women's pieces and one
+  men's. Within a department a shelf is matched word by word (`shelf_in`):
+  "kurtas" scores 0.67 against "Men's Kurtas" as a phrase, under the cutoff,
+  and matches the women's Kurtas shelf exactly.
+- **Garments and jewellery are never one list.** A browse or a colour on its own
+  is clothes; a ranked search is whichever kind its best match is; a named
+  shelf or department has already chosen. "What is new" used to put a nose ring
+  between a saree and a kurta.
+- **A derived column is NULL on any row an older release wrote.** The version
+  menu can run v1.0.0, which knows nothing of `department`, so the backfill
+  selects rows whose derived values are NULL rather than running only when the
+  column is new — and every filter reads `IFNULL(department, '')`.
+- **Groq's free tier is 8,000 tokens a minute for `gpt-oss-120b`.** Measured:
+  about ten turns in quick succession returned 429, the reply fell back to the
+  local model, and that turn took 41 seconds on the GTX 1060. A busy showroom
+  will reach it. The fallback is correct; the limit is the thing to raise.
 - **"We don't carry those" was mostly a mishearing.** 400 of 780 logged
   questions matched nothing, and most were shelves this shop stocks: "Curtis",
   "saddies", "quarter sets", "series". A turn with real words and no match now

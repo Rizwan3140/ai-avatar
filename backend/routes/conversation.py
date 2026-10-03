@@ -107,8 +107,25 @@ def chat(req: ChatRequest, request: Request):
     # catalog can apply exactly, so they are lifted out of the text rather than
     # left for keyword search to approximate.
     query, color, style = catalog.parse_facets(query)
-    products = catalog.search(
-        query, max_price=max_price, org_id=org_id, color=color, style=style
+    # "Men's wear" is a department, and a department on its own is a choice to
+    # offer, not a search to run: this shop's men's pieces sit on three shelves,
+    # and answering with eight kurtas hid the other two. The panel shows that
+    # department's shelves as tiles and the visitor picks. Anything more than
+    # the department — a shelf, a colour, a price, a word to search for — is a
+    # request for products, within it.
+    query, department = catalog.parse_department(query)
+    only_department = department and not (
+        color or style or max_price is not None or catalog._fts_terms(query)
+    )
+    products = [] if only_department else catalog.search(
+        query, max_price=max_price, org_id=org_id, color=color, style=style,
+        department=department,
+    )
+    # Also where "men's sarees" lands: nothing of that kind, so what there is.
+    tiles = (
+        [shelf["category"] for shelf in catalog.shelves(org_id, department)]
+        if department and not products
+        else []
     )
 
     # And the company's own documents, for the half of showroom questions no
@@ -129,7 +146,7 @@ def chat(req: ChatRequest, request: Request):
     # meant; show it, and tell the model it is the closest, not a match.
     # Skipped when nothing but stopwords was said: "hello", "thank you".
     closest = ""
-    if not products and not passages and catalog._fts_terms(query):
+    if not products and not tiles and not passages and catalog._fts_terms(query):
         org = accounts.get_org(org_id) or {}
         closest = llm.closest_shelf(searched, shelves, org.get("vertical", ""))
         if closest:
@@ -157,6 +174,10 @@ def chat(req: ChatRequest, request: Request):
         results=len(products),
         passages=len(passages),
         closest=closest,
+        # A department offered as tiles, so "matched nothing" in the log can be
+        # told from "was shown the men's shelves to choose from".
+        department=department,
+        tiles=len(tiles),
     )
     for product in products:
         analytics.record("product_shown", product=product.id, name=product.name, org=org_id)
@@ -174,7 +195,10 @@ def chat(req: ChatRequest, request: Request):
         # The cost is first-audio latency, and it is paid only on turns that
         # matched no product, where there is nothing to put on screen and nothing
         # to look at while they think. Turns that found something still stream.
-        withhold = not products
+        # Not when tiles are up. There is something on screen, and the guard
+        # would read "we have kurtas and pyjamas for men" as the visitor's own
+        # word "menswear" handed back as stock, and refuse it.
+        withhold = not products and not tiles
 
         for chunk in llm.stream_reply(
             memory.get_history(session),
@@ -185,6 +209,8 @@ def chat(req: ChatRequest, request: Request):
             shelves,
             avatar.language,
             closest,
+            rail=catalog.DEPARTMENT_LABELS.get(department, ""),
+            tiles=tiles,
         ):
             reply += chunk
             if not withhold:
@@ -208,6 +234,10 @@ def chat(req: ChatRequest, request: Request):
     # and one with a comma split in two while one in Telugu could not be put in
     # a latin-1 header at all — a 500 on every turn that found it.
     headers = {"X-Products": ",".join(urllib.parse.quote(p.id, safe="") for p in products)}
+    if tiles:
+        # Which department's shelves to put up as tiles. Only the id: the panel
+        # fetches the tiles themselves, with their pictures and counts.
+        headers["X-Shelves"] = department
     if searched != req.message:
         # What a Telugu or Hindi turn meant in English, so the browser's "next
         # one" / "cheaper one" rules work in every language. Percent-encoded:

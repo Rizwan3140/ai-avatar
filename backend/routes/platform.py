@@ -133,6 +133,10 @@ def products(
     avatar: str = "",
     color: str = "",
     style: str = "",
+    # "men", "women" or "accessories". A tapped tile names its shelf *and* its
+    # department, so the men's Pants tile opens the one men's pant and not the
+    # two women's pieces filed on the same shelf.
+    department: str = "",
 ):
     """Search. Everything optional — no arguments is "show me what you have"."""
     query, parsed_limit = catalog.parse_query(q)
@@ -148,6 +152,7 @@ def products(
         org_id=org_for(avatar),
         color=color or said_color,
         style=style or said_style,
+        department=department,
     )
     return [catalog.to_dict(p) for p in found]
 
@@ -155,6 +160,21 @@ def products(
 @router.get("/products/categories")
 def product_categories(avatar: str = ""):
     return catalog.categories(org_for(avatar))
+
+
+@router.get("/products/shelves")
+def product_shelves(department: str, avatar: str = ""):
+    """One department's shelves, as the tiles a visitor chooses from.
+
+    Declared before `/products/{product_id}`, like the routes around it, or
+    "shelves" would be looked up as a product id. Scoped as every read here is:
+    the org comes from the avatar.
+    """
+    return {
+        "department": department,
+        "title": catalog.DEPARTMENT_LABELS.get(department, ""),
+        "shelves": catalog.shelves(org_for(avatar), department),
+    }
 
 
 @router.get("/products/colors")
