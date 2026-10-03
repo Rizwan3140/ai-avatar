@@ -390,7 +390,7 @@ check("a cabinet can ask for a department's shelves", r.status_code == 200, r.te
 check("and is told what to call it", r.json()["title"] == "Men's wear", r.text[:160])
 check(
     "with that department's shelves and its own counts",
-    [(s["category"], s["count"]) for s in r.json()["shelves"]] == [("Men's Kurtas", 1), ("Pants", 1)],
+    [(s["category"], s["count"]) for s in r.json()["shelves"]] == [("Kurtas", 1), ("Pants", 1)],
     r.text[:200],
 )
 r = client.get(f"/api/products?category=Pants&department=men&avatar={AVATAR}")
@@ -413,6 +413,21 @@ check(
     "and a department has to be named",
     client.get(f"/api/products/shelves?avatar={AVATAR}").status_code == 422,
 )
+# The studio's Products tab: the same filing, with its counts, and one page of
+# what a filter selects — rather than every product, filtered in the browser.
+r = client.get("/api/studio/catalog", headers=north)
+check("the studio sees the catalog as it is filed", r.status_code == 200, r.text[:160])
+check("with every product counted once",
+      sum(d["count"] for d in r.json()["summary"]["departments"]) == r.json()["summary"]["total"]
+      == r.json()["total"])
+check("department by department",
+      {"men", "women", "jewellery", "accessories"} <= {d["id"] for d in r.json()["summary"]["departments"]})
+r = client.get("/api/studio/catalog?department=men&category=Pants", headers=north)
+check("one shelf of one department is one request",
+      [(p["id"], p["department"]) for p in r.json()["products"]] == [("t-m2", "men")], r.text[:200])
+check("and says how many match", r.json()["total"] == 1)
+check("the filed catalog is behind the login", client.get("/api/studio/catalog").status_code == 401)
+
 # Removed again, for the same reason as the avatar below: counts are asserted
 # further down this file.
 for _p in _rails:

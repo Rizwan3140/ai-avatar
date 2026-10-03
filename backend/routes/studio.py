@@ -15,7 +15,10 @@ from dataclasses import asdict, replace
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from backend import accounts, analytics, campaigns, catalog, config, documents, seasons, store, tryon, tts
+from backend import (
+    accounts, analytics, campaigns, catalog, categorize, config, documents, seasons, store, tryon,
+    tts,
+)
 from backend.accounts import AuthError, Principal
 
 router = APIRouter(prefix="/api", tags=["studio"])
@@ -614,6 +617,32 @@ class ProductRequest(BaseModel):
 @router.get("/studio/products")
 def studio_products(caller: Principal = Depends(principal)):
     return [catalog.to_dict(p) for p in catalog.all_products(caller.org_id)]
+
+
+@router.get("/studio/catalog")
+def studio_catalog(
+    # Absent is "any"; empty is a real answer — placed in no department, or on
+    # no shelf — and the Products tab asks for exactly those.
+    department: str | None = None,
+    category: str | None = None,
+    q: str = "",
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    caller: Principal = Depends(principal),
+):
+    """The catalog as it is filed, for the Products tab: every department with
+    its shelves and counts, and one page of the products the filter selects.
+
+    One call rather than the whole list. `/studio/products` above returns
+    every product, which the tab then filtered in the browser — 46 MB at 25,000
+    products. It stays for the export and for anything that wants the lot.
+    """
+    total, products = catalog.browse(caller.org_id, department, category, q, limit, offset)
+    return {
+        "summary": categorize.summary(caller.org_id),
+        "total": total,
+        "products": products,
+    }
 
 
 @router.put("/studio/products")

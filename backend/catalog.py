@@ -147,7 +147,7 @@ DEPARTMENT_LABELS = {
 
 #: Bumped when the rules below change, so catalogs derived under the old ones
 #: are derived again. See `_add_facet_columns`.
-DEPARTMENT_RULES = 4
+DEPARTMENT_RULES = 5
 
 #: Shelf names that are jewellery, and shelf names that are accessories.
 #: Matched against the shelf's own words: a dress tagged "with belt" is still a
@@ -207,7 +207,9 @@ def department_of(name: str, category: str, attributes: dict[str, Any]) -> str:
     women = bool(words & {"women", "womens", "ladies"})
     if not men and not women:
         # `\bmen` cannot match inside "women": the "o" before it is a word character.
-        text = f"{name} {category}".lower()
+        # `type` is what the shop called it before the shelf was made simple:
+        # "Men's Kurtas" is filed on Kurtas, and still says who it is for.
+        text = f"{name} {category} {attributes.get('type') or ''}".lower()
         men = bool(re.search(r"\b(men'?s?|gents)\b", text))
         women = bool(re.search(r"\b(women'?s?|ladies)\b", text))
     if men == women:
@@ -445,15 +447,19 @@ def _categorise(conn: sqlite3.Connection, everything: bool) -> int:
             attributes = json.loads(row["attributes"] or "{}")
         except (TypeError, ValueError):
             attributes = {}
-        # A shelf the shop set is left exactly as written; only a blank is filled.
-        category = row["category"]
-        if not (category or "").strip():
-            category = _shelf_from_tags(attributes, known.get(row["org_id"], {})) or category
-        color, style = facets_of(row["name"] or "", row["description"] or "", attributes)
-        department = department_of(row["name"] or "", category, attributes)
-        updates.append((category, color, style, department, row["org_id"], row["id"]))
+        # A blank shelf filled from the tags, a combination folded into a
+        # simple one — exactly what a write does. See `shelved`.
+        category, filed = _filed(row["category"], attributes, known.get(row["org_id"], {}))
+        color, style = facets_of(row["name"] or "", row["description"] or "", filed)
+        department = department_of(row["name"] or "", category, filed)
+        # The attributes are rewritten only when filing changed them: a row
+        # whose stored JSON could not be read keeps what it has.
+        stored = (
+            json.dumps(filed, ensure_ascii=False) if filed is not attributes else row["attributes"]
+        )
+        updates.append((category, stored, color, style, department, row["org_id"], row["id"]))
     conn.executemany(
-        "UPDATE products SET category = ?, color = ?, style = ?, department = ? "
+        "UPDATE products SET category = ?, attributes = ?, color = ?, style = ?, department = ? "
         "WHERE org_id = ? AND id = ?",
         updates,
     )
@@ -579,25 +585,116 @@ def _known_shelves(names) -> dict[str, str]:
     return {_stem(n.strip().lower()): n for n in names if n and n.strip()}
 
 
+#: What joins the parts of a combination: "Kurta And Pyjama Sets", "Kurta,
+#: Jacket And Dhoti Sets", "Kurta, Pyjama & Dupatta Sets", "Suit Set With
+#: Dupattas".
+_JOINED = re.compile(r"\s*(?:,|&|/|\+|\band\b|\bwith\b)\s*", re.I)
+#: "Men's Kurtas", "Women Pants": who it is for, in front of what it is.
+_WHOSE = re.compile(r"^(?:men|women|ladies|gents)(?:['’]?s)?\s+", re.I)
+_SETS = re.compile(r"\s*\bsets?\s*$", re.I)
+
+
+def simple_shelf(shelf: str, known: dict[str, str]) -> str:
+    """One shelf for what a shop lists as many, when the many are combinations.
+
+    A storefront's product type describes the product, not the rail it hangs
+    on. Dhiyona lists a kurta sold with trousers as "Kurta And Pyjama Sets",
+    "Kurta, Jacket And Pyjama Sets", "Kurta And Dhoti Sets", "Kurta, Jacket And
+    Dhoti Sets", "Kurta And Patiala Sets", "Kurta, Pyjama & Dupatta Sets" — and
+    taken as written, Men's wear was twenty-four tiles of which seven said
+    kurta. They are one rail: Kurta Sets.
+
+    Three shapes, each folded into a simple shelf, and into one the shop
+    already has wherever there is one. A name that merges several is never
+    made.
+
+    - **Who it is for, in front.** "Men's Kurtas" is Kurtas; the department is
+      kept separately now, and both showed as a tile called Kurtas.
+    - **Things joined.** The first is what it is; the rest is what it comes
+      with. A set goes to that garment's Sets shelf, else to the garment's own.
+    - **Things run together.** "Kurta Pyjama Sets" is the same combination with
+      no "and" — folded only when the first word has a Sets shelf and every
+      other word is itself a shelf, so "Pathani Kurta Sets" stays what it is.
+
+    `known` maps a shelf's stemmed, lowered name to the shelf as the shop
+    writes it. Returns the shelf unchanged when none of this applies.
+    """
+    name = shelf.strip()
+
+    def have(candidate: str) -> str:
+        return known.get(_stem(candidate.strip().lower()), "")
+
+    name = _WHOSE.sub("", name) or name
+
+    parts = [part.strip() for part in _JOINED.split(name) if part.strip()]
+    if len(parts) > 1:
+        lead = _SETS.sub("", parts[0]).strip()
+        if lead and (_SETS.search(name) or _SETS.search(parts[0])):
+            name = have(f"{lead} Sets") or have(f"{lead}s") or have(lead) or f"{lead} Sets"
+        elif lead:
+            # Not a set, and no shelf of its own to go to: left as the shop
+            # wrote it rather than given a name we made up.
+            name = have(f"{lead}s") or have(lead) or name
+
+    words = name.split()
+    if len(words) >= 3 and _SETS.search(name):
+        sets = have(f"{words[0]} Sets")
+        if sets and all(have(f"{word}s") or have(word) for word in words[1:-1]):
+            name = sets
+
+    return have(name) or name
+
+
+def _filed(category: str, attributes: dict[str, Any], known: dict[str, str]) -> tuple[str, dict]:
+    """The shelf a product is stored on, and its attributes as stored.
+
+    A blank shelf is filled from the tags; any shelf is then made simple. When
+    that changes what the shop called it, the shop's own word is kept in
+    `attributes["type"]` — so "kurta pyjama set" still finds it, the model is
+    still told what it is, and `department_of` can still read "Men's" there.
+    """
+    shelf = category if (category or "").strip() else _shelf_from_tags(attributes, known)
+    if not (shelf or "").strip():
+        return category, attributes
+    simple = simple_shelf(shelf, known)
+    if simple != shelf and (category or "").strip():
+        attributes = {**attributes, "type": attributes.get("type") or category}
+    return simple, attributes
+
+
+def listed_as(category: str, attributes: dict[str, Any]) -> str:
+    """What the shop itself called this kind of product: its original type where
+    the shelf was made simple, otherwise the shelf."""
+    return str(attributes.get("type") or category or "")
+
+
 def shelved(products: list[Product], also: list[str] | None = None) -> list[Product]:
-    """The same products, with a shelf found for those that came without one.
+    """The same products, each on the shelf it will be stored on.
 
-    This shop exported twelve sarees and a potli with no product type, each
-    tagged with the shelf it plainly belongs on. With no shelf they were
-    findable by search and invisible to a visitor choosing a category: the
-    Sarees tile counted twenty-two of thirty-four.
+    A product that came without a shelf is given the one its tags name. This
+    shop exported twelve sarees and a potli with no product type, each tagged
+    with the shelf it plainly belongs on; with no shelf they were findable by
+    search and invisible to a visitor choosing a category.
 
-    The shelves a tag may name are the ones in this batch, plus `also` — the
-    org's existing shelves, for an upsert that adds to them. A mirror replaces
-    the whole catalog, so its batch is all there is; `sync.pull_catalog` runs
-    its incoming rows through this before comparing them with what is on disk,
-    or a catalog that was filed here would never again look unchanged.
+    And a shelf that is a combination is folded into a simple one — see
+    `simple_shelf`.
+
+    The shelves in play are the ones in this batch, plus `also` — the org's
+    existing shelves, for an upsert that adds to them. A mirror replaces the
+    whole catalog, so its batch is all there is; `sync.pull_catalog` runs its
+    incoming rows through this before comparing them with what is on disk, or
+    a catalog that was filed here would never again look unchanged.
     """
     known = _known_shelves([*(also or []), *(p.category for p in products)])
     out = []
     for product in products:
-        shelf = "" if (product.category or "").strip() else _shelf_from_tags(product.attributes, known)
-        out.append(Product(**{**asdict(product), "category": shelf}) if shelf else product)
+        shelf, attributes = _filed(product.category, product.attributes, known)
+        changed = shelf != product.category or attributes is not product.attributes
+        out.append(
+            Product(**{**asdict(product), "category": shelf, "attributes": attributes})
+            if changed
+            else product
+        )
     return out
 
 
@@ -647,6 +744,11 @@ def _settle_departments(
             query += f" AND category IN ({', '.join('?' * len(only))})"
             args += sorted(only)
 
+    # Grouped by what the shop listed each piece as, not by the shelf it is
+    # filed on. Folding "Kurta And Pyjama Sets" into Kurta Sets put 1,174 men's
+    # sets beside 7,631 women's, and a shelf that reads 87% women's answers for
+    # nobody — so 2,600 unlabelled women's kurta sets lost their department.
+    # What the shop called plain "Kurta Sets" is still women's to the last one.
     shelves_: dict[str, list[tuple[str, str, str]]] = {}
     for row in conn.execute(query, args).fetchall():
         try:
@@ -654,7 +756,9 @@ def _settle_departments(
         except (TypeError, ValueError):
             attributes = {}
         own = department_of(row["name"] or "", row["category"], attributes)
-        shelves_.setdefault(row["category"], []).append((row["id"], own, row["department"]))
+        shelves_.setdefault(listed_as(row["category"], attributes), []).append(
+            (row["id"], own, row["department"])
+        )
 
     updates = []
     for pieces in shelves_.values():
@@ -715,6 +819,53 @@ def all_products(org_id: str = DEFAULT_ORG) -> list[Product]:
             "SELECT * FROM products WHERE org_id = ? ORDER BY name", (org_id,)
         ).fetchall()
     return [_row_to_product(r) for r in rows]
+
+
+def browse(
+    org_id: str = DEFAULT_ORG,
+    department: str | None = None,
+    category: str | None = None,
+    q: str = "",
+    limit: int = 200,
+    offset: int = 0,
+) -> tuple[int, list[dict]]:
+    """One page of an org's catalog as it is filed, and how many match in all.
+
+    For the studio's Products tab, which used to fetch the whole catalog and
+    filter it in the browser: 46 MB at 25,000 products, on every visit. Filtered
+    and counted here, a page is the 200 rows that are drawn.
+
+    `None` is "any"; an empty string is a real answer — the pieces placed in no
+    department, or filed on no shelf. Each row is `to_dict` plus the department
+    it was filed under, which `Product` deliberately does not carry: a cabinet
+    mirrors products, and what one is filed as is this install's own reading.
+    """
+    init()
+    clauses, params = ["org_id = ?"], [org_id]
+    if department is not None:
+        clauses.append("IFNULL(department, '') = ?")
+        params.append(department)
+    if category is not None:
+        clauses.append("IFNULL(category, '') = ?")
+        params.append(category)
+    needle = q.strip()
+    if needle:
+        # Typed by a person, so `%` and `_` are characters, not wildcards.
+        like = "%" + re.sub(r"([\\%_])", r"\\\1", needle) + "%"
+        clauses.append(
+            "(name LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\' OR id LIKE ? ESCAPE '\\')"
+        )
+        params += [like, like, like]
+    where = " AND ".join(clauses)
+    with _connect() as conn:
+        total = conn.execute(f"SELECT COUNT(*) FROM products WHERE {where}", params).fetchone()[0]
+        rows = conn.execute(
+            f"SELECT * FROM products WHERE {where} ORDER BY name LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        ).fetchall()
+    return total, [
+        {**to_dict(_row_to_product(r)), "department": r["department"] or ""} for r in rows
+    ]
 
 
 def get(product_id: str, org_id: str = DEFAULT_ORG) -> Product | None:

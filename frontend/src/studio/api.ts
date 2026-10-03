@@ -51,6 +51,31 @@ export type Product = {
   attributes: Record<string, string>
 }
 
+/**
+ * The catalog as it is filed, for the Products tab: every department with its
+ * shelves and counts, and one page of the products the current filter selects.
+ *
+ * The tab used to fetch every product and filter in the browser — 46 MB at
+ * 25,000. The counting and the filtering are the server's now.
+ */
+export type Catalog = {
+  summary: {
+    total: number
+    shelves: number
+    departments: {
+      /** "women", "men", "jewellery", "accessories", or "" for not placed. */
+      id: string
+      label: string
+      count: number
+      /** `why` only on shelves of the not-placed group. */
+      shelves: { category: string; count: number; why?: string }[]
+    }[]
+  }
+  /** How many products match the filter, of which `products` is one page. */
+  total: number
+  products: (Product & { department: string })[]
+}
+
 export type Campaign = {
   id: string
   src: string

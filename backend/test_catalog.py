@@ -527,7 +527,7 @@ def main() -> int:
     # women's, and each department's tile counts only its own.
     check("men's wear is three shelves, not one",
           [(s["category"], s["count"]) for s in catalog.shelves(RAILS, "men")],
-          [("Men's Kurtas", 1), ("Pants", 1), ("Pyjamas", 1)])
+          [("Kurtas", 1), ("Pants", 1), ("Pyjamas", 1)])
     check("women's wear has no jewellery among its shelves",
           {s["category"] for s in catalog.shelves(RAILS, "women")},
           {"Kurtas", "Pants", "Sarees", "Dresses", "Kurta Sets", "Capes"})
@@ -737,16 +737,90 @@ def main() -> int:
           ["only 2 of its pieces say who they are for"])
     check("the report changes nothing", (categorize.report(SETTLED), stored("ku0")), (said, ""))
 
+    # ---- one shelf for what a shop lists as many -----------------------------
+    print("\ncombinations")
+
+    # A storefront's product type describes the product, not the rail. Dhiyona
+    # lists a kurta sold with trousers under seven types, and Men's wear was
+    # twenty-four tiles of which seven said kurta. These are its real names.
+    have = catalog._known_shelves(
+        ["Kurta Sets", "Kurtas", "Pyjamas", "Dhotis", "Jackets", "Pants", "Shirts",
+         "Jodhpuris", "Suit Sets", "Sarees", "Pathani Kurta Sets", "Necklace Sets"]
+    )
+    for listed, shelf in (
+        ("Kurta And Pyjama Sets", "Kurta Sets"),
+        ("Kurta, Jacket And Pyjama Sets", "Kurta Sets"),
+        ("Kurta, Jacket And Dhoti Sets", "Kurta Sets"),
+        ("Kurta, Pyjama & Dupatta Sets", "Kurta Sets"),
+        ("Kurta And Dhoti Pant, Dupatta Sets", "Kurta Sets"),
+        ("Kurta Dhoti And Dupatta Sets", "Kurta Sets"),
+        ("Suit Set With Dupattas", "Suit Sets"),
+        # The same combination, with nothing joining it.
+        ("Kurta Pyjama Sets", "Kurta Sets"),
+        ("Kurta Dhoti Jacket Sets", "Kurta Sets"),
+        ("Kurta Pant Sets", "Kurta Sets"),
+        # No Sets shelf for the garment, so the garment's own.
+        ("Shirt And Mundu Sets", "Shirts"),
+        ("Jodhpuri And Pyjama Sets", "Jodhpuris"),
+        # Who it is for is a department now, not part of the shelf's name.
+        ("Men's Kurtas", "Kurtas"),
+        ("Women Pants", "Pants"),
+    ):
+        check(f"{listed} is on {shelf}", catalog.simple_shelf(listed, have), shelf)
+    for listed in ("Sarees", "Kurta Sets", "Necklace Sets",
+                   # A style of kurta set, not a kurta with something else.
+                   "Pathani Kurta Sets",
+                   # Not a set, and no Apparel shelf to go to: left as written.
+                   "Apparel & Accessories"):
+        check(f"{listed} is left as it is", catalog.simple_shelf(listed, have), listed)
+    check("with no such shelf yet it is given a simple name, never a merged one",
+          catalog.simple_shelf("Kurta, Jacket And Pyjama Sets", {}), "Kurta Sets")
+
+    FOLDED = "folded"
+    catalog.replace(
+        [P(id=f"w{i}", name=f"Printed Set {i}", category="Kurta Sets", attributes={"tags": "Women"})
+         for i in range(6)]
+        + [P(id=f"u{i}", name=f"Casual Set {i}", category="Kurta Sets", attributes={"tags": "Casual"})
+           for i in range(3)]
+        + [P(id=f"m{i}", name=f"Festive Set {i}", category="Kurta And Pyjama Sets",
+             attributes={"tags": "Men"}) for i in range(6)]
+        + [P(id="mk", name="Plain Kurta", category="Men's Kurtas"),
+           P(id="wk", name="Plain Kurta", category="Kurtas", attributes={"tags": "Women"})],
+        FOLDED,
+    )
+    check("the combinations share one shelf with what they lead with",
+          sorted(catalog.categories(FOLDED)), ["Kurta Sets", "Kurtas"])
+    check("each department's tile counts its own",
+          ([(s["category"], s["count"]) for s in catalog.shelves(FOLDED, "men")],
+           [(s["category"], s["count"]) for s in catalog.shelves(FOLDED, "women")]),
+          ([("Kurta Sets", 6), ("Kurtas", 1)], [("Kurta Sets", 9), ("Kurtas", 1)]))
+    check("what the shop called it is kept on the product",
+          catalog.get("m0", FOLDED).attributes["type"], "Kurta And Pyjama Sets")
+    check("so its own words still find it",
+          {p.id for p in catalog.search("pyjama", org_id=FOLDED, per_category=False)},
+          {f"m{i}" for i in range(6)})
+    check("and Men's Kurtas still says who it is for, filed on Kurtas",
+          catalog.search("", "Kurtas", org_id=FOLDED, department="men")[0].id, "mk")
+    # Folding put men's sets on a shelf of women's. A shelf that mixed answers
+    # for nobody — so an unlabelled piece is judged by what the shop listed it
+    # as, and everything listed as plain Kurta Sets is a woman's.
+    check("an unlabelled piece is judged by what the shop listed it as",
+          [s["count"] for s in catalog.shelves(FOLDED, "women") if s["category"] == "Kurta Sets"], [9])
+    again = catalog.shelved(catalog.all_products(FOLDED))
+    check("filing what is already filed changes nothing",
+          [(p.category, p.attributes) for p in again],
+          [(p.category, p.attributes) for p in catalog.all_products(FOLDED)])
+
     # A row saved by an older release, picked from the version menu, has no
     # department at all. It is filled in the next time the catalog is opened.
     with catalog._connect() as conn:
         conn.execute("UPDATE products SET department = NULL WHERE org_id = ? AND id = 'm2'", (RAILS,))
     check("a row with no department is on no rail",
-          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Men's Kurtas", "Pants"])
+          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Kurtas", "Pants"])
     catalog._initialised.clear()
     catalog.init()
     check("until the catalog is next opened",
-          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Men's Kurtas", "Pants", "Pyjamas"])
+          [s["category"] for s in catalog.shelves(RAILS, "men")], ["Kurtas", "Pants", "Pyjamas"])
 
     _cats = catalog.categories
     catalog.categories = lambda org_id=catalog.DEFAULT_ORG: ["Men's Kurtas", "Kurtas", "Sarees"]

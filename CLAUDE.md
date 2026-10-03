@@ -24,9 +24,9 @@ Full scope: `Docs/`, and the plan at
 
 ```bash
 (cd frontend && npm test)                   # 114 checks
-./.venv/bin/python -m backend.test_catalog  # 215 — catalog, ingest, crawler
+./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 285 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 135 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 141 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-749 checks total. **Never run the Python suites through `unittest`** — they are
+782 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -359,6 +359,20 @@ company's prices out loud.
   with one, carrying `opens`, that leads on to the accessories' own tiles. A
   product with no shelf at all is placed by its tags — a potli filed nowhere
   and tagged "Ethnic Bags" was being counted as women's clothing.
+- **A shop's product type describes the product, not the rail.** Dhiyona lists a
+  kurta sold with trousers under seven types — "Kurta And Pyjama Sets", "Kurta,
+  Jacket And Dhoti Sets" and so on — and taken as written Men's wear was 24 tiles
+  of which seven said kurta. `catalog.simple_shelf` folds a combination into the
+  shelf of what it leads with (an existing one wherever there is one, never a
+  merged name), and "Men's Kurtas" into Kurtas. The shop's own word is kept in
+  `attributes["type"]`, so its words still find it — and
+  **`_settle_departments` judges by that listing, not the shelf**: folding put
+  1,174 men's sets beside 7,631 women's, a shelf that reads 87% answers for
+  nobody, and 2,600 unlabelled women's kurta sets lost their department.
+- **The studio's Products tab asks for a page, not the catalog.**
+  `/api/studio/catalog` returns the filing (`categorize.summary`) and 200 rows
+  of what a filter selects; fetching every product to filter in the browser was
+  46 MB at 25,000.
 - **A page budget is not a product count.** The studio's "Read a website" sent
   40 pages and `crawl()` turned that into `250 x 20` products, so the importer
   took the first 5,000 of the store's list. Dhiyona's first men's product is

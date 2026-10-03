@@ -1,10 +1,45 @@
-import { useState } from 'react'
-import { api, upload, type Principal, type Product } from './api.ts'
+import { useEffect, useState } from 'react'
+import { api, upload, type Catalog, type Principal, type Product } from './api.ts'
 import { importMessage, type ImportResult, type Screen } from './import.ts'
 import { Button, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
-/** Rows drawn at once. Search reaches the rest. */
+/** Rows fetched and drawn at once. A department, a category or a search reaches
+ *  the rest. */
 const ROWS = 200
+
+/** One choice among several: a department, or a category within it. */
+function Pick({
+  active,
+  onClick,
+  count,
+  title,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  count: number
+  title?: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={`rounded border px-2.5 py-1 text-xs transition-colors ${
+        active
+          ? 'border-ink bg-ink text-white'
+          : 'border-line text-ink-soft hover:border-ink/40 hover:text-ink bg-white'
+      }`}
+    >
+      {children}{' '}
+      <span className={`tabular-nums ${active ? 'text-white/70' : 'text-ink-soft/70'}`}>
+        {count.toLocaleString('en-IN')}
+      </span>
+    </button>
+  )
+}
 
 /**
  * The catalog — what the avatar may recommend, and the only source of a price it
@@ -14,7 +49,28 @@ const ROWS = 200
  * product, and it used to sit two levels down inside a tab called "Knowledge".
  */
 export function Products({ who, onView }: { who: Principal; onView: (view: Screen) => void }) {
-  const products = useLoad(() => api<Product[]>('/api/studio/products'))
+  // The catalog as it is filed. `null` is "any"; an empty string is a real
+  // choice — the products placed in no department, or filed under no category.
+  const [department, setDepartment] = useState<string | null>(null)
+  const [shelf, setShelf] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  // What is searched for is what was typed a moment ago, not every keystroke:
+  // each one would otherwise be its own request.
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    const waiting = setTimeout(() => setQuery(filter.trim()), 250)
+    return () => clearTimeout(waiting)
+  }, [filter])
+
+  const products = useLoad(() => {
+    const asking = new URLSearchParams({ limit: String(ROWS) })
+    if (department !== null) asking.set('department', department)
+    if (shelf !== null) asking.set('category', shelf)
+    if (query) asking.set('q', query)
+    return api<Catalog>(`/api/studio/catalog?${asking}`)
+  }, [department, shelf, query])
+  const summary = products.data?.summary
+  const chosen = summary?.departments.find((d) => d.id === department)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState<{ text: string; screen?: Screen } | null>(null)
@@ -22,17 +78,8 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
   const [crawlOpen, setCrawlOpen] = useState(false)
   const [crawlUrl, setCrawlUrl] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
-  const [filter, setFilter] = useState('')
 
   const mayWrite = who.role !== 'viewer'
-
-  // A 5,000-row table re-rendered on every keystroke of the edit form, and the
-  // page stuttered. Search narrows; only the first rows are ever drawn.
-  const needle = filter.trim().toLowerCase()
-  const matching = (products.data ?? []).filter(
-    (p) => !needle || `${p.name} ${p.category} ${p.id}`.toLowerCase().includes(needle),
-  )
-  const shown = matching.slice(0, ROWS)
 
   async function act(work: () => Promise<{ text: string; screen?: Screen } | null>) {
     setBusy(true)
@@ -147,7 +194,9 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                   their own, and then it is a laptop in a saree shop. */}
               {confirmClear ? (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1">
-                  <span className="text-amber-800 text-xs">Remove {products.data?.length ?? 0} products?</span>
+                  <span className="text-amber-800 text-xs">
+                    Remove all {(summary?.total ?? 0).toLocaleString('en-IN')} products?
+                  </span>
                   <Button tone="danger" onClick={clearAll} disabled={busy}>Yes, clear</Button>
                   <button
                     type="button"
@@ -161,7 +210,7 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                 <Button
                   tone="danger"
                   onClick={() => setConfirmClear(true)}
-                  disabled={busy || !products.data?.length}
+                  disabled={busy || !summary?.total}
                 >
                   Clear all
                 </Button>
@@ -307,14 +356,70 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
             </div>
           </section>
         )}
-        {!products.data ? (
+        {!products.data || !summary ? (
           <Empty>Loading…</Empty>
-        ) : products.data.length === 0 ? (
+        ) : summary.total === 0 ? (
           <Empty>
             No products yet. Import a CSV, a JSON export or a Word document with a table in it.
           </Empty>
         ) : (
           <>
+          {/* The catalog the way the cabinet files it: a department, then a
+              category within it. These are the tiles a visitor chooses from, so
+              what is miscounted or misplaced here is what they will see. */}
+          <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Department">
+            <Pick
+              active={department === null}
+              count={summary.total}
+              onClick={() => {
+                setDepartment(null)
+                setShelf(null)
+              }}
+            >
+              All
+            </Pick>
+            {summary.departments.map((d) => (
+              <Pick
+                key={d.id}
+                active={department === d.id}
+                count={d.count}
+                onClick={() => {
+                  setDepartment(d.id)
+                  setShelf(null)
+                }}
+              >
+                {d.label}
+              </Pick>
+            ))}
+          </div>
+          {chosen && (
+            <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Category">
+              {chosen.shelves.map((s) => (
+                <Pick
+                  key={s.category}
+                  active={shelf === s.category}
+                  count={s.count}
+                  title={s.why}
+                  // A second press lets go of the category, back to the whole
+                  // department.
+                  onClick={() => setShelf(shelf === s.category ? null : s.category)}
+                >
+                  {s.category || 'No category'}
+                </Pick>
+              ))}
+            </div>
+          )}
+          {/* Not placed: products the cabinet shows under neither Men's wear
+              nor Women's wear, with the reason the data gives. */}
+          {department === '' && (
+            <div className="mb-3">
+              <Note>
+                {chosen?.shelves.find((s) => s.category === shelf)?.why
+                  ? `${shelf || 'No category'}: ${chosen.shelves.find((s) => s.category === shelf)!.why}.`
+                  : 'These products do not say who they are for, and their category could not answer for them, so the cabinet lists them under neither Men’s wear nor Women’s wear. Pick a category to see why.'}
+              </Note>
+            </div>
+          )}
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <input
               className="input max-w-xs"
@@ -325,16 +430,16 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
               onChange={(event) => setFilter(event.target.value)}
             />
             <span className="text-ink-soft text-xs">
-              {matching.length > ROWS
-                ? `Showing ${ROWS} of ${matching.length} — search to narrow`
-                : `${matching.length} of ${products.data.length}`}
+              {products.data.total > products.data.products.length
+                ? `Showing ${products.data.products.length} of ${products.data.total.toLocaleString('en-IN')} — pick a category or search to narrow`
+                : `${products.data.total.toLocaleString('en-IN')} of ${summary.total.toLocaleString('en-IN')}`}
             </span>
           </div>
           <div className="overflow-x-auto rounded border border-line">
-            <table className="w-full min-w-[560px] border-collapse bg-white text-sm">
+            <table className="w-full min-w-[640px] border-collapse bg-white text-sm">
               <thead>
                 <tr className="border-b border-line">
-                  {['Product', 'Category', 'Price', 'Image', 'Actions'].map((head) => (
+                  {['Product', 'Department', 'Category', 'Price', 'Image', 'Actions'].map((head) => (
                     <th
                       key={head}
                       className="text-ink-soft px-3 py-2 text-left text-[11px] font-semibold tracking-wider uppercase"
@@ -345,13 +450,17 @@ export function Products({ who, onView }: { who: Principal; onView: (view: Scree
                 </tr>
               </thead>
               <tbody>
-                {shown.map((product) => (
+                {products.data.products.map((product) => (
                   <tr key={product.id} className="border-b border-line last:border-0">
                     <td className="px-3 py-2">
                       <div className="font-medium">{product.name}</div>
                       <div className="text-ink-soft max-w-md truncate text-xs">
                         {product.description}
                       </div>
+                    </td>
+                    <td className={`px-3 py-2 ${product.department ? 'text-ink-soft' : 'text-amber-700'}`}>
+                      {summary.departments.find((d) => d.id === product.department)?.label ??
+                        'Not placed'}
                     </td>
                     <td className="text-ink-soft px-3 py-2">{product.category || '—'}</td>
                     <td className="px-3 py-2 tabular-nums">{product.spoken_price || '—'}</td>

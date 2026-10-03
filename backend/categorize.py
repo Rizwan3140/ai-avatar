@@ -34,46 +34,97 @@ from backend import catalog
 LABELS = {**catalog.DEPARTMENT_LABELS, "": "Not placed"}
 
 
-def report(org_id: str) -> str:
-    """One org's catalog as it is filed now, and what is not placed and why."""
+def summary(org_id: str) -> dict:
+    """One org's catalog as it is filed: each department, its shelves and their
+    counts, fullest first — and for the pieces placed nowhere, why.
+
+    The studio's Products tab and the report below are both this. Counted in
+    SQL rather than by reading every row: the studio asks on each change of
+    filter, and at 25,000 products reading them all is the slow way to count.
+    Only the shelves holding unplaced pieces are read row by row, to say why.
+    """
+    catalog.init()
     with catalog._connect() as conn:
-        rows = conn.execute(
-            "SELECT name, IFNULL(category, '') AS category, attributes, "
-            "IFNULL(department, '') AS department FROM products WHERE org_id = ?",
+        counted = conn.execute(
+            "SELECT IFNULL(department, '') AS department, IFNULL(category, '') AS category, "
+            "COUNT(*) AS n FROM products WHERE org_id = ? GROUP BY 1, 2",
             (org_id,),
         ).fetchall()
+        puzzling = sorted({r["category"] for r in counted if not r["department"] and r["category"]})
+        # Counted the way `_settle_departments` judges: by what the shop listed
+        # each piece as, which is not always the shelf it is filed on. Per such
+        # listing, how many say men's, women's or nothing — and per shelf, which
+        # listing its unplaced pieces came under.
+        own: dict[str, dict[str, int]] = {}
+        stuck: dict[str, dict[str, int]] = {}
+        for start in range(0, len(puzzling), 900):  # SQLite binds at most 999
+            chunk = puzzling[start : start + 900]
+            for row in conn.execute(
+                "SELECT name, category, attributes, IFNULL(department, '') AS department "
+                f"FROM products WHERE org_id = ? AND category IN ({', '.join('?' * len(chunk))})",
+                [org_id, *chunk],
+            ):
+                try:
+                    attributes = json.loads(row["attributes"] or "{}")
+                except (TypeError, ValueError):
+                    attributes = {}
+                listing = catalog.listed_as(row["category"], attributes)
+                said = catalog.department_of(row["name"] or "", row["category"], attributes)
+                counts = own.setdefault(listing, {})
+                counts[said] = counts.get(said, 0) + 1
+                if not row["department"]:
+                    on = stuck.setdefault(row["category"], {})
+                    on[listing] = on.get(listing, 0) + 1
 
-    placed: dict[str, int] = {}
-    shelves: dict[str, set[str]] = {}
-    # Per shelf: how many pieces say men's, women's, and how many say nothing.
-    own: dict[str, dict[str, int]] = {}
-    unplaced: dict[str, int] = {}
-    for row in rows:
-        placed[row["department"]] = placed.get(row["department"], 0) + 1
-        shelves.setdefault(row["department"], set()).add(row["category"])
-        try:
-            attributes = json.loads(row["attributes"] or "{}")
-        except (TypeError, ValueError):
-            attributes = {}
-        said = catalog.department_of(row["name"] or "", row["category"], attributes)
-        counts = own.setdefault(row["category"], {})
-        counts[said] = counts.get(said, 0) + 1
-        if not row["department"]:
-            unplaced[row["category"]] = unplaced.get(row["category"], 0) + 1
+    def why(shelf: str) -> str:
+        if not shelf:
+            return _why("", {})
+        # The listing most of this shelf's unplaced pieces came under.
+        listing = max(stuck.get(shelf, {shelf: 0}).items(), key=lambda kv: kv[1])[0]
+        reason = _why(listing, own.get(listing, {}))
+        return reason if listing == shelf else f"listed as {listing}: {reason}"
 
-    lines = [f"{org_id}: {len(rows):,} products on {len({r['category'] for r in rows if r['category']})} shelves", ""]
+    by_department: dict[str, list[dict]] = {}
+    for row in counted:
+        by_department.setdefault(row["department"], []).append(
+            {"category": row["category"], "count": row["n"]}
+        )
+    departments = []
     for department in (catalog.WOMEN, catalog.MEN, catalog.JEWELLERY, catalog.ACCESSORIES, ""):
-        if placed.get(department):
-            on = len({s for s in shelves[department] if s})
-            lines.append(
-                f"  {LABELS[department]:<16} {placed[department]:>7,}   "
-                f"on {on} {'shelf' if on == 1 else 'shelves'}"
-            )
+        shelves = sorted(by_department.get(department, []), key=lambda s: (-s["count"], s["category"]))
+        if not shelves:
+            continue
+        if not department:
+            for shelf in shelves:
+                shelf["why"] = why(shelf["category"])
+        departments.append({
+            "id": department,
+            "label": LABELS[department],
+            "count": sum(s["count"] for s in shelves),
+            "shelves": shelves,
+        })
+    return {
+        "total": sum(r["n"] for r in counted),
+        "shelves": len({r["category"] for r in counted if r["category"]}),
+        "departments": departments,
+    }
 
+
+def report(org_id: str) -> str:
+    """`summary`, as lines for a terminal."""
+    filed = summary(org_id)
+    lines = [f"{org_id}: {filed['total']:,} products on {filed['shelves']} shelves", ""]
+    for department in filed["departments"]:
+        on = len([s for s in department["shelves"] if s["category"]])
+        lines.append(
+            f"  {department['label']:<16} {department['count']:>7,}   "
+            f"on {on} {'shelf' if on == 1 else 'shelves'}"
+        )
+    unplaced = next((d for d in filed["departments"] if not d["id"]), None)
     if unplaced:
         lines += ["", "Not placed, and why:"]
-        for shelf, count in sorted(unplaced.items(), key=lambda kv: -kv[1]):
-            lines.append(f"  {count:>6,}  {shelf or '(no shelf)':<28} {_why(shelf, own[shelf])}")
+        for shelf in unplaced["shelves"]:
+            lines.append(f"  {shelf['count']:>6,}  {shelf['category'] or '(no shelf)':<28} {shelf['why']}")
     return "\n".join(lines)
 
 
