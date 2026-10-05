@@ -789,6 +789,10 @@ check("responses carry a content security policy", "content-security-policy" in 
 check("which refuses to be framed", "frame-ancestors 'none'" in _headers["content-security-policy"])
 check("and the type is not sniffed", _headers.get("x-content-type-options") == "nosniff")
 check("and referrers do not leak", _headers.get("referrer-policy") == "no-referrer")
+# A cached page names the last build's bundle, so an update looks like nothing.
+check("the page itself is never served from a browser's cache",
+      client.get("/index.html").headers.get("cache-control") == "no-cache")
+check("which is said of pages only", "cache-control" not in _headers)
 
 print("\nwhat each role may read")
 

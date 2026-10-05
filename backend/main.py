@@ -95,6 +95,13 @@ async def limit_public_conversation(request: Request, call_next):
     response = await call_next(request)
     for header, value in _SECURITY_HEADERS.items():
         response.headers.setdefault(header, value)
+    # The page is asked for again every time; its scripts are not. A build
+    # renames the bundle, so the page is the only thing that says which one to
+    # load - and sent with no instruction, a browser kept the old page, which
+    # named the old bundle, which an update never deletes. A released fix then
+    # looked exactly like an update that had not arrived, on every cabinet.
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers.setdefault("Cache-Control", "no-cache")
     # Only over TLS. Sent on a plain-http kiosk it is ignored by the browser
     # anyway, and asserting it from `localhost` would pin a scheme the cabinet
     # does not serve.
