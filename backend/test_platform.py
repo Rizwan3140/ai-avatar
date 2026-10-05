@@ -1222,6 +1222,13 @@ check("the avatar is told a department's shelves are on screen",
 check("and to invite a choice, not recite one", "Do not read the list out" in _tiles)
 check("and is not sent down the nothing-matched path",
       "Nothing in the catalog matched" not in _tiles)
+# "Purple men's wear", and nothing purple: the tiles are the department without
+# it, and the avatar has to say so before inviting the choice.
+_none = llm._turn_prompt([], rail="Men's wear", tiles=["Pants"], missing="Purple")
+check("a colour we do not have is said to be unavailable",
+      "Purple is not available in Men's wear" in _none and "Do not say we have anything in Purple" in _none)
+check("and the visitor is still invited to choose", "choose a category" in _none and "- Pants" in _none)
+check("which is not said when the colour was never asked for", "not available" not in _tiles)
 check("products on screen outrank tiles behind them",
       "categories are NOW ON SCREEN" not in llm._turn_prompt(_one, rail="Men's wear", tiles=["Pants"]))
 

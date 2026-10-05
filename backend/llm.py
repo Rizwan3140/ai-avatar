@@ -389,6 +389,7 @@ def _turn_prompt(
     closest: str = '',
     rail: str = '',
     tiles: list[str] | None = None,
+    missing: str = '',
 ) -> str:
     """Catalog first, model second.
 
@@ -439,13 +440,32 @@ def _turn_prompt(
         # categories as tiles for the visitor to pick from; they invite the
         # choice and stop. The same rule as the product list above: a model
         # given a list reads it out unless it is told flatly not to.
+        if missing:
+            # The colour they asked for is on no shelf of this department, and
+            # the tiles on screen are the department without it. Unsaid, they
+            # tap a tile expecting black and are shown everything but.
+            opening = (
+                f"The visitor asked for {missing} {rail}. We have NOTHING in "
+                f"{missing} in {rail} right now. Its categories, in the colours "
+                "we do have, are NOW ON SCREEN as tiles they can tap, each with "
+                "a picture. They can see them.\n"
+                f"Say TWO short sentences and stop. First: that {missing} is "
+                f"not available in {rail} right now. Second: invite them to "
+                "keep looking and choose a category on screen. Do not say we "
+                f"have anything in {missing}. Do not offer to check. "
+            )
+        else:
+            opening = (
+                f"The visitor asked to browse {rail}. Its categories are NOW ON "
+                "SCREEN as tiles they can tap, each with a picture. They can see "
+                "them.\n"
+                "Say ONE short sentence inviting them to choose a category, then "
+                "stop. Do not say we do not carry something. "
+            )
         grounding = (
-            f"The visitor asked to browse {rail}. Its categories are NOW ON "
-            "SCREEN as tiles they can tap, each with a picture. They can see "
-            "them.\n"
-            "Say ONE short sentence inviting them to choose a category, then "
-            "stop. Do not read the list out. Do not name a category that is not "
-            "listed below. Do not say we do not carry something.\n\n"
+            opening
+            + "Do not read the list out. Do not name a category that is not "
+            "listed below.\n\n"
             + "\n".join(f"- {name}" for name in tiles)
         )
     else:
@@ -661,6 +681,7 @@ def stream_reply(
     closest: str = "",
     rail: str = "",
     tiles: list[str] | None = None,
+    missing: str = "",
 ) -> Iterator[str]:
     # Warm when there is nothing to get wrong, cold the moment there is. A list
     # of real shelves is something to get wrong.
@@ -678,7 +699,8 @@ def stream_reply(
         {
             "role": "system",
             "content": _turn_prompt(
-                products or [], on_screen, knowledge, categories, closest, rail, tiles
+                products or [], on_screen, knowledge, categories, closest, rail, tiles,
+                missing,
             ),
         },
         *history,
