@@ -163,17 +163,21 @@ def product_categories(avatar: str = ""):
 
 
 @router.get("/products/shelves")
-def product_shelves(department: str, avatar: str = ""):
+def product_shelves(department: str, avatar: str = "", color: str = ""):
     """One department's shelves, as the tiles a visitor chooses from.
 
     Declared before `/products/{product_id}`, like the routes around it, or
     "shelves" would be looked up as a product id. Scoped as every read here is:
     the org comes from the avatar.
+
+    With a colour, the shelves that hold a piece in it. It is handed back so a
+    tapped tile opens the black kurtas and not the whole shelf.
     """
     return {
         "department": department,
-        "title": catalog.DEPARTMENT_LABELS.get(department, ""),
-        "shelves": catalog.tiles(org_for(avatar), department),
+        "color": color,
+        "title": f"{color.title()} {catalog.DEPARTMENT_LABELS.get(department, '')}".strip(),
+        "shelves": catalog.tiles(org_for(avatar), department, color),
     }
 
 

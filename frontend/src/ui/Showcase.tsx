@@ -316,20 +316,17 @@ function Tiles({ shelves }: { shelves: Shelves }) {
           // reached from the Jewellery chip without being filed as jewellery.
           onClick={() =>
             void (shelf.opens
-              ? showShelves(shelf.opens, shelves)
-              : openShelf(shelves.department, shelf.category))
+              ? showShelves(shelf.opens, shelves, shelves.color)
+              : openShelf(shelves.department, shelf.category, shelves.color))
           }
           className={CARD}
           style={arriving(i)}
         >
           <Image product={standIn(shelf)} thumb className="aspect-[3/4] w-full bg-white" fit="contain" />
-          <span className="flex flex-col gap-[0.1em] px-[0.6em] py-[0.5em]">
-            <span className="text-label line-clamp-2 leading-tight font-semibold">
-              {withoutWhose(shelf.category)}
-            </span>
-            <span className="text-ink-soft text-label tabular-nums">
-              {shelf.count} {shelf.count === 1 ? 'piece' : 'pieces'}
-            </span>
+          {/* The name and nothing else. A count of pieces is stock-keeping, and
+              a tile is an invitation. */}
+          <span className="text-label line-clamp-2 px-[0.6em] py-[0.5em] leading-tight font-semibold">
+            {withoutWhose(shelf.category)}
           </span>
         </button>
       ))}

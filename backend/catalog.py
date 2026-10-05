@@ -1290,12 +1290,16 @@ def parse_department(text: str) -> tuple[str, str]:
     return " ".join(kept), named.pop()
 
 
-def shelves(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
+def shelves(org_id: str = DEFAULT_ORG, department: str = "", color: str = "") -> list[dict]:
     """The shelves of one department, fullest first — the tiles a visitor picks
     from, each with a count and one picture to stand for it.
 
     Counts are of this department's rows only: this shop's Pants shelf holds two
     women's pieces and one men's, and the men's tile has to say one.
+
+    With a colour, only the shelves that hold a piece in it — counted, and
+    pictured, by those pieces. "Black men's wear" must not offer a shelf with
+    nothing black on it, nor stand a white kurta in front of the black ones.
     """
     init()
     with _connect() as conn:
@@ -1306,18 +1310,21 @@ def shelves(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
                      WHERE q.org_id = p.org_id AND q.category = p.category
                        AND IFNULL(q.department, '') = IFNULL(p.department, '')
                        AND IFNULL(q.image, '') != ''
+                       AND (:color = '' OR LOWER(IFNULL(q.color, '')) = LOWER(:color))
                      ORDER BY q.name LIMIT 1) AS image
               FROM products p
-             WHERE p.org_id = ? AND IFNULL(p.department, '') = ? AND IFNULL(p.category, '') != ''
+             WHERE p.org_id = :org AND IFNULL(p.department, '') = :department
+               AND IFNULL(p.category, '') != ''
+               AND (:color = '' OR LOWER(IFNULL(p.color, '')) = LOWER(:color))
              GROUP BY p.category
              ORDER BY count DESC, p.category
             """,
-            (org_id, department),
+            {"org": org_id, "department": department, "color": color},
         ).fetchall()
     return [{"category": r["category"], "count": r["count"], "image": r["image"] or ""} for r in rows]
 
 
-def tiles(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
+def tiles(org_id: str = DEFAULT_ORG, department: str = "", color: str = "") -> list[dict]:
     """What the panel offers for a department: its shelves — and, under
     Jewellery, one last tile that leads on to the accessories.
 
@@ -1327,9 +1334,9 @@ def tiles(org_id: str = DEFAULT_ORG, department: str = "") -> list[dict]:
     to, and stands for all of it: the count is every accessory, the picture is
     its fullest shelf's.
     """
-    found = shelves(org_id, department)
+    found = shelves(org_id, department, color)
     if department == JEWELLERY:
-        beyond = shelves(org_id, ACCESSORIES)
+        beyond = shelves(org_id, ACCESSORIES, color)
         if beyond:
             found.append({
                 "category": DEPARTMENT_LABELS[ACCESSORIES],

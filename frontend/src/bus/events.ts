@@ -98,6 +98,9 @@ export type Shelves = {
   department: string
   /** "Men's wear" — the panel's heading. */
   title: string
+  /** "black", when "black men's wear" was asked: the tiles are the shelves
+   *  holding that colour, and each opens on it. */
+  color?: string
   shelves: Shelf[]
   /** The tiles these were opened from — Jewellery, behind Accessories. What
    *  their Back returns to. */

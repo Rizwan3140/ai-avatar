@@ -167,6 +167,39 @@ test('a tapped tile asks for its shelf in its department', async () => {
   }
 })
 
+test('a colour beside the department reaches the tiles and the shelf they open', async () => {
+  // "Show me black men's wear": the tiles are the shelves holding black, and a
+  // tapped one opens on black — not the whole shelf.
+  const originalFetch = globalThis.fetch
+  const asked: string[] = []
+  useStore.setState({ avatarId: 'avatar-blue' })
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    asked.push(url)
+    if (url.startsWith('/api/products')) return Response.json([])
+    return new Response('Which would you like?', {
+      status: 200,
+      headers: { 'X-Products': '', 'X-Shelves': 'men', 'X-Shelves-Color': 'black' },
+    })
+  }
+
+  try {
+    for await (const _ of httpProvider.stream('black mens wear', new AbortController().signal)) {
+      // drain
+    }
+    await new Promise((r) => setTimeout(r, 0))
+    await openShelf('men', 'Kurtas', 'black')
+    assert.ok(
+      asked.includes('/api/products/shelves?department=men&color=black&avatar=avatar-blue'),
+      asked.join(' | '),
+    )
+    assert.equal(new URLSearchParams(asked.at(-1)!.split('?')[1]).get('color'), 'black')
+  } finally {
+    globalThis.fetch = originalFetch
+    useStore.setState({ avatarId: '' })
+  }
+})
+
 test('a tile is not opened for a cabinet that does not know who it is', async () => {
   // No avatar means no tenant. Asking anyway lets the server pick a default
   // org, which on a two-tenant box is the other company's shelf.

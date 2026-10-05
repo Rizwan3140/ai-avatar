@@ -63,12 +63,14 @@ async function showProducts(ids: string): Promise<void> {
  * count and a picture each — are fetched here, so the header stays an id and
  * a shop with thirty shelves does not travel in one.
  */
-export async function showShelves(department: string, back?: Shelves): Promise<void> {
+export async function showShelves(department: string, back?: Shelves, color = ''): Promise<void> {
   const asking = scope()
   if (asking === null) return
+  // "Black men's wear": only the shelves with something black on them.
+  const tinted = color ? `&color=${encodeURIComponent(color)}` : ''
   try {
     const response = await fetch(
-      `/api/products/shelves?department=${encodeURIComponent(department)}&${asking}`,
+      `/api/products/shelves?department=${encodeURIComponent(department)}${tinted}&${asking}`,
     )
     if (!response.ok) return
     const shelves = (await response.json()) as Shelves
@@ -94,10 +96,12 @@ const SHELF_LIMIT = 24
  * screen is a choice, the same as tapping a product, and it must always open
  * exactly that.
  */
-export async function openShelf(department: string, category: string): Promise<void> {
+export async function openShelf(department: string, category: string, color = ''): Promise<void> {
   const asking = scope()
   if (asking === null) return
   const query = new URLSearchParams({ department, category, limit: String(SHELF_LIMIT) })
+  // The tiles were for a colour, so the shelf opens on that colour.
+  if (color) query.set('color', color)
   try {
     const response = await fetch(`/api/products?${query}&${asking}`)
     if (!response.ok) return
@@ -195,7 +199,14 @@ export const httpProvider: AiProvider = {
 
     // "Men's wear" on its own: no products, a department to choose within.
     const department = response.headers.get('X-Shelves')
-    if (department) void showShelves(department)
+    // With a colour beside it, "black men's wear": the shelves holding that.
+    let color = ''
+    try {
+      color = decodeURIComponent(response.headers.get('X-Shelves-Color') ?? '')
+    } catch {
+      // A malformed header costs the filter, never the tiles.
+    }
+    if (department) void showShelves(department, undefined, color)
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()

@@ -111,22 +111,30 @@ def chat(req: ChatRequest, request: Request):
     # offer, not a search to run: this shop's men's pieces sit on three shelves,
     # and answering with eight kurtas hid the other two. The panel shows that
     # department's shelves as tiles and the visitor picks. Anything more than
-    # the department — a shelf, a colour, a price, a word to search for — is a
-    # request for products, within it.
+    # the department — a shelf, a price, a word to search for — is a request
+    # for products, within it.
+    #
+    # A colour is not more than the department: "black men's wear" is still a
+    # choice of shelf, among the ones that hold something black. Eight black
+    # pieces off whichever shelves sort first hid the rest, as before.
     query, department = catalog.parse_department(query)
     only_department = department and not (
-        color or style or max_price is not None or catalog._fts_terms(query)
+        style or max_price is not None or catalog._fts_terms(query)
     )
     products = [] if only_department else catalog.search(
         query, max_price=max_price, org_id=org_id, color=color, style=style,
         department=department,
     )
     # Also where "men's sarees" lands: nothing of that kind, so what there is.
-    tiles = (
-        [tile["category"] for tile in catalog.tiles(org_id, department)]
-        if department and not products
-        else []
-    )
+    tiles, tile_color = [], ""
+    if department and not products:
+        # The colour only when it was all that was asked beside the department,
+        # and only if some shelf holds it — otherwise the department as it is.
+        if only_department and color:
+            tiles, tile_color = catalog.tiles(org_id, department, color), color
+        if not tiles:
+            tiles, tile_color = catalog.tiles(org_id, department), ""
+        tiles = [tile["category"] for tile in tiles]
 
     # And the company's own documents, for the half of showroom questions no
     # product row can answer — delivery, returns, warranty, opening hours.
@@ -209,7 +217,7 @@ def chat(req: ChatRequest, request: Request):
             shelves,
             avatar.language,
             closest,
-            rail=catalog.DEPARTMENT_LABELS.get(department, ""),
+            rail=f"{tile_color} {catalog.DEPARTMENT_LABELS.get(department, '')}".strip(),
             tiles=tiles,
         ):
             reply += chunk
@@ -238,6 +246,8 @@ def chat(req: ChatRequest, request: Request):
         # Which department's shelves to put up as tiles. Only the id: the panel
         # fetches the tiles themselves, with their pictures and counts.
         headers["X-Shelves"] = department
+        if tile_color:
+            headers["X-Shelves-Color"] = urllib.parse.quote(tile_color)
     if searched != req.message:
         # What a Telugu or Hindi turn meant in English, so the browser's "next
         # one" / "cheaper one" rules work in every language. Percent-encoded:
