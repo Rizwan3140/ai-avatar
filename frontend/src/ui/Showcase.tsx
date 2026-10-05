@@ -248,12 +248,13 @@ const withoutWhose = (text: string) => text.replace(/^(wo)?men['’]s\s+/i, '')
 
 function Rail({ products, from }: { products: Product[]; from: Shelves | null }) {
   const shelf = sharedCategory(products)
-  const count = products.length
 
   return (
     <Strip
       title={shelf || 'Selected for you'}
-      tally={`${count} ${count === 1 ? 'piece' : 'pieces'}`}
+      // No count of pieces: that is stock-keeping, not something to tell a
+      // visitor looking at a rail.
+      tally=""
       // Reached from a tile, the way back is to the tiles.
       back={from ? { label: from.title, to: () => bus.emit('SHELF_CLOSED') } : undefined}
       watch={products}
