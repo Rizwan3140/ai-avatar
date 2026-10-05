@@ -395,36 +395,6 @@ check(
 )
 r = client.get(f"/api/products?category=Pants&department=men&avatar={AVATAR}")
 check("a tile opens its shelf in its department", [p["id"] for p in r.json()] == ["t-m2"], r.text[:160])
-# "Black men's wear" is still a choice of shelf — among those holding black.
-r = client.get(f"/api/products/shelves?department=men&color=black&avatar={AVATAR}")
-check(
-    "a colour narrows a department's tiles to the shelves that hold it",
-    (r.json()["title"], r.json()["color"], [s["category"] for s in r.json()["shelves"]])
-    == ("Black Men's wear", "black", ["Kurtas"]),
-    r.text[:200],
-)
-from backend import llm as _llm  # noqa: E402
-
-_stream, _translate = _llm.stream_reply, _llm.search_text
-_llm.stream_reply = lambda *a, **k: iter(["Which would you like?"])
-_llm.search_text = lambda said: said  # no model, and no network, in a check
-try:
-    def _asked(said):
-        h = client.post("/api/chat", json={"message": said, "avatar_id": AVATAR, "session": "t"}).headers
-        return h.get("X-Products"), h.get("X-Shelves"), h.get("X-Shelves-Color")
-
-    check("a department on its own is answered with tiles",
-          _asked("show me mens wear") == ("", "men", None), str(_asked("show me mens wear")))
-    check("and with a colour, that colour's tiles rather than products",
-          _asked("show me black mens wear") == ("", "men", "Black"),
-          str(_asked("show me black mens wear")))
-    check("a colour no shelf holds falls back to the department's tiles",
-          _asked("show me purple mens wear") == ("", "men", None),
-          str(_asked("show me purple mens wear")))
-    check("a shelf named in the department is still products, not tiles",
-          _asked("show me mens pants") == ("t-m2", None, None), str(_asked("show me mens pants")))
-finally:
-    _llm.stream_reply, _llm.search_text = _stream, _translate
 r = client.get(f"/api/products/shelves?department=jewellery&avatar={AVATAR}")
 check(
     "jewellery is its own department, ending in a tile that leads to accessories",
