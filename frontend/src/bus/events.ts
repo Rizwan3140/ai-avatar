@@ -69,6 +69,12 @@ export type Events = {
    * person in front of it can take it further.
    */
   TRYON_REQUESTED: { product: Product }
+  /** "Take a selfie with me" — said or tapped. Like try-on, it opens the offer
+   *  and never the camera. */
+  SELFIE_REQUESTED: void
+  /** The count before the shutter. They hold the pose, if they have footage of
+   *  one, and the panel clears the space under them. */
+  SELFIE_POSING: { posing: boolean }
 }
 
 /** Core fields every vertical shares; the rest arrives in `attributes`. */

@@ -260,6 +260,15 @@ REPLICATE_API_TOKEN = _get("REPLICATE_API_TOKEN")
 #: should have to be asked for out loud.
 TRYON_ENABLED = _get("LUXORA_TRYON", "").strip().lower() in ("1", "on", "true", "yes")
 
+#: A selfie with the avatar. Off unless asked for, for the reason above: it is
+#: the other thing here that opens a camera on a member of the public.
+SELFIE_ENABLED = _get("LUXORA_SELFIE", "").strip().lower() in ("1", "on", "true", "yes")
+
+#: The address a visitor's phone reaches this cabinet at, for the QR code a
+#: shared selfie is fetched by. Empty falls back to the tunnel `start.ps1`
+#: opens — see `selfie.public_base`.
+PUBLIC_URL = _get("LUXORA_PUBLIC_URL", "").strip()
+
 #: Let the account-less studio answer somebody who is not at the machine.
 #:
 #: With no accounts, the studio opens to a caller on loopback — that is the

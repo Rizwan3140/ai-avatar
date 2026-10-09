@@ -11,7 +11,9 @@ import type { Pose } from './renderer.types.ts'
 export type AvatarMedia = {
   id: string
   poster: string
-  clips: Partial<Record<Pose, string>>
+  /** A clip per pose — and `selfie`, which is not a pose of the conversation:
+   *  them holding a phone up, shown for the count before a selfie. */
+  clips: Partial<Record<Pose | 'selfie', string>>
 }
 
 let current: AvatarMedia = {

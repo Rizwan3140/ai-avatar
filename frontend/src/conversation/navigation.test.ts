@@ -19,6 +19,21 @@ const picked = (text: string, selected: Product | null = null) => {
   return nav.kind === 'select' ? nav.product.name : nav.kind
 }
 
+test('a selfie is asked of them, with or without a shelf on screen', () => {
+  for (const said of [
+    'Can I take a selfie with you?',
+    'take a selfie',
+    "let's get a photo together",
+    'can I have a picture with you',
+  ]) {
+    assert.equal(picked(said), 'selfie', said)
+    assert.equal(resolve(said, [], null).kind, 'selfie', said)
+  }
+  // A picture *of* something is a visitor asking to see a product.
+  assert.notEqual(picked('show me a picture of the Titan Pro 16'), 'selfie')
+  assert.notEqual(picked('do you have a photo of that one'), 'selfie')
+})
+
 test('names a product directly', () => {
   assert.equal(picked('tell me about the Titan Pro 16'), 'Titan Pro 16')
   assert.equal(picked('how much is the beam monitor 27'), 'Beam Monitor 27')

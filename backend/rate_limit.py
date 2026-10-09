@@ -23,6 +23,9 @@ PUBLIC_LIMITS = {
     "/api/listen": 120,
     "/api/speak": 120,
     "/api/auth/login": 10,
+    # A shared selfie is a few hundred kilobytes held in memory for a day.
+    "/api/selfie": 10,
+    "/api/selfie/consent": 20,
 }
 
 #: Try-on is the one open route that spends money per call and holds a

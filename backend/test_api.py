@@ -794,6 +794,73 @@ check("the page itself is never served from a browser's cache",
       client.get("/index.html").headers.get("cache-control") == "no-cache")
 check("which is said of pages only", "cache-control" not in _headers)
 
+print("\na selfie, shared to a phone")
+# Made in the browser; the server only ever sees one a visitor chose to send,
+# and holds it in memory for a day. The same nonce as try-on authorises it.
+from backend import selfie as _selfie  # noqa: E402
+
+_jpeg = b"\xff\xd8\xff" + b"0" * 64
+_selfie.ROOT = TMP  # so a tunnel-url.txt beside the real install is not read
+check("off unless asked for",
+      client.get("/api/selfie").json() == {"available": False, "share": False})
+check("and no agreement is issued while it is off",
+      client.post("/api/selfie/consent").status_code == 503)
+check("nor a photograph held",
+      client.post(f"/api/selfie?consent=x&avatar={AVATAR}", content=_jpeg).status_code == 503)
+config.SELFIE_ENABLED = True
+try:
+    check("a cabinet reached only as localhost has nowhere to send a phone",
+          _selfie.public_base("http://127.0.0.1:8000/") == "")
+    check("one reached by a real address uses it",
+          _selfie.public_base("https://shop.example/x") == "https://shop.example")
+    (TMP / "tunnel-url.txt").write_text("https://quick.trycloudflare.com\n", encoding="ascii")
+    check("and the tunnel start.ps1 opened is the fallback",
+          _selfie.public_base("http://localhost:8000/") == "https://quick.trycloudflare.com")
+    config.PUBLIC_URL = "https://cabinet.example/"
+    check("a configured address wins",
+          _selfie.public_base("http://localhost:8000/") == "https://cabinet.example")
+    check("switched on, the kiosk is told so",
+          client.get("/api/kiosk/mumbai-1").json()["selfie"] == {"available": True, "share": True})
+
+    check("no agreement, no upload",
+          client.post(f"/api/selfie?avatar={AVATAR}", content=_jpeg).status_code == 428)
+    check("a made-up agreement is not one",
+          client.post(f"/api/selfie?consent=1&avatar={AVATAR}", content=_jpeg).status_code == 428)
+    _yes = client.post("/api/selfie/consent").json()["consent"]
+    r = client.post(f"/api/selfie?consent={_yes}&avatar={AVATAR}", content=_jpeg)
+    check("an agreed selfie is held, for a day",
+          r.status_code == 200 and r.json()["expires_in"] == 86400, r.text[:160])
+    _id = r.json()["id"]
+    r = client.get(f"/api/selfie/{_id}")
+    check("and comes back as the picture",
+          r.content == _jpeg and r.headers["content-type"] == "image/jpeg", r.text[:80])
+    check("which no cache may keep", r.headers.get("cache-control") == "no-store")
+    check("the agreement was spent",
+          client.post(f"/api/selfie?consent={_yes}&avatar={AVATAR}", content=_jpeg).status_code == 428)
+    r = client.get(f"/api/selfie/{_id}/qr")
+    check("its code is drawn here, to the address a phone can reach",
+          r.status_code == 200 and b"<svg" in r.content, r.text[:80])
+    check("something that is not a photograph is refused",
+          client.post(f"/api/selfie?consent={tryon.issue_consent()}&avatar={AVATAR}",
+                      content=b"<script>").status_code == 400)
+    check("an unidentified cabinet cannot share",
+          client.post(f"/api/selfie?consent={tryon.issue_consent()}&avatar=no-such-avatar",
+                      content=_jpeg).status_code == 404)
+    check("a guessed address is nothing", client.get("/api/selfie/nope").status_code == 404)
+    check("it is in memory and nowhere on disk",
+          not any(_jpeg in p.read_bytes() for p in TMP.rglob("*") if p.is_file()))
+    _at, _image, _kind = _selfie._held[_id]
+    _selfie._held[_id] = (_at - _selfie.TTL - 1, _image, _kind)
+    check("a day later it is gone", client.get(f"/api/selfie/{_id}").status_code == 404)
+    check("and so is its code", client.get(f"/api/selfie/{_id}/qr").status_code == 404)
+    for _ in range(_selfie.MAX_HELD + 5):
+        _selfie.hold(_jpeg)
+    check("the store is bounded", len(_selfie._held) == _selfie.MAX_HELD)
+finally:
+    config.SELFIE_ENABLED = False
+    config.PUBLIC_URL = ""
+    _selfie._held.clear()
+
 print("\nwhat each role may read")
 
 # "A viewer can read insights and nothing else" is what the Team screen tells an

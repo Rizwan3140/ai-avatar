@@ -23,10 +23,10 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 114 checks
+(cd frontend && npm test)                   # 123 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 285 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 141 — the same through the real routes
+./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_api      # 172 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-782 checks total. **Never run the Python suites through `unittest`** — they are
+825 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -195,6 +195,21 @@ company's prices out loud.
   product. Consent is a required parameter with no default. This is DPDP/GDPR
   scope, not a preference, and it is why local try-on is the preferred provider
   independent of cost.
+- **A selfie is made in the browser, and a shared one is held in memory.**
+  `LUXORA_SELFIE=1` turns it on; off otherwise, because it is the other camera.
+  The picture is the camera frame with the avatar cut off their own footage
+  (`ui/selfie.ts`) — nothing is uploaded to make it. Only "share to my phone"
+  sends it to the server, under the same consent nonce as try-on, and
+  `backend/selfie.py` keeps it in a dictionary for 24 hours: never a file, so
+  the rule above still holds, and a restart forgets them all. The QR code needs
+  an address a phone can reach — `LUXORA_PUBLIC_URL`, else the tunnel
+  `start.ps1` opens — and without one the share button is not drawn.
+- **The backdrop in the footage is not white, whatever the brief says.** One
+  avatar stands on a grey that runs 180 to 210, the other in a white box with
+  her shadow on the wall. The selfie's cut-out keys on *light and colourless,
+  connected to the frame's edge* — measured, backdrop is within 8 between its
+  channels and skin never under 25 — and was first written keyed on ">= 242
+  white", which removed nothing from either. Check a cut-out on a real frame.
 - **A PDF's tables are not mined for products.** Recovering columns from glyph
   positions is guesswork, and a price silently attached to the wrong product is
   worse than not importing at all, because nobody checks what looked like it

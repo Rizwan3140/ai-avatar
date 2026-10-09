@@ -19,7 +19,17 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
-from backend import analytics, avatar_provider, campaigns, catalog, config, seasons, store, tryon
+from backend import (
+    analytics,
+    avatar_provider,
+    campaigns,
+    catalog,
+    config,
+    seasons,
+    selfie,
+    store,
+    tryon,
+)
 
 router = APIRouter(prefix="/api", tags=["platform"])
 
@@ -49,7 +59,7 @@ def org_for(avatar_id: str = "") -> str:
 
 
 @router.get("/kiosk/{kiosk_id}")
-def kiosk(kiosk_id: str):
+def kiosk(kiosk_id: str, request: Request):
     """Everything a cabinet needs to come up. An unregistered kiosk gets the
     default avatar rather than an error — a showroom screen showing nothing is
     worse than one showing the wrong person."""
@@ -60,6 +70,9 @@ def kiosk(kiosk_id: str):
         # The cabinet decides whether to offer a camera at all, and it should not
         # have to make a second call to find out.
         "tryon": tryon.status(),
+        # The same for a selfie with the avatar, and whether a phone can be
+        # handed the result.
+        "selfie": selfie.status(str(request.base_url)),
         # And what the showroom is wearing today. Arrives with identity so a
         # cabinet is never briefly dressed for the wrong month while a second
         # request is in flight, and so it survives on last-known-good config
@@ -329,6 +342,102 @@ async def try_on(product_id: str, request: Request, avatar: str = "", consent: s
         content=result.image,
         media_type=result.media_type,
         # Never cached. The response is a photograph of a member of the public.
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/selfie")
+def selfie_status(request: Request):
+    """Whether a selfie is offered here, and whether it can go to a phone."""
+    return selfie.status(str(request.base_url))
+
+
+@router.post("/selfie/consent")
+def selfie_consent():
+    """A visitor pressed "share to my phone". Returns the token that authorises
+    exactly one upload.
+
+    The selfie itself needs no agreement from this machine: it is taken and
+    composed in the browser and goes nowhere. This is the moment a photograph
+    of a member of the public would leave the screen, so this is the moment
+    recorded — the same nonce try-on uses, for the same reason.
+    """
+    if not config.SELFIE_ENABLED:
+        raise HTTPException(503, "selfies are not switched on here")
+    return {"consent": tryon.issue_consent(), "expires_in": tryon.CONSENT_TTL}
+
+
+@router.post("/selfie")
+async def selfie_share(request: Request, avatar: str = "", consent: str = ""):
+    """Hold one composed selfie for a day, so a phone can fetch it.
+
+    In memory only — see `backend/selfie.py`. The event log records that a
+    selfie was shared and under which agreement, never the picture.
+    """
+    if not config.SELFIE_ENABLED:
+        raise HTTPException(503, "selfies are not switched on here")
+    if not consent:
+        raise HTTPException(428, "the visitor has not agreed to share this photograph")
+    org_id = org_for(avatar)
+    if not selfie.public_base(str(request.base_url)):
+        # Before the photograph is read: holding a picture nobody can fetch is
+        # keeping a stranger's photo for no reason at all.
+        raise HTTPException(503, "this cabinet has no address a phone can reach")
+
+    # Refused by its declared size before a byte of it is read.
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > selfie.MAX_IMAGE:
+        raise HTTPException(413, "that photograph is too large")
+    photo = await request.body()
+
+    # Spent, once, at the last moment before the photograph is kept.
+    if not tryon.consume_consent(consent):
+        raise HTTPException(428, "that agreement has expired or was already used - ask again")
+    try:
+        token = selfie.hold(photo)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    analytics.record("selfie_shared", consent=consent[:12], org=org_id)
+    return {"id": token, "expires_in": selfie.TTL}
+
+
+@router.get("/selfie/{token}")
+def selfie_photo(token: str):
+    """What the QR code opens on the visitor's phone: their picture."""
+    found = selfie.fetch(token)
+    if found is None:
+        raise HTTPException(404, "that photograph is no longer here")
+    image, media_type = found
+    return Response(
+        content=image,
+        media_type=media_type,
+        headers={
+            # A photograph of a member of the public: nobody's cache keeps it.
+            "Cache-Control": "no-store",
+            "Content-Disposition": 'inline; filename="selfie.jpg"',
+        },
+    )
+
+
+@router.get("/selfie/{token}/qr")
+def selfie_qr(token: str, request: Request):
+    """The photograph's address as a QR, rendered here like a product's."""
+    import io
+
+    import segno
+
+    base = selfie.public_base(str(request.base_url))
+    if selfie.fetch(token) is None or not base:
+        raise HTTPException(404, "that photograph is no longer here")
+
+    buffer = io.BytesIO()
+    segno.make(f"{base}/api/selfie/{token}", error="m").save(
+        buffer, kind="svg", scale=4, border=0, dark="#111111"
+    )
+    return Response(
+        content=buffer.getvalue(),
+        media_type="image/svg+xml",
         headers={"Cache-Control": "no-store"},
     )
 

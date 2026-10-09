@@ -103,7 +103,12 @@ def _read_avatar(folder: Path) -> Avatar:
             poster = f"{url}/{name}"
             break
 
-    clips = {p: f"{url}/{p}.mp4" for p in POSES if (folder / f"{p}.mp4").exists()}
+    # `selfie` is not a pose of the conversation, so it is not in POSES and an
+    # avatar without one is not missing anything: them holding a phone up, for
+    # the countdown before a selfie. Without it they stand as they were.
+    clips = {
+        p: f"{url}/{p}.mp4" for p in (*POSES, "selfie") if (folder / f"{p}.mp4").exists()
+    }
 
     return Avatar(
         id=folder.name,

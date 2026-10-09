@@ -17,6 +17,8 @@ export type Navigation =
   | { kind: 'clear' }
   /** "Can I try that on?" — selects the product *and* opens the camera flow. */
   | { kind: 'tryon'; product: Product }
+  /** "Can I get a selfie with you?" — nothing to do with what is on the shelf. */
+  | { kind: 'selfie' }
   | { kind: 'none' }
 
 const NEXT = /\b(next|another|other one|something else|show me more)\b/i
@@ -50,6 +52,17 @@ const TRY_ON = new RegExp(
   ].join('|'),
   'i',
 )
+
+/**
+ * "Take a selfie", "a photo with you", "a picture together".
+ *
+ * The word itself is enough: nothing this shop sells is called a selfie, and
+ * what it opens is an offer with a No button, not a camera. A photograph needs
+ * the company — "with you", "together" — because "a picture of the blue one"
+ * is a visitor asking to see a product.
+ */
+const SELFIE =
+  /\bselfies?\b|\b(?:photo|photograph|picture|pic|snap)\s+(?:with\s+(?:you|us|me)|together)\b/i
 
 const byPrice = (products: Product[]) =>
   [...products].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
@@ -89,6 +102,9 @@ function byName(text: string, products: Product[]): Product | null {
 
 export function resolve(text: string, products: Product[], selected: Product | null): Navigation {
   if (DISMISS.test(text)) return { kind: 'clear' }
+  // Before the shelf is consulted: it is asked of them, with or without
+  // anything on screen.
+  if (SELFIE.test(text)) return { kind: 'selfie' }
   if (!products.length) return { kind: 'none' }
 
   const named = byName(text, products)

@@ -158,6 +158,30 @@ export async function tryOnProduct(
   return response.blob()
 }
 
+/**
+ * "Share to my phone": hand one finished selfie to the server, which holds it
+ * in memory for a day so the QR code has something to open.
+ *
+ * The press is the agreement. It is recorded by the server as a token and
+ * spent on this one upload, the way a try-on photograph is — until this is
+ * called the picture has not left the browser.
+ */
+export async function shareSelfie(photo: Blob): Promise<string> {
+  const asking = scope()
+  if (asking === null) throw new Error('This cabinet has not been set up yet.')
+  const unavailable = 'Sharing is not available right now.'
+  const agreed = await fetch('/api/selfie/consent', { method: 'POST' })
+  if (!agreed.ok) throw new Error(unavailable)
+  const { consent } = (await agreed.json()) as { consent: string }
+  const response = await fetch(`/api/selfie?consent=${encodeURIComponent(consent)}&${asking}`, {
+    method: 'POST',
+    body: photo,
+    headers: { 'Content-Type': 'application/octet-stream' },
+  })
+  if (!response.ok) throw new Error(unavailable)
+  return ((await response.json()) as { id: string }).id
+}
+
 /** Talks to the FastAPI proxy, which holds the API key. A kiosk is physically
  *  accessible, so the key never reaches the browser. */
 export const httpProvider: AiProvider = {
@@ -239,6 +263,8 @@ export type KioskConfig = {
   }
   /** Whether to offer a camera at all, and whether the photo leaves the room. */
   tryon: { available: boolean; provider: string; on_device: boolean }
+  /** Whether a selfie with the avatar is offered, and can go to a phone. */
+  selfie?: { available: boolean; share: boolean }
   /** Token overrides for the season in force today. Absent means the everyday
    *  look, which is the tokens already compiled into the stylesheet. */
   season?: Record<string, string>
@@ -257,12 +283,18 @@ export type KioskConfig = {
  * link fails loudly instead of quietly showing somebody else's avatar.
  */
 export async function fetchAvatar(avatarId: string): Promise<Omit<KioskConfig, 'kiosk'>> {
-  const [avatar, tryon] = await Promise.all([
+  const [avatar, tryon, selfie] = await Promise.all([
     fetch(`/api/avatar?id=${encodeURIComponent(avatarId)}`),
     fetch('/api/tryon'),
+    fetch('/api/selfie'),
   ])
   if (!avatar.ok) throw new Error('That avatar is no longer here.')
-  return { avatar: await avatar.json(), tryon: await tryon.json() }
+  return {
+    avatar: await avatar.json(),
+    tryon: await tryon.json(),
+    // An older server has no such route. No selfie is the right reading of that.
+    selfie: selfie.ok ? await selfie.json() : undefined,
+  }
 }
 
 /** Who this cabinet is. Replaces the avatar name the app used to be built with. */

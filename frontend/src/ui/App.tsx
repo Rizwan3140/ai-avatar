@@ -3,6 +3,7 @@ import { Masthead } from './Masthead.tsx'
 import { Prompts } from './Prompts.tsx'
 import { useStore } from '../state/store.ts'
 import { Controls } from './Controls.tsx'
+import { Selfie } from './Selfie.tsx'
 import { Showcase } from './Showcase.tsx'
 import { Signage } from './Signage.tsx'
 import { Subtitle } from './Subtitle.tsx'
@@ -40,6 +41,7 @@ export function App() {
       {/* Rendered after the stage, so it paints on top — `Showcase` positions
           itself absolutely against this `<main>`. */}
       <Showcase />
+      <Selfie />
       <Transcript />
 
       {/* Sleep fades to true black, not white — an OLED panel showing black is
