@@ -46,6 +46,11 @@ LEGACY_KIOSKS_FILE = config.DATA / "kiosks.json"
 
 POSES = ("idle", "listen", "think", "speak")
 
+#: Every clip an avatar's folder may hold. `selfie` is not a pose of the
+#: conversation, so an avatar without one is not missing anything: it is them
+#: lifting a phone, shown for the count before a selfie.
+CLIPS = (*POSES, "selfie")
+
 DEFAULT_PERSONA = (ROOT / "backend" / "persona.md").read_text(encoding="utf-8")
 
 #: Avatars that existed before tenancy belong here, so an upgrade does not make
@@ -103,12 +108,7 @@ def _read_avatar(folder: Path) -> Avatar:
             poster = f"{url}/{name}"
             break
 
-    # `selfie` is not a pose of the conversation, so it is not in POSES and an
-    # avatar without one is not missing anything: them holding a phone up, for
-    # the countdown before a selfie. Without it they stand as they were.
-    clips = {
-        p: f"{url}/{p}.mp4" for p in (*POSES, "selfie") if (folder / f"{p}.mp4").exists()
-    }
+    clips = {p: f"{url}/{p}.mp4" for p in CLIPS if (folder / f"{p}.mp4").exists()}
 
     return Avatar(
         id=folder.name,

@@ -39,16 +39,12 @@ export function Prompts() {
   const status = useStore((s) => s.status)
   const muted = useStore((s) => s.muted)
   const showcase = useStore(cardShowing)
-  const selfie = useStore((s) => s.selfie.available)
-  const posing = useStore((s) => s.posing)
 
   // Only while they are genuinely waiting, and only while there is nothing
   // more specific already on offer. Products floating over the lower frame
   // claim exactly this space now — four generic chips on top of a shelf of
   // real answers is clutter, not an offer.
-  // Nor during the count before a selfie: they are posing over this space, and
-  // the visitor is looking at a camera rather than for something to tap.
-  const offer = (status === 'idle' || status === 'listening') && !showcase && !posing
+  const offer = (status === 'idle' || status === 'listening') && !showcase
   if (!offer) return null
 
   // Full width again. These used to stop short of the showcase panel to keep
@@ -88,20 +84,6 @@ export function Prompts() {
             {label}
           </button>
         ))}
-        {/* A fifth, across both columns, and not like the four above it: they
-            say something to the model, and this asks the panel to do a thing.
-            It opens the offer directly, the way a tapped tile opens its shelf
-            — the model has nothing to add to "may I take your photograph". */}
-        {selfie && (
-          <button
-            type="button"
-            onClick={() => bus.emit('SELFIE_REQUESTED')}
-            className="lay-down border-line/80 bg-canvas/70 text-ink text-label hover:border-ink/25 col-span-2 rounded-full border px-[1.4em] py-[0.75em] text-center whitespace-nowrap shadow-sm backdrop-blur-md transition-[transform,border-color,box-shadow,background-color] duration-300 ease-(--ease-human) hover:bg-canvas/90 hover:-translate-y-[2px] hover:shadow-md active:translate-y-0 active:scale-[0.98]"
-            style={{ animationDelay: `${PROMPTS.length * 70}ms` }}
-          >
-            Take a selfie with me
-          </button>
-        )}
       </div>
 
       {/* What the microphone is doing, said plainly. The rail above offers a

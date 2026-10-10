@@ -30,6 +30,7 @@ export type View =
   | 'products'
   | 'ads'
   | 'avatars'
+  | 'selfie'
   | 'documents'
   | 'team'
   | 'insights'
@@ -39,6 +40,7 @@ export const VIEWS: View[] = [
   'products',
   'ads',
   'avatars',
+  'selfie',
   'documents',
   'team',
   'insights',

@@ -2,11 +2,15 @@ import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './ui/App.tsx'
+import { SelfieBooth } from './ui/SelfieBooth.tsx'
 
 /**
- * Two surfaces, one build.
+ * Three surfaces, one build.
  *
  * `/` is the kiosk — fullscreen, no chrome, boots the whole voice stack.
+ * `/selfie` is the same person with one thing to do: be photographed with a
+ * visitor. A cabinet is a showroom or a photo booth by which of the two it was
+ * opened at.
  * `/studio` is the dashboard. It is lazy-loaded and its code never reaches a
  * cabinet, and the kiosk's session lifecycle never starts inside the studio.
  */
@@ -29,6 +33,7 @@ const isStudio =
   path.startsWith('/studio/') ||
   url.searchParams.has('studio') ||
   url.hash === '#studio'
+const isSelfie = !isStudio && path === '/selfie'
 
 // Normalise the shorthands people type, but never flatten a deep link.
 // `/studio/avatars` is already correct, and rewriting it to `/studio` here
@@ -43,6 +48,8 @@ createRoot(document.getElementById('root')!).render(
       <Suspense fallback={null}>
         <Studio />
       </Suspense>
+    ) : isSelfie ? (
+      <SelfieBooth />
     ) : (
       <App />
     )}

@@ -233,6 +233,12 @@ if FRONTEND_DIST.is_dir():
         404. One route rather than a client-side router nobody else needs."""
         return FileResponse(FRONTEND_DIST / "index.html")
 
+    @app.api_route("/selfie", methods=["GET", "HEAD"], include_in_schema=False)
+    def selfie_screen():
+        """The selfie screen: the same build, opened as a photo booth. A route
+        for the reason the studio has one — the static mount would 404 it."""
+        return FileResponse(FRONTEND_DIST / "index.html")
+
     # GET and HEAD, not GET alone. A bare `@app.get` leaves HEAD to fall
     # through to the StaticFiles mount below, so `curl -I /` answered 200 with
     # the panel while a browser was being redirected to the studio — the two

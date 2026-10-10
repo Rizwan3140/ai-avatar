@@ -96,8 +96,8 @@ export function Selfie() {
 
   useEffect(() => close, [])
 
-  // Said or tapped, it opens the offer and stops there: a sentence is agreement
-  // to see the offer, never agreement to be photographed.
+  // The tap opens the offer and stops there: it is agreement to see what is
+  // being offered, never agreement to be photographed.
   useEffect(
     () =>
       bus.on('SELFIE_REQUESTED', () => {
@@ -422,7 +422,9 @@ export function Selfie() {
               </div>
             )}
 
-            <div className="flex shrink-0 gap-[0.5em] overflow-x-auto">
+            {/* Wrapped, not scrolled: a scrollbar under a photograph on a shop
+                window is a desktop control nobody there will drag. */}
+            <div className="flex shrink-0 flex-wrap justify-center gap-[0.5em]">
               {LOOKS.map(({ id, label }) => (
                 <button
                   key={id}

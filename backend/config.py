@@ -260,9 +260,14 @@ REPLICATE_API_TOKEN = _get("REPLICATE_API_TOKEN")
 #: should have to be asked for out loud.
 TRYON_ENABLED = _get("LUXORA_TRYON", "").strip().lower() in ("1", "on", "true", "yes")
 
-#: A selfie with the avatar. Off unless asked for, for the reason above: it is
-#: the other thing here that opens a camera on a member of the public.
-SELFIE_ENABLED = _get("LUXORA_SELFIE", "").strip().lower() in ("1", "on", "true", "yes")
+#: A selfie with the avatar, on its own screen at `/selfie`.
+#:
+#: On unless switched off, which is the opposite of try-on and for a reason:
+#: nothing on the showroom screen leads to it. It was a chip under the avatar
+#: and is not any more, so the camera is reached only by somebody opening that
+#: address on purpose — which is the asking-out-loud the rule above wants.
+#: `LUXORA_SELFIE=0` removes it, and the routes that hold a shared photograph.
+SELFIE_ENABLED = _get("LUXORA_SELFIE", "").strip().lower() not in ("0", "off", "false", "no")
 
 #: The address a visitor's phone reaches this cabinet at, for the QR code a
 #: shared selfie is fetched by. Empty falls back to the tunnel `start.ps1`

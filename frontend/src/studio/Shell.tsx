@@ -51,6 +51,12 @@ const ICONS: Record<View, React.ReactNode> = {
       <path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" />
     </>
   ),
+  selfie: (
+    <>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2.5h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+      <circle cx="12" cy="13" r="3.3" />
+    </>
+  ),
   documents: (
     <>
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
@@ -77,6 +83,7 @@ export const LABELS: Record<View, string> = {
   products: 'Products',
   ads: 'Ads',
   avatars: 'Avatars',
+  selfie: 'Selfie',
   documents: 'Documents',
   team: 'Team',
   insights: 'Insights',

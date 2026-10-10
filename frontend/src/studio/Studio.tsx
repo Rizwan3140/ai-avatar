@@ -8,6 +8,7 @@ import { Campaigns } from './Campaigns.tsx'
 import { Insights } from './Insights.tsx'
 import { Documents } from './Documents.tsx'
 import { Products } from './Products.tsx'
+import { SelfieAvatars } from './SelfieAvatars.tsx'
 import { Team } from './Team.tsx'
 import { Note } from './ui.tsx'
 import { applySeason } from '../session/season.ts'
@@ -35,6 +36,7 @@ const BLURBS: Record<View, string> = {
   products: 'What the avatar may recommend',
   ads: 'What plays while nobody is talking',
   avatars: 'Who stands in the cabinet',
+  selfie: 'Who a visitor can be photographed with',
   documents: 'Policies and brochures they can quote',
   team: 'Who else can change this',
   insights: 'What visitors asked for, and could not find',
@@ -230,6 +232,7 @@ export default function Studio() {
         {view === 'products' && <Products who={who} onView={go} />}
         {view === 'ads' && <Campaigns who={who} />}
         {view === 'avatars' && <Avatars who={who} />}
+        {view === 'selfie' && <SelfieAvatars who={who} />}
         {view === 'documents' && <Documents who={who} onView={go} />}
         {view === 'team' && <Team who={who} org={org} />}
         {view === 'insights' && <Insights />}

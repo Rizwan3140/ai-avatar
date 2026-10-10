@@ -492,8 +492,8 @@ async def upload_clip(
     """
     _mirrored()
     avatar = _avatar_or_404(avatar_id, caller)
-    if pose not in store.POSES:
-        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
+    if pose not in store.CLIPS:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.CLIPS)}")
 
     clip = await request.body()
     if not clip:
@@ -546,8 +546,8 @@ def delete_clip(avatar_id: str, pose: str, caller: Principal = Depends(editor)):
     anyway — so this is how you undo a clip that turned out wrong."""
     _mirrored()
     avatar = _avatar_or_404(avatar_id, caller)
-    if pose not in store.POSES:
-        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
+    if pose not in store.CLIPS:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.CLIPS)}")
 
     target = store.avatar_dir(avatar.id) / f"{pose}.mp4"
     if not target.exists():

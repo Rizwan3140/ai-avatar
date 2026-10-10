@@ -801,7 +801,16 @@ from backend import selfie as _selfie  # noqa: E402
 
 _jpeg = b"\xff\xd8\xff" + b"0" * 64
 _selfie.ROOT = TMP  # so a tunnel-url.txt beside the real install is not read
-check("off unless asked for",
+check("it has a screen of its own, apart from the showroom's",
+      client.get("/selfie").status_code == 200 and "text/html" in client.get("/selfie").headers["content-type"])
+check("on unless switched off: nothing on the showroom screen leads to it",
+      config.SELFIE_ENABLED is True)
+check("the pose they hold for it is a clip like any other",
+      client.delete(f"/api/studio/avatars/{AVATAR}/clips/selfie", headers=north).status_code == 404)
+check("and a clip nobody has heard of still is not",
+      client.delete(f"/api/studio/avatars/{AVATAR}/clips/wave", headers=north).status_code == 400)
+config.SELFIE_ENABLED = False  # what LUXORA_SELFIE=0 does
+check("switched off, it says so",
       client.get("/api/selfie").json() == {"available": False, "share": False})
 check("and no agreement is issued while it is off",
       client.post("/api/selfie/consent").status_code == 503)
@@ -857,7 +866,7 @@ try:
         _selfie.hold(_jpeg)
     check("the store is bounded", len(_selfie._held) == _selfie.MAX_HELD)
 finally:
-    config.SELFIE_ENABLED = False
+    config.SELFIE_ENABLED = True
     config.PUBLIC_URL = ""
     _selfie._held.clear()
 

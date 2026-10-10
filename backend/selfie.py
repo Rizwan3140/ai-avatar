@@ -32,13 +32,15 @@ TTL = 24 * 60 * 60
 
 #: A composed 1080x1620 JPEG is a few hundred kilobytes. Past this it is not
 #: one of ours, and a public route must not be a way to park files here.
-MAX_IMAGE = 4 * 1024 * 1024
+MAX_IMAGE = 2 * 1024 * 1024
 
-#: Bounded, because this is memory. The oldest goes first.
+#: Bounded, because this is memory — and because the route is open to whoever
+#: reaches the port, so the two limits together are the most it can be made to
+#: hold: 120 MB. The oldest goes first.
 #: ponytail: a busy cabinet evicts before the day is out, and a restart forgets
 #: them all. Object storage with a lifecycle rule, behind `hold`/`fetch`, the
 #: day either is reported by somebody who scanned too late.
-MAX_HELD = 120
+MAX_HELD = 60
 
 _held: dict[str, tuple[float, bytes, str]] = {}
 _lock = threading.Lock()

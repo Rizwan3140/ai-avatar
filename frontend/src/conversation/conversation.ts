@@ -19,14 +19,7 @@ bus.on('USER_UTTERANCE', ({ text }) => {
   // Resolve what they meant on screen before asking the model anything. "Show me
   // the cheaper one" should move the selection immediately — waiting for a reply
   // to finish streaming makes the screen feel a step behind the conversation.
-  if (navigate(text)) {
-    // A selfie is something the panel does, not something the model answers:
-    // asked, it searched the catalog for "selfie" and apologised for not
-    // stocking any. Nothing is coming, so they must not be left thinking —
-    // after the other listeners on this utterance have put them there.
-    queueMicrotask(() => bus.emit('REPLY_ABORTED'))
-    return
-  }
+  navigate(text)
 
   // Read the state again — resolve may have just changed the selection, and the
   // model needs to know which product "that" now means.
@@ -38,16 +31,9 @@ bus.on('USER_UTTERANCE', ({ text }) => {
 // meant in English. A second of lag beats navigation that never happens.
 bus.on('USER_UTTERANCE_TRANSLATED', ({ text }) => navigate(text))
 
-/** Acts on what was said. True when that was all of it — nothing for the model. */
-function navigate(text: string): boolean {
-  const { products, selected, selfie } = useStore.getState()
+function navigate(text: string) {
+  const { products, selected } = useStore.getState()
   const nav = resolve(text, products, selected)
-  // Only where a selfie is on offer. Elsewhere the sentence is the model's to
-  // answer, like any other thing this cabinet does not do.
-  if (nav.kind === 'selfie' && selfie.available) {
-    bus.emit('SELFIE_REQUESTED')
-    return true
-  }
   if (nav.kind === 'select') bus.emit('PRODUCT_SELECTED', { product: nav.product })
   if (nav.kind === 'clear') bus.emit('PRODUCTS_CLEARED')
   if (nav.kind === 'tryon') {
@@ -56,7 +42,6 @@ function navigate(text: string): boolean {
     bus.emit('PRODUCT_SELECTED', { product: nav.product })
     bus.emit('TRYON_REQUESTED', { product: nav.product })
   }
-  return false
 }
 
 // Barge-in during THINKING. Without this the abandoned stream keeps arriving and

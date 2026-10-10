@@ -23,10 +23,10 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 123 checks
+(cd frontend && npm test)                   # 122 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 172 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 176 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-825 checks total. **Never run the Python suites through `unittest`** — they are
+828 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -195,8 +195,16 @@ company's prices out loud.
   product. Consent is a required parameter with no default. This is DPDP/GDPR
   scope, not a preference, and it is why local try-on is the preferred provider
   independent of cost.
+- **The selfie is its own screen, not something the showroom avatar offers.**
+  `/selfie?avatar=…`, reached from the studio's Selfie tab, which is also where
+  an avatar's `selfie.mp4` — them lifting a phone, shown for the count — is
+  installed. It was first built as a fifth chip under the showroom avatar and a
+  sentence the conversation had to be taught not to answer, and was moved out
+  the same week: a cabinet is a showroom or a photo booth by the address it was
+  opened at. That is also why it is **on unless `LUXORA_SELFIE=0`**, unlike
+  try-on — nothing on the public screen leads to the camera. It arrived in
+  v2.1.0; v2.0.0 is kept as the release without it.
 - **A selfie is made in the browser, and a shared one is held in memory.**
-  `LUXORA_SELFIE=1` turns it on; off otherwise, because it is the other camera.
   The picture is the camera frame with the avatar cut off their own footage
   (`ui/selfie.ts`) — nothing is uploaded to make it. Only "share to my phone"
   sends it to the server, under the same consent nonce as try-on, and
