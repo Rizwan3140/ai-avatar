@@ -23,10 +23,10 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 122 checks
+(cd frontend && npm test)                   # 128 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 176 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 184 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-828 checks total. **Never run the Python suites through `unittest`** — they are
+842 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -204,6 +204,29 @@ company's prices out loud.
   opened at. That is also why it is **on unless `LUXORA_SELFIE=0`**, unlike
   try-on — nothing on the public screen leads to the camera. It arrived in
   v2.1.0; v2.0.0 is kept as the release without it.
+- **A selfie avatar is two files, given in the studio's Selfie tab.**
+  `selfie.png` — them as the phone sees them, already cut out — is who the
+  visitor is photographed with; `selfie.mp4` — five or six seconds of getting
+  ready — plays **once** during an eight-second count, so it is the one clip
+  that is not ping-ponged and the one clip the renderer starts and seeks. With
+  neither, a frame of their footage is cut out in the browser and they stand
+  still, which is what the first recording of this looked like next to the
+  reference: a small figure pasted at the edge with a halo round her hair.
+- **The avatar is sized from the visitor's face, which is why the panel has a
+  dependency.** `ui/faces.ts` loads MediaPipe's face detector from
+  `public/facefinder` — served here, so it works offline; lazily, so the
+  showroom never fetches it. Chrome's own `FaceDetector` is behind a flag and
+  absent on a real cabinet. `selfie.arrange` then draws the avatar's face a
+  little larger than the visitor's and slides the camera picture so the visitor
+  is where the avatar is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
+  folder must not be called `vendor/`: `.gitignore` drops that name, and with it
+  the copy in `dist` that a release serves.
+- **The detector cannot see a face across the room unless it is shown one.**
+  It shrinks every picture to 128 pixels square, so somebody two metres from a
+  webcam is a face five pixels tall and comes back as nobody — precisely the
+  visitor the sizing is for. `findFace` looks at the whole frame, then at
+  overlapping squares of it, then at squares half that size. Found by testing
+  a far visitor in a browser; a near one had worked first time.
 - **A selfie is made in the browser, and a shared one is held in memory.**
   The picture is the camera frame with the avatar cut off their own footage
   (`ui/selfie.ts`) — nothing is uploaded to make it. Only "share to my phone"

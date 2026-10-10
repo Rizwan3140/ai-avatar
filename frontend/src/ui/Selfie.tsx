@@ -3,8 +3,19 @@ import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { shareSelfie } from '../provider/http.ts'
 import { avatarFrame } from '../renderer/Mp4VideoRenderer.tsx'
+import { avatarMedia } from '../renderer/renderer.avatar.ts'
 import { useStore } from '../state/store.ts'
-import { LOOKS, bounds, cutOut, meanColour, toneGains } from './selfie.ts'
+import { findFace, warmFaces } from './faces.ts'
+import {
+  LOOKS,
+  arrange,
+  bounds,
+  cutOut,
+  isCutOut,
+  meanColour,
+  toneGains,
+  type Box,
+} from './selfie.ts'
 
 /**
  * "Can I get a selfie with you?"
@@ -30,9 +41,20 @@ import { LOOKS, bounds, cutOut, meanColour, toneGains } from './selfie.ts'
  */
 type Stage = 'closed' | 'consent' | 'countdown' | 'result' | 'refused'
 
-/** Portrait, the shape of a phone held upright. */
-const WIDTH = 1080
-const HEIGHT = 1620
+/**
+ * Portrait, the shape of a phone held upright — and large. At 1080 across the
+ * picture was enlarged to fill its card on a 2160-wide panel, and a webcam's
+ * frame enlarged twice is the soft, "below average" picture it was called.
+ */
+const WIDTH = 1440
+const HEIGHT = 2160
+
+/** Seconds of count. Long enough for the clip of them getting ready — five or
+ *  six seconds — to finish and be held, and for a visitor to stop laughing. */
+const COUNT = 8
+
+/** The avatar, cut out and ready to place, and where their face is in it. */
+type Figure = { image: HTMLCanvasElement; face: Box | null }
 
 /** How long a picture of somebody stays up with nobody touching it. */
 const UNATTENDED = 120_000
@@ -57,7 +79,7 @@ export function Selfie() {
   const capability = useStore((s) => s.selfie)
   const name = useStore((s) => s.name)
   const [stage, setStage] = useState<Stage>('closed')
-  const [count, setCount] = useState(3)
+  const [count, setCount] = useState(COUNT)
   const [look, setLook] = useState(LOOKS[0].id)
   const [picture, setPicture] = useState('')
   const [shared, setShared] = useState('')
@@ -70,6 +92,11 @@ export function Selfie() {
   const photo = useRef<Blob | null>(null)
   const url = useRef('')
   const painting = useRef(0)
+  /** Being cut out while the count runs, so the shutter does not wait for it. */
+  const figure = useRef<Promise<Figure | null> | null>(null)
+  /** Which attempt this is. A picture still being composed when the visitor
+   *  closed, or asked for another, belongs to nobody and is dropped. */
+  const attempt = useRef(0)
 
   const open = stage !== 'closed'
 
@@ -86,6 +113,8 @@ export function Selfie() {
     url.current = ''
     photo.current = null
     layers.current = null
+    figure.current = null
+    attempt.current++
     setStage('closed')
     setPicture('')
     setShared('')
@@ -137,7 +166,7 @@ export function Selfie() {
 
   useEffect(() => {
     if (stage !== 'countdown') return
-    if (count === 0) return shoot()
+    if (count === 0) return void shoot()
     const tick = setTimeout(() => setCount((c) => c - 1), 1000)
     return () => clearTimeout(tick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,16 +174,23 @@ export function Selfie() {
 
   async function start() {
     setProblem('')
+    attempt.current++
     try {
       const media = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1440 } },
+        // Everything the camera has. Asked for 1080 by 1440 a webcam answered
+        // with its smallest mode that fits, and the middle third of that was
+        // then stretched over the whole picture.
+        video: { facingMode: 'user', width: { ideal: 3840 }, height: { ideal: 2160 } },
         audio: false,
       })
       stream.current = media
-      setCount(3)
+      setCount(COUNT)
       setStage('countdown')
-      // They lift the phone, if this avatar has footage of it.
+      // They get ready, if this avatar has footage of it.
       bus.emit('SELFIE_POSING', { posing: true })
+      // Both take a moment, and the count is a moment nobody is waiting in.
+      warmFaces()
+      figure.current = portrait()
     } catch {
       setProblem('The camera could not be opened. It may be in use, or not permitted here.')
       setStage('refused')
@@ -162,18 +198,36 @@ export function Selfie() {
   }
 
   /**
-   * The avatar as they stand at this instant, off their white background and
-   * placed where a taller friend leaning into a selfie would be: front left,
-   * head near the top, cut off somewhere below the knee.
+   * The avatar for the picture, cut out, and where their face is in it.
+   *
+   * The picture made for this — them as the phone sees them, arm out, close —
+   * if the avatar has one. A frame of their footage otherwise: a full-length
+   * figure standing as they were, which is what a selfie is not, and is why
+   * the other exists.
    */
-  function standIn(): HTMLCanvasElement | null {
-    const source = avatarFrame()
+  async function portrait(): Promise<Figure | null> {
+    let source: HTMLImageElement | HTMLVideoElement | null = null
+    const made = avatarMedia().selfie
+    if (made) {
+      const picture = new Image()
+      picture.src = made
+      try {
+        await picture.decode()
+        source = picture
+      } catch {
+        // A picture that will not load is the same as not having one.
+      }
+    }
+    const posed = source !== null
+    source ??= avatarFrame()
     if (!source) return null
+
     const natural =
       source instanceof HTMLVideoElement
         ? { width: source.videoWidth, height: source.videoHeight }
         : { width: source.naturalWidth, height: source.naturalHeight }
-    const width = Math.min(natural.width, 1080)
+    if (!natural.width || !natural.height) return null
+    const width = Math.min(natural.width, 1600)
     const height = Math.round((width * natural.height) / natural.width)
     const work = canvas(width, height)
     const ctx = work.getContext('2d', { willReadFrequently: true })
@@ -188,24 +242,31 @@ export function Selfie() {
       // then the visitor alone, which is still a photograph.
       return null
     }
-    cutOut(frame.data, width, height)
+    // A picture made for this arrives with its background already gone, and
+    // cutting it again would take the white of a shirt with it. Footage, and a
+    // picture saved on its backdrop, still have theirs.
+    if (!isCutOut(frame.data)) cutOut(frame.data, width, height)
     const box = bounds(frame.data, width, height)
     if (!box) return null
     ctx.putImageData(frame, 0, 0)
 
-    const placed = canvas(WIDTH, HEIGHT)
-    const onto = placed.getContext('2d')!
-    const tall = HEIGHT * 1.22
-    const wide = (box.width * tall) / box.height
-    onto.imageSmoothingQuality = 'high'
-    onto.drawImage(
-      work, box.x, box.y, box.width, box.height,
-      WIDTH * 0.3 - wide / 2, HEIGHT * 0.07, wide, tall,
-    )
-    return placed
+    const image = canvas(box.width, box.height)
+    image
+      .getContext('2d')!
+      .drawImage(work, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height)
+
+    const face =
+      (await findFace(image)) ??
+      // Footage is full length and their face is too small in it to be found:
+      // it is at the top, an eighth of their height. A picture made for this
+      // is left to `arrange`, which knows what such a picture looks like.
+      (posed
+        ? null
+        : { x: box.width * 0.38, y: box.height * 0.02, width: box.width * 0.24, height: box.height * 0.13 })
+    return { image, face }
   }
 
-  function shoot() {
+  async function shoot() {
     const camera = video.current
     if (!camera || !camera.videoWidth) {
       stopCamera()
@@ -214,30 +275,48 @@ export function Selfie() {
       setStage('refused')
       return
     }
+    const mine = attempt.current
 
-    // Mirrored, as the preview was: this is the picture they posed for. Filled
-    // edge to edge, and slid so the middle of the camera's view lands right of
-    // centre — the avatar is standing on the left.
-    const room = canvas(WIDTH, HEIGHT)
-    const ctx = room.getContext('2d', { willReadFrequently: true })!
-    const scale = Math.max(WIDTH / camera.videoWidth, HEIGHT / camera.videoHeight)
-    const wide = camera.videoWidth * scale
-    const tall = camera.videoHeight * scale
-    const left = Math.min(0, Math.max(WIDTH - wide, WIDTH * 0.64 - wide / 2))
-    ctx.setTransform(-1, 0, 0, 1, left + wide, 0)
-    ctx.drawImage(camera, 0, (HEIGHT - tall) / 2, wide, tall)
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-
-    // While they are still holding the pose, and before anything else moves.
-    const figure = standIn()
+    // The moment, at the camera's own size. Everything after this is
+    // arithmetic on a picture that already exists.
+    const shot = canvas(camera.videoWidth, camera.videoHeight)
+    shot.getContext('2d')!.drawImage(camera, 0, 0)
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.
     stopCamera()
     bus.emit('SELFIE_POSING', { posing: false })
+    setLook(LOOKS[0].id)
+    setShared('')
+    setStage('result')
 
+    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
+    if (mine !== attempt.current) return
+
+    const place = arrange(
+      { width: WIDTH, height: HEIGHT },
+      shot,
+      visitor,
+      who?.image ?? { width: 1, height: 1 },
+      who?.face ?? null,
+    )
+
+    // Mirrored, as the preview was: this is the picture they posed for.
+    const room = canvas(WIDTH, HEIGHT)
+    const ctx = room.getContext('2d', { willReadFrequently: true })!
+    ctx.imageSmoothingQuality = 'high'
+    ctx.setTransform(-1, 0, 0, 1, place.room.x + place.room.width, 0)
+    ctx.drawImage(shot, 0, place.room.y, place.room.width, place.room.height)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+    let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null
-    if (figure) {
-      const pixels = figure.getContext('2d')!.getImageData(0, 0, WIDTH, HEIGHT)
+    if (who) {
+      placed = canvas(WIDTH, HEIGHT)
+      const onto = placed.getContext('2d', { willReadFrequently: true })!
+      onto.imageSmoothingQuality = 'high'
+      onto.drawImage(who.image, place.figure.x, place.figure.y, place.figure.width, place.figure.height)
+
+      const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
       const gains = toneGains(
         meanColour(ctx.getImageData(0, 0, WIDTH, HEIGHT).data),
         meanColour(pixels.data),
@@ -252,10 +331,7 @@ export function Selfie() {
       toned.getContext('2d')!.putImageData(pixels, 0, 0)
     }
 
-    layers.current = { room, figure, toned }
-    setLook(LOOKS[0].id)
-    setShared('')
-    setStage('result')
+    layers.current = { room, figure: placed, toned }
     paint(LOOKS[0].id)
   }
 
@@ -299,7 +375,7 @@ export function Selfie() {
         setPicture(url.current)
       },
       'image/jpeg',
-      0.9,
+      0.93,
     )
   }
 
@@ -343,7 +419,7 @@ export function Selfie() {
               A selfie with {name || 'me'}?
             </h2>
             <ul className="text-ink-soft text-label flex flex-col gap-[0.4em]">
-              <li>The camera takes one photograph, after a count of three.</li>
+              <li>The camera takes one photograph, after a count of {COUNT}.</li>
               <li>It stays on this screen. It is not saved, and closing this deletes it.</li>
               {capability.share && (
                 <li>
@@ -372,7 +448,10 @@ export function Selfie() {
           <span
             key={count}
             aria-live="assertive"
-            className="font-display absolute inset-x-0 top-[38%] animate-[rise_var(--duration-quick)_var(--ease-human)] text-center text-[clamp(140px,24vh,900px)] leading-none text-white"
+            // Heavy and plain. The display face is a thin serif, and a thin
+            // white numeral over a red saree was the hardest thing on the
+            // panel to read at the one moment everybody is reading it.
+            className="absolute inset-x-0 top-[38%] animate-[rise_var(--duration-quick)_var(--ease-human)] text-center text-[clamp(140px,24vh,900px)] leading-none font-bold text-white tabular-nums"
             style={{ textShadow: '0 0.04em 0.2em rgba(0,0,0,0.4), 0 0 0.03em rgba(0,0,0,0.6)' }}
           >
             {count || ''}

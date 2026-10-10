@@ -809,6 +809,27 @@ check("the pose they hold for it is a clip like any other",
       client.delete(f"/api/studio/avatars/{AVATAR}/clips/selfie", headers=north).status_code == 404)
 check("and a clip nobody has heard of still is not",
       client.delete(f"/api/studio/avatars/{AVATAR}/clips/wave", headers=north).status_code == 400)
+# The picture the selfie is made with: a cut-out PNG, kept exactly as sent.
+_png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+_picture = f"/api/studio/avatars/{AVATAR}/selfie-picture"
+check("an avatar starts without a selfie picture",
+      client.get(f"/api/avatar?id={AVATAR}").json()["selfie_picture"] == "")
+check("a photograph on its backdrop is refused, with the reason",
+      client.post(_picture, headers=north, content=_jpeg).status_code == 400)
+check("a stranger cannot give them one",
+      client.post(_picture, content=_png).status_code in (401, 403))
+r = client.post(_picture, headers=north, content=_png)
+check("a PNG is installed", r.status_code == 200 and r.json()["selfie_picture"].endswith("/selfie.png"),
+      r.text[:160])
+check("and the cabinet is told where it is",
+      client.get(f"/api/avatar?id={AVATAR}").json()["selfie_picture"].endswith(f"{AVATAR}/selfie.png"))
+check("exactly as it was sent",
+      (store.avatar_dir(AVATAR) / "selfie.png").read_bytes() == _png)
+check("it is media, not something saved with their name",
+      "selfie_picture" not in (store.avatar_dir(AVATAR) / "avatar.json").read_text(encoding="utf-8"))
+check("and can be taken away again",
+      client.delete(_picture, headers=north).json()["selfie_picture"] == ""
+      and client.delete(_picture, headers=north).status_code == 404)
 config.SELFIE_ENABLED = False  # what LUXORA_SELFIE=0 does
 check("switched off, it says so",
       client.get("/api/selfie").json() == {"available": False, "share": False})

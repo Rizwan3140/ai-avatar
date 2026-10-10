@@ -61,6 +61,7 @@ export async function boot(): Promise<void> {
       id: avatar.id,
       poster: avatar.poster,
       clips: avatar.clips as Partial<Record<Pose | 'selfie', string>>,
+      selfie: avatar.selfie_picture || undefined,
     })
   } catch (error) {
     setIdentity('', '', 'Welcome.')

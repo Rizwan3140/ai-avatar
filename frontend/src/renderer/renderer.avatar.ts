@@ -14,6 +14,9 @@ export type AvatarMedia = {
   /** A clip per pose — and `selfie`, which is not a pose of the conversation:
    *  them holding a phone up, shown for the count before a selfie. */
   clips: Partial<Record<Pose | 'selfie', string>>
+  /** The picture of them a selfie is made with: as the phone sees them, cut
+   *  out. Absent, a frame of their footage stands in. */
+  selfie?: string
 }
 
 let current: AvatarMedia = {

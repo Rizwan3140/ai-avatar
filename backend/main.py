@@ -53,7 +53,11 @@ _PUBLIC_RATE_LIMITER = RateLimiter()
 _SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; "
-        "script-src 'self'; "
+        # `wasm-unsafe-eval` is for one thing: the face detector the selfie
+        # screen loads from this origin is WebAssembly, and without this
+        # `'self'` forbids compiling it. It permits compiling WebAssembly, not
+        # `eval` — script still has to come from here.
+        "script-src 'self' 'wasm-unsafe-eval'; "
         # React writes inline style attributes and Tailwind emits a style
         # element, so this cannot be tightened without a nonce pipeline.
         "style-src 'self' 'unsafe-inline'; "

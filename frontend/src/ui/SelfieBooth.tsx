@@ -28,22 +28,37 @@ export function SelfieBooth() {
         <Masthead />
       </div>
 
-      {/* Out of the way for the count: they are posing over this space. The
-          cards the selfie itself puts up are painted above it. */}
-      {ready && !posing && (
-        <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-[0.8em] px-safe pb-safe">
-          {offered ? (
-            <button
-              type="button"
-              onClick={() => bus.emit('SELFIE_REQUESTED')}
-              className="lay-down bg-ink text-body shadow-float rounded-full px-[2em] py-[0.9em] font-medium text-white transition-transform duration-300 ease-(--ease-human) hover:-translate-y-[2px] active:translate-y-0 active:scale-[0.98]"
-            >
-              Take a selfie with {name || 'me'}
-            </button>
-          ) : (
-            <p className="text-ink-soft text-label">Selfies are switched off on this machine.</p>
-          )}
-        </div>
+      {/* A camera, at the right edge, halfway up — where the showroom screen
+          keeps its microphone, so the one thing to press is where a hand
+          already goes. It was a sentence across the bottom, over their feet.
+          Out of the way for the count; the cards the selfie itself puts up
+          are painted above it. */}
+      {ready && !posing && offered && (
+        <button
+          type="button"
+          onClick={() => bus.emit('SELFIE_REQUESTED')}
+          aria-label={`Take a selfie with ${name || 'me'}`}
+          className="lay-down bg-ink shadow-float absolute top-1/2 right-safe z-20 grid size-[clamp(56px,6.5vh,240px)] -translate-y-1/2 place-items-center rounded-full text-white transition-transform duration-300 ease-(--ease-human) hover:scale-105 active:scale-95"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="size-[46%]"
+          >
+            <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2.5h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+            <circle cx="12" cy="13" r="3.3" />
+          </svg>
+        </button>
+      )}
+      {ready && !offered && (
+        <p className="text-ink-soft text-label absolute inset-x-0 bottom-0 z-20 px-safe pb-safe text-center">
+          Selfies are switched off on this machine.
+        </p>
       )}
 
       <Selfie />

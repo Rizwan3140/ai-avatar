@@ -1,6 +1,69 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bounds, cutOut, meanColour, toneGains } from './selfie.ts'
+import { arrange, bounds, cutOut, isCutOut, meanColour, toneGains } from './selfie.ts'
+
+// A 1440x2160 picture, a 1920x1080 webcam, and a head-and-shoulders PNG of the
+// avatar whose face is 300 pixels tall.
+const FRAME = { width: 1440, height: 2160 }
+const WEBCAM = { width: 1920, height: 1080 }
+const PORTRAIT = { width: 900, height: 1200 }
+const THEIR_FACE = { x: 320, y: 140, width: 260, height: 300 }
+/** A visitor's face in the webcam frame: this tall, centred here. */
+const visitor = (tall: number, cx = 960, cy = 400) => ({
+  x: cx - tall * 0.4, y: cy - tall / 2, width: tall * 0.8, height: tall,
+})
+
+test('the avatar is sized from the visitor, so neither is a giant beside a doll', () => {
+  const near = arrange(FRAME, WEBCAM, visitor(180), PORTRAIT, THEIR_FACE)
+  const far = arrange(FRAME, WEBCAM, visitor(110), PORTRAIT, THEIR_FACE)
+  assert.ok(near.figure.height > far.figure.height * 1.2, 'closer visitor, larger avatar')
+  for (const [tall, placed] of [[180, near], [110, far]] as const) {
+    // Their face against the visitor's, as both are drawn: a little larger,
+    // being nearer the lens, and never twice the size.
+    const scale = placed.room.height / WEBCAM.height
+    const ratio = (THEIR_FACE.height * placed.figure.height) / PORTRAIT.height / (tall * scale)
+    assert.ok(ratio > 1 && ratio < 1.4, `face ratio ${ratio.toFixed(2)} at ${tall}`)
+  }
+})
+
+test('a visitor filling the frame is not given an avatar that covers them', () => {
+  // Matching a face this close would make them wider than the picture. They
+  // stop at nine tenths of it, and the visitor is simply the larger of the two.
+  const close = arrange(FRAME, WEBCAM, visitor(420), PORTRAIT, THEIR_FACE)
+  assert.ok(close.figure.width <= 0.9 * FRAME.width + 1)
+})
+
+test('somebody across the room is brought nearer, but only so far', () => {
+  const tiny = arrange(FRAME, WEBCAM, visitor(40), PORTRAIT, THEIR_FACE)
+  assert.ok(tiny.room.height > FRAME.height, 'the camera picture is enlarged toward them')
+  assert.ok(tiny.room.height <= FRAME.height * 1.5 + 1, 'and no more than half again')
+  assert.ok(tiny.figure.height >= 0.45 * FRAME.height - 1, 'and the avatar is never a doll')
+})
+
+test('they stand on the side the visitor is not, and never float', () => {
+  const placed = arrange(FRAME, WEBCAM, visitor(200), PORTRAIT, THEIR_FACE)
+  const middle = placed.figure.x + placed.figure.width / 2
+  assert.ok(middle < FRAME.width / 2, 'visitor slid to the right, avatar on the left')
+  assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'their cut edge is the frame edge')
+  // The room still covers the whole frame after being slid.
+  assert.ok(placed.room.x <= 0 && placed.room.x + placed.room.width >= FRAME.width - 1)
+  assert.ok(placed.room.y <= 0 && placed.room.y + placed.room.height >= FRAME.height - 1)
+})
+
+test('with no face found anywhere, it is still a picture of two people', () => {
+  const blind = arrange(FRAME, WEBCAM, null, PORTRAIT, null)
+  assert.ok(blind.figure.height > 0.45 * FRAME.height && blind.figure.height < 1.5 * FRAME.height + 1)
+  assert.ok(blind.figure.width <= 0.9 * FRAME.width + 1)
+  assert.ok(blind.room.x <= 0 && blind.room.x + blind.room.width >= FRAME.width - 1)
+})
+
+test('a picture that arrives cut out is not cut again', () => {
+  const opaque = new Uint8ClampedArray(64 * 100).fill(255)
+  assert.equal(isCutOut(opaque), false)
+  const cut = new Uint8ClampedArray(64 * 100).fill(255)
+  for (let i = 3; i < cut.length / 2; i += 4) cut[i] = 0
+  assert.equal(isCutOut(cut), true)
+})
 
 /** A frame from rows of characters: `.` studio white, `#` dark, `w` white
  *  clothing — the same white as the studio, which is the whole difficulty. */

@@ -139,6 +139,23 @@ export function cutOut(rgba: Uint8ClampedArray, width: number, height: number): 
   }
 }
 
+/**
+ * Whether a picture arrived with its background already removed.
+ *
+ * A picture made for the selfie is a cut-out PNG; a frame of footage, or a
+ * picture saved on its studio backdrop, is opaque edge to edge. More than a
+ * fiftieth of it clear is a cut-out — less is the soft corner of a scan.
+ */
+export function isCutOut(rgba: Uint8ClampedArray): boolean {
+  let clear = 0
+  let looked = 0
+  for (let i = 3; i < rgba.length; i += 64) {
+    looked++
+    if (rgba[i] < 128) clear++
+  }
+  return looked > 0 && clear / looked > 0.02
+}
+
 export type Box = { x: number; y: number; width: number; height: number }
 
 /** The smallest box holding everything that was not removed, or null. */
@@ -157,6 +174,85 @@ export function bounds(rgba: Uint8ClampedArray, width: number, height: number): 
     }
   }
   return right < 0 ? null : { x: left, y: top, width: right - left + 1, height: bottom - top + 1 }
+}
+
+type Size = { width: number; height: number }
+
+/** How much bigger than the visitor's the avatar's face is drawn. They are the
+ *  one holding the phone, so they are the one nearer the lens. */
+const NEARER = 1.15
+
+/**
+ * Where everything goes: the camera's picture in the frame, and the avatar on it.
+ *
+ * At one fixed size the avatar is right for exactly one visitor. Somebody who
+ * steps close fills the frame beside a doll; somebody who hangs back is a
+ * figure across the room behind a giant. So the avatar is sized from the
+ * visitor's own face — a little larger, being nearer the lens — and stood
+ * level with it, and the camera's picture is slid so the visitor is where the
+ * avatar is not.
+ *
+ * `visitor` and `figureFace` are faces as the detector found them, in the
+ * pixels of the camera frame and of the avatar's picture. Either may be null:
+ * then an ordinary distance is assumed, which is the arrangement this had
+ * before it could see.
+ *
+ * `room` is where the camera frame is drawn before it is mirrored. `figure` is
+ * where the avatar's picture is drawn.
+ */
+export function arrange(
+  frame: Size,
+  camera: Size,
+  visitor: Box | null,
+  figure: Size,
+  figureFace: Box | null,
+): { room: Box; figure: Box } {
+  const { width: W, height: H } = frame
+
+  // Fill the frame. If they are standing a long way back, come in toward them
+  // — but only so far, because every step in is the camera's pixels enlarged.
+  let scale = Math.max(W / camera.width, H / camera.height)
+  if (visitor && visitor.height * scale < 0.13 * H) {
+    scale *= Math.min(1.5, (0.13 * H) / (visitor.height * scale))
+  }
+  const wide = camera.width * scale
+  const tall = camera.height * scale
+
+  // Mirrored, so their face is measured from the far edge.
+  const faceX = visitor ? wide - (visitor.x + visitor.width / 2) * scale : wide / 2
+  const faceY = visitor ? (visitor.y + visitor.height / 2) * scale : tall * 0.4
+  const left = clamp(0.66 * W - faceX, W - wide, 0)
+  const top = clamp(0.38 * H - faceY, H - tall, 0)
+  const headX = left + faceX
+  const headY = top + faceY
+  const headTall = visitor ? visitor.height * scale : 0.17 * H
+
+  // A picture taken from the phone is head and shoulders: without a face found
+  // in it, assume one where such a picture has it.
+  const face = figureFace ?? {
+    x: figure.width * 0.36,
+    y: figure.height * 0.1,
+    width: figure.width * 0.28,
+    height: figure.height * 0.24,
+  }
+  // Never a doll and never a wall, whatever the two faces say.
+  const k = Math.min(
+    clamp((headTall * NEARER) / face.height, (0.45 * H) / figure.height, (1.5 * H) / figure.height),
+    (0.9 * W) / figure.width,
+  )
+  const drawn = { width: figure.width * k, height: figure.height * k }
+  // On the side the visitor is not.
+  const side = headX >= W / 2 ? 0.27 : 0.73
+  const x = side * W - (face.x + face.width / 2) * k
+  let y = headY - 0.02 * H - (face.y + face.height / 2) * k
+  // They do not float. The picture of them ends at the chest, and that edge
+  // has to be the frame's edge, or they are a bust hanging in the room.
+  if (y + drawn.height < H) y = H - drawn.height
+
+  return {
+    room: { x: left, y: top, width: wide, height: tall },
+    figure: { x, y, ...drawn },
+  }
 }
 
 type Colour = [number, number, number]

@@ -51,6 +51,9 @@ POSES = ("idle", "listen", "think", "speak")
 #: lifting a phone, shown for the count before a selfie.
 CLIPS = (*POSES, "selfie")
 
+#: And the still that goes with that clip: what the selfie itself is made with.
+SELFIE_PICTURE = "selfie.png"
+
 DEFAULT_PERSONA = (ROOT / "backend" / "persona.md").read_text(encoding="utf-8")
 
 #: Avatars that existed before tenancy belong here, so an upgrade does not make
@@ -75,6 +78,9 @@ class Avatar:
     org_id: str = DEFAULT_ORG
     poster: str = ""
     clips: dict[str, str] = field(default_factory=dict)
+    #: The picture a selfie is made with — them as the phone sees them, cut
+    #: out — if `selfie.png` is in their folder. Media, like the two above.
+    selfie_picture: str = ""
 
     @property
     def ready(self) -> bool:
@@ -123,6 +129,7 @@ def _read_avatar(folder: Path) -> Avatar:
         org_id=meta.get("org_id", DEFAULT_ORG),
         poster=poster,
         clips=clips,
+        selfie_picture=f"{url}/{SELFIE_PICTURE}" if (folder / SELFIE_PICTURE).exists() else "",
     )
 
 
@@ -220,7 +227,7 @@ def save_avatar(avatar: Avatar) -> Avatar:
     editable = {
         k: v
         for k, v in asdict(avatar).items()
-        if k not in ("id", "poster", "clips")
+        if k not in ("id", "poster", "clips", "selfie_picture")
     }
     (folder / "avatar.json").write_text(
         json.dumps(editable, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

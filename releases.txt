@@ -3,6 +3,7 @@
 # release's copy is the one read, so older lines never need changing.
 #
 # version | what someone choosing a version needs to know
-v2.1.0 | Everything in 2.0, plus a selfie screen: a visitor is photographed with the avatar and can send the picture to their phone. Opened from the studio's Selfie tab. Recommended.
+v2.2.0 | The selfie screen, done properly: each avatar is given a cut-out picture and a getting-ready clip in the studio's Selfie tab, the avatar is sized to the visitor's own face, the count is eight seconds, and the picture is sharper. Recommended.
+v2.1.0 | Everything in 2.0, plus the first selfie screen: a visitor is photographed with the avatar and can send the picture to their phone. Opened from the studio's Selfie tab.
 v2.0.0 | Telugu and Hindi avatars that hear and speak, a product shelf that scrolls, try-on through the Anywear extension, and this version menu. No selfie screen.
 v1.0.0 | English only - the last version before Telugu and Hindi. Go back here if 2.x misbehaves.

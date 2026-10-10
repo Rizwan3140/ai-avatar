@@ -260,6 +260,8 @@ export type KioskConfig = {
     language: string
     poster: string
     clips: Record<string, string>
+    /** The picture a selfie is made with, if this avatar has one. */
+    selfie_picture?: string
   }
   /** Whether to offer a camera at all, and whether the photo leaves the room. */
   tryon: { available: boolean; provider: string; on_device: boolean }

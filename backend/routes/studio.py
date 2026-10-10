@@ -512,7 +512,10 @@ async def upload_clip(
 
         import conform_footage
 
-        await run_in_threadpool(conform_footage.conform, [source], pose, folder)
+        # Every pose is ping-ponged so it loops without a seam. Getting ready
+        # for a selfie is not a loop: it plays once, and run backwards after
+        # itself it is somebody lifting a phone and then putting it away.
+        await run_in_threadpool(conform_footage.conform, [source], pose, folder, pose != "selfie")
 
         # A first frame is only worth taking when there is no poster yet. An
         # existing one came from a cut-out photograph, which is on true white;
@@ -552,6 +555,43 @@ def delete_clip(avatar_id: str, pose: str, caller: Principal = Depends(editor)):
     target = store.avatar_dir(avatar.id) / f"{pose}.mp4"
     if not target.exists():
         raise HTTPException(404, "no such clip")
+    target.unlink()
+    return _with_status(_avatar_or_404(avatar_id, caller))
+
+
+@router.post("/studio/avatars/{avatar_id}/selfie-picture")
+async def upload_selfie_picture(
+    avatar_id: str, request: Request, caller: Principal = Depends(editor)
+):
+    """The picture a selfie is made with: them as the phone sees them.
+
+    A PNG, because it has to arrive already cut out — the selfie stands them in
+    front of a visitor's photograph, and a background removed by guesswork in
+    the browser is a halo round their hair. Kept as it was sent: unlike a clip
+    there is nothing to conform, and re-encoding would only cost it its edges.
+    """
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    picture = await request.body()
+    if not picture.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(400, "the selfie picture must be a PNG, with its background removed")
+    if len(picture) > 40 * 1024 * 1024:
+        raise HTTPException(413, "that picture is over 40 MB")
+
+    folder = store.avatar_dir(avatar.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / store.SELFIE_PICTURE).write_bytes(picture)
+    return _with_status(_avatar_or_404(avatar_id, caller))
+
+
+@router.delete("/studio/avatars/{avatar_id}/selfie-picture")
+def delete_selfie_picture(avatar_id: str, caller: Principal = Depends(editor)):
+    """Remove it. A selfie then uses a frame of their footage, as it did."""
+    _mirrored()
+    avatar = _avatar_or_404(avatar_id, caller)
+    target = store.avatar_dir(avatar.id) / store.SELFIE_PICTURE
+    if not target.exists():
+        raise HTTPException(404, "no selfie picture")
     target.unlink()
     return _with_status(_avatar_or_404(avatar_id, caller))
 

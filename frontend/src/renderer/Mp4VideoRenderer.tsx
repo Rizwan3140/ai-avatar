@@ -93,8 +93,11 @@ bus.on('SELFIE_POSING', ({ posing }) => set({ posing }))
 /** What is on stage, for `avatarFrame`. Filled in by the component. */
 const stage: {
   videos: Record<string, HTMLVideoElement | null>
+  /** Kept apart from the poses: every pose plays all the time, and this one
+   *  plays once, from its start, when it is called for. */
+  selfie: HTMLVideoElement | null
   poster: HTMLImageElement | null
-} = { videos: {}, poster: null }
+} = { videos: {}, selfie: null, poster: null }
 
 /**
  * Them, as they are being drawn at this instant — for a selfie, which needs a
@@ -107,7 +110,7 @@ export function avatarFrame(): HTMLVideoElement | HTMLImageElement | null {
   const decoded = (video: HTMLVideoElement | null | undefined) =>
     video && video.readyState >= 2 && video.videoWidth ? video : null
   return (
-    (posing ? decoded(stage.videos.selfie) : null) ??
+    (posing ? decoded(stage.selfie) : null) ??
     decoded(stage.videos[pose]) ??
     decoded(stage.videos.idle) ??
     (stage.poster?.naturalWidth ? stage.poster : null)
@@ -137,6 +140,26 @@ export function Mp4VideoRenderer() {
     if (!idle) return
     return startIdlePresence(idle)
   }, [])
+
+  // Getting ready for a selfie is the one clip that is *started*. It is five or
+  // six seconds of them lifting a phone and settling, and it means nothing
+  // from the middle — so it plays from its first frame when the count begins,
+  // holds its last when it runs out, and is put away once it has faded.
+  //
+  // Every other clip here is never paused and never sought, because a start
+  // hitches and a hitch reads as software. This one is decoded and waiting
+  // before it is asked for, which is as much of that as a one-shot can have.
+  useEffect(() => {
+    const clip = stage.selfie
+    if (!clip) return
+    if (posing) {
+      clip.currentTime = 0
+      keepPlaying(clip)
+      return
+    }
+    const away = setTimeout(() => clip.pause(), config.crossfadeDuration)
+    return () => clearTimeout(away)
+  }, [posing])
 
   // Sleep is the only place pausing is correct — the screen is dark and nobody
   // is watching, so the decode cost of resuming is invisible and worth saving.
@@ -206,20 +229,17 @@ export function Mp4VideoRenderer() {
         />
       ))}
 
-      {/* Holding a phone up, for the count before a selfie — only for an avatar
-          that has footage of it. Playing all along like every other clip, and
-          brought up by opacity over whichever pose they are in, for the reason
-          poses are: a clip started on demand hitches, and a hitch is software. */}
+      {/* Getting ready for a selfie — only for an avatar that has footage of
+          it. Brought up by opacity over whichever pose they are in, and
+          started by the effect above. */}
       {media.clips.selfie && !noSelfie && (
         <video
           ref={(el) => {
-            videos.current.selfie = el
+            stage.selfie = el
           }}
           src={media.clips.selfie}
           muted
-          loop
           playsInline
-          autoPlay
           preload="auto"
           aria-hidden
           onError={() => setNoSelfie(true)}
