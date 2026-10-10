@@ -31,8 +31,6 @@ export type Avatar = {
   org_id: string
   poster: string
   clips: Record<string, string>
-  /** The picture a selfie is made with, or "" when there is none. */
-  selfie_picture: string
   ready: boolean
   missing_clips: string[]
 }

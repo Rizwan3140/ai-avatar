@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
-import { shareSelfie } from '../provider/http.ts'
-import { avatarFrame } from '../renderer/Mp4VideoRenderer.tsx'
-import { avatarMedia } from '../renderer/renderer.avatar.ts'
-import { useStore } from '../state/store.ts'
+import { shareSelfie, type Character } from './booth.ts'
 import { findFace, warmFaces } from './faces.ts'
 import {
   LOOKS,
@@ -18,15 +15,18 @@ import {
 } from './selfie.ts'
 
 /**
- * "Can I get a selfie with you?"
+ * A selfie with a character.
  *
- * They hold the pose, the panel counts three, two, one, and the visitor gets a
- * picture of the two of them in the room they are both standing in — which is
- * the illusion this cabinet exists for, handed over to take home.
+ * They get ready, the panel counts down from eight, and the visitor gets a
+ * picture of the two of them in the room the visitor is standing in.
  *
- * The picture is made here, in the browser: the camera frame, with the avatar
- * lifted off the white of their own footage and stood in front of it. Nothing
- * is sent anywhere to make it.
+ * The picture is made here, in the browser: the camera frame, with the
+ * character's cut-out picture sized to the visitor's own face and stood beside
+ * them. Nothing is sent anywhere to make it.
+ *
+ * It knows nothing of the showroom. Who is in the picture arrives as `who` —
+ * a name, a picture, whether sharing is possible — and there is no avatar, no
+ * conversation and no microphone anywhere near it.
  *
  * The same rules as try-on, because it is the same legal object — a kiosk
  * photographing a member of the public:
@@ -75,9 +75,8 @@ type Layers = {
   toned: HTMLCanvasElement | null
 }
 
-export function Selfie() {
-  const capability = useStore((s) => s.selfie)
-  const name = useStore((s) => s.name)
+export function Selfie({ who }: { who: Character }) {
+  const name = who.name
   const [stage, setStage] = useState<Stage>('closed')
   const [count, setCount] = useState(COUNT)
   const [look, setLook] = useState(LOOKS[0].id)
@@ -128,41 +127,18 @@ export function Selfie() {
   // The tap opens the offer and stops there: it is agreement to see what is
   // being offered, never agreement to be photographed.
   useEffect(
-    () =>
-      bus.on('SELFIE_REQUESTED', () => {
-        if (useStore.getState().selfie.available) setStage((s) => (s === 'closed' ? 'consent' : s))
-      }),
+    () => bus.on('SELFIE_REQUESTED', () => setStage((s) => (s === 'closed' ? 'consent' : s))),
     [],
   )
 
-  // The room emptied. Whoever comes next must not find the last visitor's face.
-  useEffect(() => {
-    const offs = [bus.on('SESSION_ENDED', close), bus.on('SESSION_SLEEP', close)]
-    return () => offs.forEach((off) => off())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // And so must the visitor who simply walked off. Reset by anything they do.
+  // The visitor who simply walked off must not leave their face on a shop
+  // window for whoever comes next. Reset by anything they do.
   useEffect(() => {
     if (!open || stage === 'countdown') return
     const timer = setTimeout(close, UNATTENDED)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, look, shared, sharing])
-
-  // The microphone is off while this is open, for the reason it is off during
-  // try-on: they are posing and talking to whoever came with them, and none of
-  // it is a question. Only a live conversation is muted, and only a mute still
-  // standing is undone.
-  useEffect(() => {
-    if (!open) return
-    const { status, muted } = useStore.getState()
-    if (muted || !['listening', 'thinking', 'speaking'].includes(status)) return
-    bus.emit('MIC_MUTED', { muted: true })
-    return () => {
-      if (useStore.getState().muted) bus.emit('MIC_MUTED', { muted: false })
-    }
-  }, [open])
 
   useEffect(() => {
     if (stage !== 'countdown') return
@@ -186,7 +162,7 @@ export function Selfie() {
       stream.current = media
       setCount(COUNT)
       setStage('countdown')
-      // They get ready, if this avatar has footage of it.
+      // They get ready, if they have a clip of it.
       bus.emit('SELFIE_POSING', { posing: true })
       // Both take a moment, and the count is a moment nobody is waiting in.
       warmFaces()
@@ -198,34 +174,21 @@ export function Selfie() {
   }
 
   /**
-   * The avatar for the picture, cut out, and where their face is in it.
-   *
-   * The picture made for this — them as the phone sees them, arm out, close —
-   * if the avatar has one. A frame of their footage otherwise: a full-length
-   * figure standing as they were, which is what a selfie is not, and is why
-   * the other exists.
+   * The character for the picture, cut out, and where their face is in it:
+   * them as the phone sees them, arm out, close.
    */
   async function portrait(): Promise<Figure | null> {
-    let source: HTMLImageElement | HTMLVideoElement | null = null
-    const made = avatarMedia().selfie
-    if (made) {
-      const picture = new Image()
-      picture.src = made
-      try {
-        await picture.decode()
-        source = picture
-      } catch {
-        // A picture that will not load is the same as not having one.
-      }
+    if (!who.picture) return null
+    const source = new Image()
+    source.src = who.picture
+    try {
+      await source.decode()
+    } catch {
+      // A picture that will not load is the same as not having one: the selfie
+      // is then the visitor alone, which is still a photograph.
+      return null
     }
-    const posed = source !== null
-    source ??= avatarFrame()
-    if (!source) return null
-
-    const natural =
-      source instanceof HTMLVideoElement
-        ? { width: source.videoWidth, height: source.videoHeight }
-        : { width: source.naturalWidth, height: source.naturalHeight }
+    const natural = { width: source.naturalWidth, height: source.naturalHeight }
     if (!natural.width || !natural.height) return null
     const width = Math.min(natural.width, 1600)
     const height = Math.round((width * natural.height) / natural.width)
@@ -234,17 +197,10 @@ export function Selfie() {
     if (!ctx) return null
     ctx.drawImage(source, 0, 0, width, height)
 
-    let frame: ImageData
-    try {
-      frame = ctx.getImageData(0, 0, width, height)
-    } catch {
-      // Footage served from another origin cannot be read back. The selfie is
-      // then the visitor alone, which is still a photograph.
-      return null
-    }
-    // A picture made for this arrives with its background already gone, and
-    // cutting it again would take the white of a shirt with it. Footage, and a
-    // picture saved on its backdrop, still have theirs.
+    const frame = ctx.getImageData(0, 0, width, height)
+    // It should arrive with its background already gone, and cutting it again
+    // would take the white of a shirt with it. One saved on its studio
+    // backdrop still has that, and is cut out here as well as can be done.
     if (!isCutOut(frame.data)) cutOut(frame.data, width, height)
     const box = bounds(frame.data, width, height)
     if (!box) return null
@@ -255,15 +211,9 @@ export function Selfie() {
       .getContext('2d')!
       .drawImage(work, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height)
 
-    const face =
-      (await findFace(image)) ??
-      // Footage is full length and their face is too small in it to be found:
-      // it is at the top, an eighth of their height. A picture made for this
-      // is left to `arrange`, which knows what such a picture looks like.
-      (posed
-        ? null
-        : { x: box.width * 0.38, y: box.height * 0.02, width: box.width * 0.24, height: box.height * 0.13 })
-    return { image, face }
+    // No face found is left to `arrange`, which knows where one is in a
+    // picture taken from the phone.
+    return { image, face: await findFace(image) }
   }
 
   async function shoot() {
@@ -391,7 +341,7 @@ export function Selfie() {
     setSharing(true)
     setProblem('')
     try {
-      const id = await shareSelfie(photo.current)
+      const id = await shareSelfie(photo.current, who.id)
       if (layers.current) setShared(id)
     } catch (failure) {
       if (layers.current) setProblem((failure as Error).message)
@@ -421,7 +371,7 @@ export function Selfie() {
             <ul className="text-ink-soft text-label flex flex-col gap-[0.4em]">
               <li>The camera takes one photograph, after a count of {COUNT}.</li>
               <li>It stays on this screen. It is not saved, and closing this deletes it.</li>
-              {capability.share && (
+              {who.share && (
                 <li>
                   You can send it to your phone if you choose to. Only then is it uploaded,
                   and it is deleted after 24 hours.
@@ -532,7 +482,7 @@ export function Selfie() {
                     Scan to save your photo. It is deleted after 24 hours.
                   </p>
                 </>
-              ) : capability.share ? (
+              ) : who.share ? (
                 <>
                   <button
                     type="button"

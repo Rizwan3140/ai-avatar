@@ -8,9 +8,9 @@ import { SelfieBooth } from './ui/SelfieBooth.tsx'
  * Three surfaces, one build.
  *
  * `/` is the kiosk — fullscreen, no chrome, boots the whole voice stack.
- * `/selfie` is the same person with one thing to do: be photographed with a
- * visitor. A cabinet is a showroom or a photo booth by which of the two it was
- * opened at.
+ * `/selfie` is a photo booth: a character of its own and one thing to do. It
+ * shares nothing with the kiosk but this build — no avatar, no session, no
+ * microphone — and a cabinet is one or the other by which it was opened at.
  * `/studio` is the dashboard. It is lazy-loaded and its code never reaches a
  * cabinet, and the kiosk's session lifecycle never starts inside the studio.
  */
@@ -56,8 +56,9 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-if (!isStudio) {
+if (!isStudio && !isSelfie) {
   // Booting the kiosk pulls in Whisper, the microphone and the renderer. The
-  // studio must not do any of that.
+  // studio must not do any of that — and nor must the selfie screen, which has
+  // no avatar to identify and no conversation to open.
   void import('./session/lifecycle.ts').then((m) => m.boot())
 }

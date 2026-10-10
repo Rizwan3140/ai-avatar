@@ -46,14 +46,6 @@ LEGACY_KIOSKS_FILE = config.DATA / "kiosks.json"
 
 POSES = ("idle", "listen", "think", "speak")
 
-#: Every clip an avatar's folder may hold. `selfie` is not a pose of the
-#: conversation, so an avatar without one is not missing anything: it is them
-#: lifting a phone, shown for the count before a selfie.
-CLIPS = (*POSES, "selfie")
-
-#: And the still that goes with that clip: what the selfie itself is made with.
-SELFIE_PICTURE = "selfie.png"
-
 DEFAULT_PERSONA = (ROOT / "backend" / "persona.md").read_text(encoding="utf-8")
 
 #: Avatars that existed before tenancy belong here, so an upgrade does not make
@@ -78,9 +70,6 @@ class Avatar:
     org_id: str = DEFAULT_ORG
     poster: str = ""
     clips: dict[str, str] = field(default_factory=dict)
-    #: The picture a selfie is made with — them as the phone sees them, cut
-    #: out — if `selfie.png` is in their folder. Media, like the two above.
-    selfie_picture: str = ""
 
     @property
     def ready(self) -> bool:
@@ -114,7 +103,7 @@ def _read_avatar(folder: Path) -> Avatar:
             poster = f"{url}/{name}"
             break
 
-    clips = {p: f"{url}/{p}.mp4" for p in CLIPS if (folder / f"{p}.mp4").exists()}
+    clips = {p: f"{url}/{p}.mp4" for p in POSES if (folder / f"{p}.mp4").exists()}
 
     return Avatar(
         id=folder.name,
@@ -129,7 +118,6 @@ def _read_avatar(folder: Path) -> Avatar:
         org_id=meta.get("org_id", DEFAULT_ORG),
         poster=poster,
         clips=clips,
-        selfie_picture=f"{url}/{SELFIE_PICTURE}" if (folder / SELFIE_PICTURE).exists() else "",
     )
 
 
@@ -227,7 +215,7 @@ def save_avatar(avatar: Avatar) -> Avatar:
     editable = {
         k: v
         for k, v in asdict(avatar).items()
-        if k not in ("id", "poster", "clips", "selfie_picture")
+        if k not in ("id", "poster", "clips")
     }
     (folder / "avatar.json").write_text(
         json.dumps(editable, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

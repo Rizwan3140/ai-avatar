@@ -4,7 +4,7 @@ import config, { KIOSK_ID } from '../renderer/renderer.config.ts'
 import { setAvatarMedia } from '../renderer/renderer.avatar.ts'
 import type { Pose } from '../renderer/renderer.types.ts'
 import { fetchAvatar, fetchKiosk, resetConversation } from '../provider/http.ts'
-import { setIdentity, setSelfie, setTryOn, useStore } from '../state/store.ts'
+import { setIdentity, setTryOn, useStore } from '../state/store.ts'
 import { applySeason } from './season.ts'
 import * as voice from '../voice/voice.ts'
 import { endingSessionId } from './session.ts'
@@ -32,7 +32,7 @@ export async function boot(): Promise<void> {
   const wanted = new URLSearchParams(window.location.search).get('avatar')?.trim() || ''
 
   try {
-    const { avatar, tryon, selfie, season, home } = await step('identity', () =>
+    const { avatar, tryon, season, home } = await step('identity', () =>
       wanted ? fetchAvatar(wanted) : fetchKiosk(KIOSK_ID),
     )
     // Whether the wordmark is a way back to the dashboard. A cabinet says no.
@@ -56,12 +56,10 @@ export async function boot(): Promise<void> {
     // Whether this cabinet may offer a camera at all. Arrives with identity so
     // there is no second round trip and no moment where the button flickers in.
     if (tryon) setTryOn(tryon)
-    if (selfie) setSelfie(selfie)
     setAvatarMedia({
       id: avatar.id,
       poster: avatar.poster,
-      clips: avatar.clips as Partial<Record<Pose | 'selfie', string>>,
-      selfie: avatar.selfie_picture || undefined,
+      clips: avatar.clips as Partial<Record<Pose, string>>,
     })
   } catch (error) {
     setIdentity('', '', 'Welcome.')

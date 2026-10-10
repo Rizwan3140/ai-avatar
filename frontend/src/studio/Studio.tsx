@@ -36,7 +36,7 @@ const BLURBS: Record<View, string> = {
   products: 'What the avatar may recommend',
   ads: 'What plays while nobody is talking',
   avatars: 'Who stands in the cabinet',
-  selfie: 'Who a visitor can be photographed with',
+  selfie: 'A photo booth, with characters of its own',
   documents: 'Policies and brochures they can quote',
   team: 'Who else can change this',
   insights: 'What visitors asked for, and could not find',

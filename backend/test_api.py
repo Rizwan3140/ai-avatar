@@ -805,38 +805,60 @@ check("it has a screen of its own, apart from the showroom's",
       client.get("/selfie").status_code == 200 and "text/html" in client.get("/selfie").headers["content-type"])
 check("on unless switched off: nothing on the showroom screen leads to it",
       config.SELFIE_ENABLED is True)
-check("the pose they hold for it is a clip like any other",
-      client.delete(f"/api/studio/avatars/{AVATAR}/clips/selfie", headers=north).status_code == 404)
-check("and a clip nobody has heard of still is not",
-      client.delete(f"/api/studio/avatars/{AVATAR}/clips/wave", headers=north).status_code == 400)
-# The picture the selfie is made with: a cut-out PNG, kept exactly as sent.
+check("and the showroom is told nothing about it",
+      "selfie" not in client.get("/api/kiosk/mumbai-1").json()
+      and "selfie_picture" not in client.get(f"/api/avatar?id={AVATAR}").json()
+      and client.delete(f"/api/studio/avatars/{AVATAR}/clips/selfie", headers=north).status_code == 400)
+
+# A selfie character: a name and two files, and nothing to do with an avatar.
+import re as _re  # noqa: E402
+
 _png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
-_picture = f"/api/studio/avatars/{AVATAR}/selfie-picture"
-check("an avatar starts without a selfie picture",
-      client.get(f"/api/avatar?id={AVATAR}").json()["selfie_picture"] == "")
+check("nobody to be photographed with, to begin with",
+      client.get("/api/studio/selfies", headers=north).json() == [])
+check("a stranger cannot make one",
+      client.post("/api/studio/selfies", json={"name": "Asha"}).status_code in (401, 403))
+check("nor can one be made with no name",
+      client.post("/api/studio/selfies", headers=north, json={"name": "  "}).status_code == 400)
+r = client.post("/api/studio/selfies", headers=north, json={"name": "Asha Rao"})
+check("one is made from a name alone",
+      r.status_code == 200 and (r.json()["picture"], r.json()["clip"]) == ("", ""), r.text[:160])
+WHO = r.json()["id"]
+check("and its id cannot be guessed from that name",
+      _re.fullmatch(r"asha-rao-[0-9a-f]{6}", WHO) is not None, WHO)
+_one = f"/api/studio/selfies/{WHO}"
 check("a photograph on its backdrop is refused, with the reason",
-      client.post(_picture, headers=north, content=_jpeg).status_code == 400)
-check("a stranger cannot give them one",
-      client.post(_picture, content=_png).status_code in (401, 403))
-r = client.post(_picture, headers=north, content=_png)
-check("a PNG is installed", r.status_code == 200 and r.json()["selfie_picture"].endswith("/selfie.png"),
-      r.text[:160])
-check("and the cabinet is told where it is",
-      client.get(f"/api/avatar?id={AVATAR}").json()["selfie_picture"].endswith(f"{AVATAR}/selfie.png"))
+      client.post(f"{_one}/picture", headers=north, content=_jpeg).status_code == 400)
+r = client.post(f"{_one}/picture", headers=north, content=_png)
+check("a PNG is installed",
+      r.status_code == 200 and f"/selfies/{WHO}/selfie.png?v=" in r.json()["picture"], r.text[:160])
 check("exactly as it was sent",
-      (store.avatar_dir(AVATAR) / "selfie.png").read_bytes() == _png)
-check("it is media, not something saved with their name",
-      "selfie_picture" not in (store.avatar_dir(AVATAR) / "avatar.json").read_text(encoding="utf-8"))
-check("and can be taken away again",
-      client.delete(_picture, headers=north).json()["selfie_picture"] == ""
-      and client.delete(_picture, headers=north).status_code == 404)
+      (_selfie.character_dir(WHO) / "selfie.png").read_bytes() == _png)
+check("and is served to the screen", client.get(r.json()["picture"]).content == _png)
+r = client.get(f"/api/selfie/character/{WHO}")
+check("the selfie screen is told who, and what it can do",
+      r.status_code == 200 and r.json()["name"] == "Asha Rao" and r.json()["available"] is True
+      and "org_id" not in r.json(), r.text[:200])
+check("an unknown character is nobody",
+      client.get("/api/selfie/character/asha-rao-000000").status_code == 404)
+check("and an id is never a path",
+      client.get("/api/selfie/character/..%2F..%2Fbackend").status_code == 404
+      and _selfie.character("../../backend") is None)
+check("another company cannot see it, or touch it",
+      client.get("/api/studio/selfies", headers=south).json() == []
+      and client.post(f"{_one}/picture", headers=south, content=_png).status_code == 404
+      and client.delete(_one, headers=south).status_code == 404)
+check("the picture can be taken away, and only once",
+      client.delete(f"{_one}/picture", headers=north).json()["picture"] == ""
+      and client.delete(f"{_one}/picture", headers=north).status_code == 404
+      and client.delete(f"{_one}/wave", headers=north).status_code == 400)
 config.SELFIE_ENABLED = False  # what LUXORA_SELFIE=0 does
 check("switched off, it says so",
       client.get("/api/selfie").json() == {"available": False, "share": False})
 check("and no agreement is issued while it is off",
       client.post("/api/selfie/consent").status_code == 503)
 check("nor a photograph held",
-      client.post(f"/api/selfie?consent=x&avatar={AVATAR}", content=_jpeg).status_code == 503)
+      client.post(f"/api/selfie?consent=x&character={WHO}", content=_jpeg).status_code == 503)
 config.SELFIE_ENABLED = True
 try:
     check("a cabinet reached only as localhost has nowhere to send a phone",
@@ -849,15 +871,15 @@ try:
     config.PUBLIC_URL = "https://cabinet.example/"
     check("a configured address wins",
           _selfie.public_base("http://localhost:8000/") == "https://cabinet.example")
-    check("switched on, the kiosk is told so",
-          client.get("/api/kiosk/mumbai-1").json()["selfie"] == {"available": True, "share": True})
+    check("switched on, with an address, the screen is told it can share",
+          client.get(f"/api/selfie/character/{WHO}").json()["share"] is True)
 
     check("no agreement, no upload",
           client.post(f"/api/selfie?avatar={AVATAR}", content=_jpeg).status_code == 428)
     check("a made-up agreement is not one",
-          client.post(f"/api/selfie?consent=1&avatar={AVATAR}", content=_jpeg).status_code == 428)
+          client.post(f"/api/selfie?consent=1&character={WHO}", content=_jpeg).status_code == 428)
     _yes = client.post("/api/selfie/consent").json()["consent"]
-    r = client.post(f"/api/selfie?consent={_yes}&avatar={AVATAR}", content=_jpeg)
+    r = client.post(f"/api/selfie?consent={_yes}&character={WHO}", content=_jpeg)
     check("an agreed selfie is held, for a day",
           r.status_code == 200 and r.json()["expires_in"] == 86400, r.text[:160])
     _id = r.json()["id"]
@@ -866,15 +888,15 @@ try:
           r.content == _jpeg and r.headers["content-type"] == "image/jpeg", r.text[:80])
     check("which no cache may keep", r.headers.get("cache-control") == "no-store")
     check("the agreement was spent",
-          client.post(f"/api/selfie?consent={_yes}&avatar={AVATAR}", content=_jpeg).status_code == 428)
+          client.post(f"/api/selfie?consent={_yes}&character={WHO}", content=_jpeg).status_code == 428)
     r = client.get(f"/api/selfie/{_id}/qr")
     check("its code is drawn here, to the address a phone can reach",
           r.status_code == 200 and b"<svg" in r.content, r.text[:80])
     check("something that is not a photograph is refused",
-          client.post(f"/api/selfie?consent={tryon.issue_consent()}&avatar={AVATAR}",
+          client.post(f"/api/selfie?consent={tryon.issue_consent()}&character={WHO}",
                       content=b"<script>").status_code == 400)
-    check("an unidentified cabinet cannot share",
-          client.post(f"/api/selfie?consent={tryon.issue_consent()}&avatar=no-such-avatar",
+    check("a screen showing nobody cannot share",
+          client.post(f"/api/selfie?consent={tryon.issue_consent()}&character=nobody-000000",
                       content=_jpeg).status_code == 404)
     check("a guessed address is nothing", client.get("/api/selfie/nope").status_code == 404)
     check("it is in memory and nowhere on disk",
@@ -886,6 +908,10 @@ try:
     for _ in range(_selfie.MAX_HELD + 5):
         _selfie.hold(_jpeg)
     check("the store is bounded", len(_selfie._held) == _selfie.MAX_HELD)
+    check("removing a character removes its folder, and its screen",
+          client.delete(_one, headers=north).json() == {"ok": True}
+          and not _selfie.character_dir(WHO).exists()
+          and client.get(f"/api/selfie/character/{WHO}").status_code == 404)
 finally:
     config.SELFIE_ENABLED = True
     config.PUBLIC_URL = ""

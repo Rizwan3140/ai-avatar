@@ -30,17 +30,11 @@ const POSES: Pose[] = ['idle', 'listen', 'think', 'speak']
  * A still photograph on a transparent panel reads as a mannequin. Breathing is
  * the difference between this medium and printed signage.
  */
-const useRenderer = create<{ pose: Pose; present: boolean; live: boolean; posing: boolean }>(
-  () => ({
-    pose: 'idle',
-    present: true,
-    live: false,
-    // Holding a phone up for a selfie. Laid over whatever pose they are in
-    // rather than being one: the conversation's pose carries on underneath and
-    // is what they return to.
-    posing: false,
-  }),
-)
+const useRenderer = create<{ pose: Pose; present: boolean; live: boolean }>(() => ({
+  pose: 'idle',
+  present: true,
+  live: false,
+}))
 
 const set = useRenderer.setState
 
@@ -88,41 +82,10 @@ bus.on('MIC_MUTED', ({ muted }) => (muted ? mp4Renderer.idle() : mp4Renderer.lis
 bus.on('SESSION_SLEEP', () => mp4Renderer.stop())
 bus.on('SESSION_WAKE', () => mp4Renderer.idle())
 bus.on('EMOTION_CHANGED', ({ emotion }) => mp4Renderer.setEmotion(emotion))
-bus.on('SELFIE_POSING', ({ posing }) => set({ posing }))
-
-/** What is on stage, for `avatarFrame`. Filled in by the component. */
-const stage: {
-  videos: Record<string, HTMLVideoElement | null>
-  /** Kept apart from the poses: every pose plays all the time, and this one
-   *  plays once, from its start, when it is called for. */
-  selfie: HTMLVideoElement | null
-  poster: HTMLImageElement | null
-} = { videos: {}, selfie: null, poster: null }
-
-/**
- * Them, as they are being drawn at this instant — for a selfie, which needs a
- * picture of the person on the panel and must not reach into the renderer's
- * elements to get one. The clip that is showing if it has a frame decoded, the
- * idle clip if not, the poster if there is no footage at all.
- */
-export function avatarFrame(): HTMLVideoElement | HTMLImageElement | null {
-  const { pose, posing } = useRenderer.getState()
-  const decoded = (video: HTMLVideoElement | null | undefined) =>
-    video && video.readyState >= 2 && video.videoWidth ? video : null
-  return (
-    (posing ? decoded(stage.selfie) : null) ??
-    decoded(stage.videos[pose]) ??
-    decoded(stage.videos.idle) ??
-    (stage.poster?.naturalWidth ? stage.poster : null)
-  )
-}
 
 export function Mp4VideoRenderer() {
-  const { pose, present, live, posing } = useRenderer()
-  // The module's own record, so `avatarFrame` reads what this component drew.
-  const videos = useRef(stage.videos)
-  /** The selfie clip failed to load. They stay as they were for the count. */
-  const [noSelfie, setNoSelfie] = useState(false)
+  const { pose, present, live } = useRenderer()
+  const videos = useRef<Record<string, HTMLVideoElement | null>>({})
   /** Poses whose clip failed to load. Footage arrives one file at a time. */
   const [missing, setMissing] = useState<ReadonlySet<Pose>>(new Set())
   const [media, setMedia] = useState(avatarMedia)
@@ -140,26 +103,6 @@ export function Mp4VideoRenderer() {
     if (!idle) return
     return startIdlePresence(idle)
   }, [])
-
-  // Getting ready for a selfie is the one clip that is *started*. It is five or
-  // six seconds of them lifting a phone and settling, and it means nothing
-  // from the middle — so it plays from its first frame when the count begins,
-  // holds its last when it runs out, and is put away once it has faded.
-  //
-  // Every other clip here is never paused and never sought, because a start
-  // hitches and a hitch reads as software. This one is decoded and waiting
-  // before it is asked for, which is as much of that as a one-shot can have.
-  useEffect(() => {
-    const clip = stage.selfie
-    if (!clip) return
-    if (posing) {
-      clip.currentTime = 0
-      keepPlaying(clip)
-      return
-    }
-    const away = setTimeout(() => clip.pause(), config.crossfadeDuration)
-    return () => clearTimeout(away)
-  }, [posing])
 
   // Sleep is the only place pausing is correct — the screen is dark and nobody
   // is watching, so the decode cost of resuming is invisible and worth saving.
@@ -185,9 +128,6 @@ export function Mp4VideoRenderer() {
       {/* Poster sits under every clip: no black flash before decode, and the
           only thing visible until the footage exists. */}
       <img
-        ref={(el) => {
-          stage.poster = el
-        }}
         src={media.poster}
         alt=""
         aria-hidden
@@ -228,30 +168,6 @@ export function Mp4VideoRenderer() {
           }}
         />
       ))}
-
-      {/* Getting ready for a selfie — only for an avatar that has footage of
-          it. Brought up by opacity over whichever pose they are in, and
-          started by the effect above. */}
-      {media.clips.selfie && !noSelfie && (
-        <video
-          ref={(el) => {
-            stage.selfie = el
-          }}
-          src={media.clips.selfie}
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden
-          onError={() => setNoSelfie(true)}
-          className="absolute inset-0 size-full object-bottom transition-opacity"
-          style={{
-            objectFit: config.fit,
-            opacity: live && posing ? 1 : 0,
-            transitionDuration: `${config.crossfadeDuration}ms`,
-            transitionTimingFunction: 'var(--ease-human)',
-          }}
-        />
-      )}
 
       {/* Multiply, not a layer underneath — the footage has an opaque white
           background, so anything behind it is simply hidden. Multiplying leaves

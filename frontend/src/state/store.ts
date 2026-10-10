@@ -48,12 +48,6 @@ type State = {
    */
   tryon: { available: boolean; provider: string; on_device: boolean }
 
-  /** Whether a selfie with the avatar is offered here, and whether the result
-   *  can be handed to a phone — without `share` it stays on the screen. */
-  selfie: { available: boolean; share: boolean }
-  /** The count before a selfie is running. The chips under them stand aside. */
-  posing: boolean
-
   /**
    * Whether this cabinet has anything to advertise.
    *
@@ -104,9 +98,6 @@ export const useStore = create<State>(() => ({
   // Off until the kiosk says otherwise. A camera that appears by default because
   // a flag failed to load is the wrong direction for this one to fail in.
   tryon: { available: false, provider: '', on_device: false },
-  // The same direction: it is the other camera.
-  selfie: { available: false, share: false },
-  posing: false,
   hasCampaigns: false,
   // Off until the kiosk says otherwise, the same direction as `tryon`: a link
   // into the dashboard appearing because a flag failed to load is the wrong way
@@ -215,9 +206,3 @@ export function setIdentity(avatarId: string, name: string, greeting: string) {
 export function setTryOn(tryon: State['tryon']) {
   set({ tryon })
 }
-
-export function setSelfie(selfie: State['selfie']) {
-  set({ selfie })
-}
-
-bus.on('SELFIE_POSING', ({ posing }) => set({ posing }))

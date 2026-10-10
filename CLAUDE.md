@@ -26,7 +26,7 @@ Full scope: `Docs/`, and the plan at
 (cd frontend && npm test)                   # 128 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 184 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 190 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-842 checks total. **Never run the Python suites through `unittest`** — they are
+848 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -195,30 +195,35 @@ company's prices out loud.
   product. Consent is a required parameter with no default. This is DPDP/GDPR
   scope, not a preference, and it is why local try-on is the preferred provider
   independent of cost.
-- **The selfie is its own screen, not something the showroom avatar offers.**
-  `/selfie?avatar=…`, reached from the studio's Selfie tab, which is also where
-  an avatar's `selfie.mp4` — them lifting a phone, shown for the count — is
-  installed. It was first built as a fifth chip under the showroom avatar and a
-  sentence the conversation had to be taught not to answer, and was moved out
-  the same week: a cabinet is a showroom or a photo booth by the address it was
-  opened at. That is also why it is **on unless `LUXORA_SELFIE=0`**, unlike
-  try-on — nothing on the public screen leads to the camera. It arrived in
-  v2.1.0; v2.0.0 is kept as the release without it.
-- **A selfie avatar is two files, given in the studio's Selfie tab.**
-  `selfie.png` — them as the phone sees them, already cut out — is who the
-  visitor is photographed with; `selfie.mp4` — five or six seconds of getting
-  ready — plays **once** during an eight-second count, so it is the one clip
-  that is not ping-ponged and the one clip the renderer starts and seeks. With
-  neither, a frame of their footage is cut out in the browser and they stand
-  still, which is what the first recording of this looked like next to the
-  reference: a small figure pasted at the edge with a halo round her hair.
-- **The avatar is sized from the visitor's face, which is why the panel has a
+- **The selfie is a thing by itself. It has no avatar.** `/selfie?id=…` is a
+  photo booth: a selfie *character* (`backend/selfie.py`, a folder under
+  `frontend/public/selfies/`) made in the studio's Selfie tab from a name, and
+  given two files. It shares the build with the showroom and nothing else —
+  no avatar, no `lifecycle.boot()`, no session, no microphone; its two server
+  calls are in `ui/booth.ts`, not `provider/http.ts`. It took three tries to
+  get here, each asked for after the last was used: a fifth chip under the
+  showroom avatar and a sentence the conversation had to be taught not to
+  answer; then its own screen, still borrowing a showroom avatar's footage and
+  boot; then this. What the second try left in the renderer, the store and the
+  avatar's own record was taken back out, so the showroom's code is as it was
+  before any of it. **On unless `LUXORA_SELFIE=0`**, unlike try-on: nothing on
+  the public screen leads to the camera. v2.0.0 is kept as the release with no
+  selfie at all.
+- **A selfie character is two files.** `selfie.png` — them as the phone sees
+  them, already cut out — is who the visitor is photographed with, and is what
+  stands on the panel. `selfie.mp4` — five or six seconds of getting ready —
+  plays **once** over an eight-second count, so it goes through
+  `conform_footage` like a pose but is not ping-ponged: reversed onto its own
+  end it is somebody lifting a phone and putting it away. A character's id ends
+  in six random characters for the reason an avatar's does — the public screen
+  is opened by it, and sharing is filed against the org it resolves to.
+- **The character is sized from the visitor's face, which is why the panel has a
   dependency.** `ui/faces.ts` loads MediaPipe's face detector from
   `public/facefinder` — served here, so it works offline; lazily, so the
   showroom never fetches it. Chrome's own `FaceDetector` is behind a flag and
-  absent on a real cabinet. `selfie.arrange` then draws the avatar's face a
+  absent on a real cabinet. `selfie.arrange` then draws the character's face a
   little larger than the visitor's and slides the camera picture so the visitor
-  is where the avatar is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
+  is where the character is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
   folder must not be called `vendor/`: `.gitignore` drops that name, and with it
   the copy in `dist` that a release serves.
 - **The detector cannot see a face across the room unless it is shown one.**
@@ -228,8 +233,8 @@ company's prices out loud.
   overlapping squares of it, then at squares half that size. Found by testing
   a far visitor in a browser; a near one had worked first time.
 - **A selfie is made in the browser, and a shared one is held in memory.**
-  The picture is the camera frame with the avatar cut off their own footage
-  (`ui/selfie.ts`) — nothing is uploaded to make it. Only "share to my phone"
+  The picture is the camera frame with the character's cut-out picture stood
+  in front of it (`ui/selfie.ts`) — nothing is uploaded to make it. Only "share to my phone"
   sends it to the server, under the same consent nonce as try-on, and
   `backend/selfie.py` keeps it in a dictionary for 24 hours: never a file, so
   the rule above still holds, and a restart forgets them all. The QR code needs
@@ -237,7 +242,8 @@ company's prices out loud.
   `start.ps1` opens — and without one the share button is not drawn.
 - **The backdrop in the footage is not white, whatever the brief says.** One
   avatar stands on a grey that runs 180 to 210, the other in a white box with
-  her shadow on the wall. The selfie's cut-out keys on *light and colourless,
+  her shadow on the wall. The selfie's cut-out — now only the fallback, for a
+  picture uploaded still on its backdrop — keys on *light and colourless,
   connected to the frame's edge* — measured, backdrop is within 8 between its
   channels and skin never under 25 — and was first written keyed on ">= 242
   white", which removed nothing from either. Check a cut-out on a real frame.

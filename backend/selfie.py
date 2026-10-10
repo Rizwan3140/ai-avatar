@@ -1,10 +1,13 @@
-"""A selfie with the avatar, handed to the visitor's phone.
+"""A selfie with a character, handed to the visitor's phone.
 
-The picture is made in the browser: the camera frame, with the avatar cut out
-of their own footage and stood in front of it. Nothing reaches this module
-unless the visitor presses "share to my phone" — and then it has to be held
-somewhere a phone can fetch it from, which is the one thing here that try-on
-never does.
+Two halves. The characters — who a visitor can be photographed with — are
+folders on disk, like avatars and campaigns, and are further down. This half is
+the photographs.
+
+The picture is made in the browser: the camera frame, with the character's
+cut-out picture stood in front of it. Nothing reaches this module unless the
+visitor presses "share to my phone" — and then it has to be held somewhere a
+phone can fetch it from, which is the one thing here that try-on never does.
 
 **Held in memory, never on disk.** The rule this project already has is that a
 visitor's photograph is not written to disk: not a temp file, not a cache, not
@@ -17,13 +20,17 @@ Shared code: imports nothing that needs a model, so the cloud role can hold
 them too.
 """
 
+import json
+import re
 import secrets
+import shutil
 import threading
 import time
 import urllib.parse
+from dataclasses import dataclass
 from pathlib import Path
 
-from backend import config
+from backend import config, store
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -84,6 +91,99 @@ def _expire(now: float) -> None:
     for token, (at, _, _) in list(_held.items()):
         if now - at > TTL:
             del _held[token]
+
+
+# --- who the visitor is photographed with ------------------------------------
+#
+# A selfie character: a name, a picture and a clip, in a folder of their own.
+#
+# Not an avatar. The first version of this hung the picture and the clip on the
+# showroom's avatars, which made a selfie something an avatar *had* — and the
+# selfie tab a second list of the same people. The selfie is a thing by itself:
+# who is in the photograph need never have stood in the showroom, and deleting
+# a showroom avatar must not take a photo booth with it.
+
+#: Beside `avatars/` and `campaigns/`, and served the same way.
+CHARACTERS_DIR = config.DATA / "frontend" / "public" / "selfies"
+
+#: Them as the phone sees them, already cut out. Who the picture is made with.
+PICTURE = "selfie.png"
+#: Five or six seconds of getting ready, played once while the count runs.
+CLIP = "selfie.mp4"
+
+_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+@dataclass
+class Character:
+    id: str
+    name: str
+    org_id: str
+    picture: str = ""
+    clip: str = ""
+
+
+def character_dir(character_id: str) -> Path:
+    """Where one character's files live. The id is checked here, once, because
+    it arrives on a URL and becomes a path."""
+    if not _ID.match(character_id or ""):
+        raise ValueError(f"unusable selfie id: {character_id!r}")
+    return CHARACTERS_DIR / character_id
+
+
+def _read(folder: Path) -> Character:
+    try:
+        meta = json.loads((folder / "character.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        meta = {}
+
+    def served(name: str) -> str:
+        file = folder / name
+        # The address changes when the file does. Replacing a picture keeps its
+        # name, and a browser shown the same address shows the picture it had.
+        return f"/selfies/{folder.name}/{name}?v={int(file.stat().st_mtime)}" if file.exists() else ""
+
+    return Character(
+        id=folder.name,
+        name=meta.get("name") or folder.name,
+        org_id=meta.get("org_id") or store.DEFAULT_ORG,
+        picture=served(PICTURE),
+        clip=served(CLIP),
+    )
+
+
+def characters(org_id: str) -> list[Character]:
+    """One company's selfie characters, by name."""
+    if not CHARACTERS_DIR.is_dir():
+        return []
+    found = [_read(f) for f in CHARACTERS_DIR.iterdir() if f.is_dir() and _ID.match(f.name)]
+    return sorted((c for c in found if c.org_id == org_id), key=lambda c: c.name.lower())
+
+
+def character(character_id: str) -> Character | None:
+    try:
+        folder = character_dir(character_id)
+    except ValueError:
+        return None
+    return _read(folder) if folder.is_dir() else None
+
+
+def create_character(name: str, org_id: str) -> Character:
+    """A new one, empty. Its id ends in six random characters for the reason an
+    avatar's does: the public selfie screen is opened by it, so it is a bearer
+    credential, and a slug of the name is free to guess."""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "selfie"
+    folder = character_dir(f"{slug}-{secrets.token_hex(3)}")
+    folder.mkdir(parents=True)
+    (folder / "character.json").write_text(
+        json.dumps({"name": name, "org_id": org_id}, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return _read(folder)
+
+
+def delete_character(character_id: str) -> None:
+    shutil.rmtree(character_dir(character_id), ignore_errors=True)
 
 
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", ""}

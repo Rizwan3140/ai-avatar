@@ -16,8 +16,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend import (
-    accounts, analytics, campaigns, catalog, categorize, config, documents, seasons, store, tryon,
-    tts,
+    accounts, analytics, campaigns, catalog, categorize, config, documents, seasons, selfie, store,
+    tryon, tts,
 )
 from backend.accounts import AuthError, Principal
 
@@ -492,8 +492,8 @@ async def upload_clip(
     """
     _mirrored()
     avatar = _avatar_or_404(avatar_id, caller)
-    if pose not in store.CLIPS:
-        raise HTTPException(400, f"pose must be one of {', '.join(store.CLIPS)}")
+    if pose not in store.POSES:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
 
     clip = await request.body()
     if not clip:
@@ -512,10 +512,7 @@ async def upload_clip(
 
         import conform_footage
 
-        # Every pose is ping-ponged so it loops without a seam. Getting ready
-        # for a selfie is not a loop: it plays once, and run backwards after
-        # itself it is somebody lifting a phone and then putting it away.
-        await run_in_threadpool(conform_footage.conform, [source], pose, folder, pose != "selfie")
+        await run_in_threadpool(conform_footage.conform, [source], pose, folder)
 
         # A first frame is only worth taking when there is no poster yet. An
         # existing one came from a cut-out photograph, which is on true white;
@@ -549,8 +546,8 @@ def delete_clip(avatar_id: str, pose: str, caller: Principal = Depends(editor)):
     anyway — so this is how you undo a clip that turned out wrong."""
     _mirrored()
     avatar = _avatar_or_404(avatar_id, caller)
-    if pose not in store.CLIPS:
-        raise HTTPException(400, f"pose must be one of {', '.join(store.CLIPS)}")
+    if pose not in store.POSES:
+        raise HTTPException(400, f"pose must be one of {', '.join(store.POSES)}")
 
     target = store.avatar_dir(avatar.id) / f"{pose}.mp4"
     if not target.exists():
@@ -559,9 +556,49 @@ def delete_clip(avatar_id: str, pose: str, caller: Principal = Depends(editor)):
     return _with_status(_avatar_or_404(avatar_id, caller))
 
 
-@router.post("/studio/avatars/{avatar_id}/selfie-picture")
+# --- selfie characters -------------------------------------------------------
+#
+# Who a visitor can be photographed with. Nothing to do with avatars: a name, a
+# picture and a clip in a folder of their own — see `backend/selfie.py`.
+
+
+class SelfieCreate(BaseModel):
+    name: str = Field(max_length=80)
+
+
+def _character_or_404(character_id: str, caller: Principal) -> selfie.Character:
+    found = selfie.character(character_id)
+    # Another company's is "no such", not "not yours": the id is a credential,
+    # and saying it exists is half of handing it over.
+    if found is None or found.org_id != caller.org_id:
+        raise HTTPException(404, "no such selfie character")
+    return found
+
+
+@router.get("/studio/selfies")
+def list_selfies(caller: Principal = Depends(principal)):
+    return [asdict(c) for c in selfie.characters(caller.org_id)]
+
+
+@router.post("/studio/selfies")
+def create_selfie(req: SelfieCreate, caller: Principal = Depends(editor)):
+    _mirrored()
+    if not req.name.strip():
+        raise HTTPException(400, "a selfie character needs a name")
+    return asdict(selfie.create_character(req.name.strip(), caller.org_id))
+
+
+@router.delete("/studio/selfies/{character_id}")
+def delete_selfie(character_id: str, caller: Principal = Depends(editor)):
+    """The folder and both files in it. A screen left open on it says so."""
+    _mirrored()
+    selfie.delete_character(_character_or_404(character_id, caller).id)
+    return {"ok": True}
+
+
+@router.post("/studio/selfies/{character_id}/picture")
 async def upload_selfie_picture(
-    avatar_id: str, request: Request, caller: Principal = Depends(editor)
+    character_id: str, request: Request, caller: Principal = Depends(editor)
 ):
     """The picture a selfie is made with: them as the phone sees them.
 
@@ -571,29 +608,73 @@ async def upload_selfie_picture(
     there is nothing to conform, and re-encoding would only cost it its edges.
     """
     _mirrored()
-    avatar = _avatar_or_404(avatar_id, caller)
+    found = _character_or_404(character_id, caller)
     picture = await request.body()
     if not picture.startswith(b"\x89PNG\r\n\x1a\n"):
         raise HTTPException(400, "the selfie picture must be a PNG, with its background removed")
     if len(picture) > 40 * 1024 * 1024:
         raise HTTPException(413, "that picture is over 40 MB")
-
-    folder = store.avatar_dir(avatar.id)
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / store.SELFIE_PICTURE).write_bytes(picture)
-    return _with_status(_avatar_or_404(avatar_id, caller))
+    (selfie.character_dir(found.id) / selfie.PICTURE).write_bytes(picture)
+    return asdict(_character_or_404(character_id, caller))
 
 
-@router.delete("/studio/avatars/{avatar_id}/selfie-picture")
-def delete_selfie_picture(avatar_id: str, caller: Principal = Depends(editor)):
-    """Remove it. A selfie then uses a frame of their footage, as it did."""
+@router.post("/studio/selfies/{character_id}/clip")
+async def upload_selfie_clip(
+    character_id: str, request: Request, caller: Principal = Depends(editor)
+):
+    """Five or six seconds of getting ready, played once while the count runs.
+
+    Through `conform_footage` like a pose, so a phone's .mov becomes something a
+    browser plays and the frame is the panel's 9:16 — but not ping-ponged. A
+    pose is reversed onto its own end so it loops without a seam; this plays
+    once, and run backwards after itself it is somebody lifting a phone and
+    then putting it away.
+    """
     _mirrored()
-    avatar = _avatar_or_404(avatar_id, caller)
-    target = store.avatar_dir(avatar.id) / store.SELFIE_PICTURE
+    found = _character_or_404(character_id, caller)
+    clip = await request.body()
+    if not clip:
+        raise HTTPException(400, "no clip on the request body")
+    if len(clip) > 200 * 1024 * 1024:
+        raise HTTPException(413, "that clip is over 200 MB")
+
+    folder = selfie.character_dir(found.id)
+    source = folder / "upload.src"
+    source.write_bytes(clip)
+    try:
+        from fastapi.concurrency import run_in_threadpool
+
+        import conform_footage
+
+        await run_in_threadpool(conform_footage.conform, [source], "selfie", folder, False)
+    except FileNotFoundError as exc:
+        raise HTTPException(501, conform_footage.MISSING) from exc
+    except SystemExit as exc:
+        raise HTTPException(
+            422, f"ffmpeg could not read that clip — is it really a video? ({exc})"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            422, f"could not conform that clip — is it really a video? ({type(exc).__name__})"
+        ) from exc
+    finally:
+        source.unlink(missing_ok=True)
+    return asdict(_character_or_404(character_id, caller))
+
+
+@router.delete("/studio/selfies/{character_id}/{what}")
+def delete_selfie_file(character_id: str, what: str, caller: Principal = Depends(editor)):
+    """Take the picture or the clip away again."""
+    _mirrored()
+    found = _character_or_404(character_id, caller)
+    name = {"picture": selfie.PICTURE, "clip": selfie.CLIP}.get(what)
+    if name is None:
+        raise HTTPException(400, "that is not something a selfie character has")
+    target = selfie.character_dir(found.id) / name
     if not target.exists():
-        raise HTTPException(404, "no selfie picture")
+        raise HTTPException(404, f"no {what}")
     target.unlink()
-    return _with_status(_avatar_or_404(avatar_id, caller))
+    return asdict(_character_or_404(character_id, caller))
 
 
 # --- kiosks ------------------------------------------------------------------

@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { api, upload, type Avatar, type Principal } from './api.ts'
-import { ConfirmAction, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
+import { api, upload, type Principal } from './api.ts'
+import { Button, ConfirmAction, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
+
+/** Who a visitor can be photographed with: a name and two files. */
+type Character = { id: string; name: string; org_id: string; picture: string; clip: string }
 
 type SelfieStatus = { available: boolean; share: boolean }
 
 /**
- * Selfie avatars — who a visitor can be photographed with, and the screen that
- * does it.
+ * Selfie — who a visitor can be photographed with, and the screen that does it.
  *
- * The selfie is its own screen, not something the showroom avatar offers, so
- * this is where it is reached from: each avatar has a link that opens it
- * pointed at them, the same way "talk to this avatar" opens the showroom.
- *
- * Two things make an avatar a *selfie* avatar, and both are given here:
+ * Nothing here is an avatar. This tab used to list the showroom's avatars and
+ * hang a picture and a clip on each, which made the selfie something an avatar
+ * had. It is a thing by itself: a selfie character is made here, from nothing
+ * but a name, and given two files —
  *
  *   the picture — them as the phone sees them, arm out, background removed.
  *   This is who the visitor is photographed with. It is resized to the
@@ -22,16 +23,16 @@ type SelfieStatus = { available: boolean; share: boolean }
  *   getting ready — five or six seconds of them lifting the phone, played once
  *   while the count runs.
  *
- * With neither, a frame of their footage stands in and they do not move: it
- * works, and it reads as somebody who was not told a photograph was being
- * taken.
+ * Each has a link that opens its selfie screen. That screen is what a cabinet
+ * shows when it is a photo booth.
  */
 export function SelfieAvatars({ who }: { who: Principal }) {
-  const avatars = useLoad(() => api<Avatar[]>('/api/studio/avatars'))
+  const characters = useLoad(() => api<Character[]>('/api/studio/selfies'))
   const status = useLoad(() => api<SelfieStatus>('/api/selfie'))
   const [busy, setBusy] = useState('')
   const [problem, setProblem] = useState('')
   const [note, setNote] = useState('')
+  const [name, setName] = useState('')
 
   const mayWrite = who.role !== 'viewer'
 
@@ -41,7 +42,7 @@ export function SelfieAvatars({ who }: { who: Principal }) {
     setNote('')
     try {
       setNote(await work())
-      avatars.reload()
+      characters.reload()
     } catch (failure) {
       setProblem((failure as Error).message)
     } finally {
@@ -49,30 +50,35 @@ export function SelfieAvatars({ who }: { who: Principal }) {
     }
   }
 
-  const base = (avatar: Avatar) => `/api/studio/avatars/${avatar.id}`
+  const base = (one: Character) => `/api/studio/selfies/${one.id}`
 
-  const givePicture = (avatar: Avatar, file: File) =>
-    act(`${avatar.id}-picture`, async () => {
-      await upload<Avatar>(`${base(avatar)}/selfie-picture`, file)
-      return `That is now who a visitor is photographed with. It is resized to each visitor, so there is nothing to set.`
+  const create = () =>
+    act('new', async () => {
+      const made = await api<Character>('/api/studio/selfies', { method: 'POST', body: { name } })
+      setName('')
+      return `${made.name} is ready for a picture and a clip.`
     })
 
-  const dropPicture = (avatar: Avatar) =>
-    act(`${avatar.id}-picture`, async () => {
-      await api<Avatar>(`${base(avatar)}/selfie-picture`, { method: 'DELETE' })
-      return `${avatar.name}'s selfie picture was removed. A frame of their footage is used instead.`
+  const give = (one: Character, what: 'picture' | 'clip', file: File) =>
+    act(`${one.id}-${what}`, async () => {
+      await upload<Character>(`${base(one)}/${what}`, file)
+      return what === 'picture'
+        ? `That is now who a visitor is photographed with. It is resized to each visitor, so there is nothing to set.`
+        : `${one.name} now gets ready for the count. The clip was cropped to 9:16 and plays once.`
     })
 
-  const giveClip = (avatar: Avatar, file: File) =>
-    act(`${avatar.id}-clip`, async () => {
-      await upload<Avatar>(`${base(avatar)}/clips/selfie`, file)
-      return `${avatar.name} now gets ready for the count. The clip was cropped to 9:16 and plays once.`
+  const drop = (one: Character, what: 'picture' | 'clip') =>
+    act(`${one.id}-${what}`, async () => {
+      await api<Character>(`${base(one)}/${what}`, { method: 'DELETE' })
+      return what === 'picture'
+        ? `${one.name}'s picture was removed. Their selfie screen offers nothing until there is one.`
+        : `${one.name}'s clip was removed. Their picture stands still for the count.`
     })
 
-  const dropClip = (avatar: Avatar) =>
-    act(`${avatar.id}-clip`, async () => {
-      await api<Avatar>(`${base(avatar)}/clips/selfie`, { method: 'DELETE' })
-      return `${avatar.name}'s getting-ready clip was removed. They stand as they are for the count.`
+  const remove = (one: Character) =>
+    act(one.id, async () => {
+      await api(base(one), { method: 'DELETE' })
+      return `${one.name} was removed, with their picture and clip.`
     })
 
   return (
@@ -94,76 +100,106 @@ export function SelfieAvatars({ who }: { who: Principal }) {
       )}
 
       <Section
-        title="Selfie avatars"
-        hint="Open an avatar's selfie screen on the cabinet that should be a photo booth. A visitor presses the camera, is counted in for eight seconds, and gets a picture of the two of them — which they can send to their phone, where it is deleted after 24 hours."
+        title="Selfie"
+        hint="Somebody a visitor can be photographed with. Give them a picture and a clip, then open their selfie screen on the cabinet that should be a photo booth: a visitor presses the camera, is counted in for eight seconds, and gets a picture of the two of them — which they can send to their phone, where it is deleted after 24 hours."
+        action={
+          mayWrite && (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (name.trim() && !busy) void create()
+              }}
+            >
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Their name"
+                maxLength={80}
+                aria-label="Name of a new selfie character"
+                className="w-44 rounded-lg border border-line bg-white px-3 py-2 text-[13.5px]"
+              />
+              <Button type="submit" disabled={!name.trim() || Boolean(busy)}>
+                Add
+              </Button>
+            </form>
+          )
+        }
       >
-        {avatars.error && <Note tone="warn">{avatars.error}</Note>}
-        {!avatars.data ? (
+        {characters.error && <Note tone="warn">{characters.error}</Note>}
+        {!characters.data ? (
           <Empty>Loading…</Empty>
-        ) : avatars.data.length === 0 ? (
-          <Empty>No avatars yet. Make one under Avatars, and it appears here.</Empty>
+        ) : characters.data.length === 0 ? (
+          <Empty>
+            Nobody yet. Add a name above, then give them a picture and a clip.
+          </Empty>
         ) : (
           <ul className="flex flex-col gap-3">
-            {avatars.data.map((avatar) => {
-              const picture = avatar.selfie_picture
-              const clip = Boolean(avatar.clips.selfie)
-              return (
-                <li key={avatar.id} className="flex flex-col rounded border border-line bg-white text-sm">
-                  <div className="flex flex-wrap items-center gap-4 px-3 py-3">
-                    {picture || avatar.poster ? (
-                      <img
-                        src={picture || avatar.poster}
-                        alt=""
-                        className="bg-line/30 h-16 w-12 shrink-0 rounded object-cover object-top"
-                      />
-                    ) : (
-                      <span className="bg-line/40 h-16 w-12 shrink-0 rounded" aria-hidden />
-                    )}
-                    <span className="min-w-0 flex-1 truncate font-medium">{avatar.name}</span>
-                    <a
-                      href={`/selfie?avatar=${encodeURIComponent(avatar.id)}`}
-                      target="_blank"
-                      rel="noopener"
-                      className="rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-white shadow-sm hover:brightness-110"
-                      style={{ background: 'var(--s-accent)' }}
-                    >
-                      Open selfie screen
-                    </a>
-                  </div>
+            {characters.data.map((one) => (
+              <li key={one.id} className="flex flex-col rounded border border-line bg-white text-sm">
+                <div className="flex flex-wrap items-center gap-4 px-3 py-3">
+                  {one.picture ? (
+                    <img
+                      src={one.picture}
+                      alt=""
+                      className="bg-line/30 h-16 w-12 shrink-0 rounded object-cover object-top"
+                    />
+                  ) : (
+                    <span className="bg-line/40 h-16 w-12 shrink-0 rounded" aria-hidden />
+                  )}
+                  <span className="min-w-0 flex-1 truncate font-medium">{one.name}</span>
+                  {mayWrite && (
+                    <ConfirmAction
+                      label="remove"
+                      prompt={`Remove ${one.name}, with their picture and clip?`}
+                      confirmLabel="Remove"
+                      disabled={Boolean(busy)}
+                      onConfirm={() => remove(one)}
+                    />
+                  )}
+                  <a
+                    href={`/selfie?id=${encodeURIComponent(one.id)}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-white shadow-sm hover:brightness-110"
+                    style={{ background: 'var(--s-accent)' }}
+                  >
+                    Open selfie screen
+                  </a>
+                </div>
 
-                  <Slot
-                    name="The picture"
-                    have={Boolean(picture)}
-                    working={busy === `${avatar.id}-picture`}
-                    present="Installed. Resized to each visitor's face and stood beside them."
-                    absent="Missing — a frame of their footage is used. A PNG of them as the phone sees them, background removed."
-                    // PNG only, and said so: it has to arrive cut out, and the
-                    // server refuses anything else with the reason.
-                    accept="image/png"
-                    add="Add the picture"
-                    mayWrite={mayWrite}
-                    disabled={Boolean(busy)}
-                    onPick={(file) => givePicture(avatar, file)}
-                    onRemove={() => dropPicture(avatar)}
-                  />
-                  <Slot
-                    name="Getting ready"
-                    have={clip}
-                    working={busy === `${avatar.id}-clip`}
-                    present="Installed. Plays once while the count runs."
-                    absent="Missing — they stand as they are for the count. Five or six seconds of them lifting the phone."
-                    // `video/*`, not a list of extensions: a phone records
-                    // .mov, and a list would grey it out in the file dialog.
-                    accept="video/*"
-                    add="Add the clip"
-                    mayWrite={mayWrite}
-                    disabled={Boolean(busy)}
-                    onPick={(file) => giveClip(avatar, file)}
-                    onRemove={() => dropClip(avatar)}
-                  />
-                </li>
-              )
-            })}
+                <Slot
+                  name="The picture"
+                  have={Boolean(one.picture)}
+                  working={busy === `${one.id}-picture`}
+                  present="Installed. Resized to each visitor's face and stood beside them."
+                  absent="Missing — there is no selfie without it. A PNG of them as the phone sees them, background removed."
+                  // PNG only, and said so: it has to arrive cut out, and the
+                  // server refuses anything else with the reason.
+                  accept="image/png"
+                  add="Add the picture"
+                  mayWrite={mayWrite}
+                  disabled={Boolean(busy)}
+                  onPick={(file) => give(one, 'picture', file)}
+                  onRemove={() => drop(one, 'picture')}
+                />
+                <Slot
+                  name="Getting ready"
+                  have={Boolean(one.clip)}
+                  working={busy === `${one.id}-clip`}
+                  present="Installed. Plays once while the count runs."
+                  absent="Missing — their picture stands still for the count. Five or six seconds of them lifting the phone."
+                  // `video/*`, not a list of extensions: a phone records
+                  // .mov, and a list would grey it out in the file dialog.
+                  accept="video/*"
+                  add="Add the clip"
+                  mayWrite={mayWrite}
+                  disabled={Boolean(busy)}
+                  onPick={(file) => give(one, 'clip', file)}
+                  onRemove={() => drop(one, 'clip')}
+                />
+              </li>
+            ))}
           </ul>
         )}
       </Section>
@@ -171,8 +207,8 @@ export function SelfieAvatars({ who }: { who: Principal }) {
   )
 }
 
-/** One of the two things an avatar is given: what it is, whether it is there,
- *  and the way to put it there or take it away. */
+/** One of the two things a character is given: what it is, whether it is
+ *  there, and the way to put it there or take it away. */
 function Slot({
   name,
   have,

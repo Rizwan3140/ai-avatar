@@ -229,6 +229,13 @@ RUNTIME_CAMPAIGNS = config.DATA / "frontend" / "public" / "campaigns"
 RUNTIME_CAMPAIGNS.mkdir(parents=True, exist_ok=True)
 app.mount("/campaigns", StaticFiles(directory=RUNTIME_CAMPAIGNS), name="campaigns")
 
+# Selfie characters: the picture and the clip of whoever a visitor is
+# photographed with. Created if absent for the reason above — the first
+# character is made while the server is running.
+RUNTIME_SELFIES = config.DATA / "frontend" / "public" / "selfies"
+RUNTIME_SELFIES.mkdir(parents=True, exist_ok=True)
+app.mount("/selfies", StaticFiles(directory=RUNTIME_SELFIES), name="selfies")
+
 if FRONTEND_DIST.is_dir():
 
     @app.get("/studio{rest:path}", include_in_schema=False)

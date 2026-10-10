@@ -59,7 +59,7 @@ def org_for(avatar_id: str = "") -> str:
 
 
 @router.get("/kiosk/{kiosk_id}")
-def kiosk(kiosk_id: str, request: Request):
+def kiosk(kiosk_id: str):
     """Everything a cabinet needs to come up. An unregistered kiosk gets the
     default avatar rather than an error — a showroom screen showing nothing is
     worse than one showing the wrong person."""
@@ -70,9 +70,6 @@ def kiosk(kiosk_id: str, request: Request):
         # The cabinet decides whether to offer a camera at all, and it should not
         # have to make a second call to find out.
         "tryon": tryon.status(),
-        # The same for a selfie with the avatar, and whether a phone can be
-        # handed the result.
-        "selfie": selfie.status(str(request.base_url)),
         # And what the showroom is wearing today. Arrives with identity so a
         # cabinet is never briefly dressed for the wrong month while a second
         # request is in flight, and so it survives on last-known-good config
@@ -367,8 +364,29 @@ def selfie_consent():
     return {"consent": tryon.issue_consent(), "expires_in": tryon.CONSENT_TTL}
 
 
+@router.get("/selfie/character/{character_id}")
+def selfie_character(character_id: str, request: Request):
+    """Everything the selfie screen needs to come up: who is in the picture,
+    their two files, and whether the result can go to a phone.
+
+    Declared before `/selfie/{token}`, which would otherwise read "character"
+    as a photograph's address. Open, like the kiosk's own configuration — the
+    id is what a caller has to know, and it ends in random characters.
+    """
+    found = selfie.character(character_id)
+    if found is None:
+        raise HTTPException(404, "no such selfie character")
+    return {
+        "id": found.id,
+        "name": found.name,
+        "picture": found.picture,
+        "clip": found.clip,
+        **selfie.status(str(request.base_url)),
+    }
+
+
 @router.post("/selfie")
-async def selfie_share(request: Request, avatar: str = "", consent: str = ""):
+async def selfie_share(request: Request, character: str = "", consent: str = ""):
     """Hold one composed selfie for a day, so a phone can fetch it.
 
     In memory only — see `backend/selfie.py`. The event log records that a
@@ -378,7 +396,12 @@ async def selfie_share(request: Request, avatar: str = "", consent: str = ""):
         raise HTTPException(503, "selfies are not switched on here")
     if not consent:
         raise HTTPException(428, "the visitor has not agreed to share this photograph")
-    org_id = org_for(avatar)
+    # Whose it is comes from the character on the screen, as a showroom's comes
+    # from its avatar — never from a parameter that names an org.
+    taken_with = selfie.character(character)
+    if taken_with is None:
+        raise HTTPException(404, "no such selfie character")
+    org_id = taken_with.org_id
     if not selfie.public_base(str(request.base_url)):
         # Before the photograph is read: holding a picture nobody can fetch is
         # keeping a stranger's photo for no reason at all.
