@@ -81,18 +81,13 @@ function framed(camera: HTMLVideoElement, across = 0, into?: HTMLCanvasElement):
   return out
 }
 
-/** Put the character where `arrange` said, turned round if it said so. */
+/** Put the character where `arrange` said. */
 function drawFigure(
   ctx: CanvasRenderingContext2D,
   image: HTMLCanvasElement,
-  { figure: at, flip }: ReturnType<typeof arrange>,
+  { figure: at }: ReturnType<typeof arrange>,
 ) {
-  if (!flip) return ctx.drawImage(image, at.x, at.y, at.width, at.height)
-  ctx.save()
-  ctx.translate(at.x + at.width, at.y)
-  ctx.scale(-1, 1)
-  ctx.drawImage(image, 0, 0, at.width, at.height)
-  ctx.restore()
+  ctx.drawImage(image, at.x, at.y, at.width, at.height)
 }
 
 const PANEL =
@@ -110,6 +105,8 @@ type Layers = {
 
 export function Selfie({ who }: { who: Character }) {
   const name = who.name
+  // Which edge of the photograph they stand at. Theirs, and never changed.
+  const side = who.side
   const [stage, setStage] = useState<Stage>('closed')
   const [count, setCount] = useState(COUNT)
   const [look, setLook] = useState(LOOKS[0].id)
@@ -163,7 +160,7 @@ export function Selfie({ who }: { who: Character }) {
         ctx.drawImage(small, 0, 0)
         ctx.setTransform(1, 0, 0, 1, 0, 0)
         const who = ready.current
-        if (who) drawFigure(ctx, who.image, arrange(onto, small, face, who.image, who.face))
+        if (who) drawFigure(ctx, who.image, arrange(onto, small, face, who.image, who.face, side))
         if (!looking && now - looked > 350) {
           looking = true
           looked = now
@@ -340,7 +337,7 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      drawFigure(onto, who.image, arrange(FRAME, shot, visitor, who.image, who.face))
+      drawFigure(onto, who.image, arrange(FRAME, shot, visitor, who.image, who.face, side))
 
       const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
       const gains = toneGains(

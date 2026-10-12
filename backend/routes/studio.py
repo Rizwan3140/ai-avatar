@@ -588,6 +588,22 @@ def create_selfie(req: SelfieCreate, caller: Principal = Depends(editor)):
     return asdict(selfie.create_character(req.name.strip(), caller.org_id))
 
 
+class SelfieSide(BaseModel):
+    side: str
+
+
+@router.patch("/studio/selfies/{character_id}")
+def stand_selfie(character_id: str, req: SelfieSide, caller: Principal = Depends(editor)):
+    """Which edge of the photograph they stand at. Set here, per character, and
+    never changed by where a visitor happens to be standing."""
+    _mirrored()
+    found = _character_or_404(character_id, caller)
+    try:
+        return asdict(selfie.stand(found.id, req.side))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.delete("/studio/selfies/{character_id}")
 def delete_selfie(character_id: str, caller: Principal = Depends(editor)):
     """The folder and both files in it. A screen left open on it says so."""

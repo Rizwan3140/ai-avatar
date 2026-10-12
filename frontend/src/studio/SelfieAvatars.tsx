@@ -3,7 +3,14 @@ import { api, upload, type Principal } from './api.ts'
 import { Button, ConfirmAction, Empty, FilePicker, Note, Section, useLoad } from './ui.tsx'
 
 /** Who a visitor can be photographed with: a name and two files. */
-type Character = { id: string; name: string; org_id: string; picture: string; clip: string }
+type Character = {
+  id: string
+  name: string
+  org_id: string
+  picture: string
+  clip: string
+  side: 'left' | 'right'
+}
 
 type SelfieStatus = { available: boolean; share: boolean }
 
@@ -73,6 +80,12 @@ export function SelfieAvatars({ who }: { who: Principal }) {
       return what === 'picture'
         ? `${one.name}'s picture was removed. Their selfie screen offers nothing until there is one.`
         : `${one.name}'s clip was removed. Their picture stands still for the count.`
+    })
+
+  const stand = (one: Character, side: Character['side']) =>
+    act(`${one.id}-side`, async () => {
+      await api<Character>(base(one), { method: 'PATCH', body: { side } })
+      return `${one.name} now stands on the ${side} — on the screen and in every photograph.`
     })
 
   const remove = (one: Character) =>
@@ -183,6 +196,29 @@ export function SelfieAvatars({ who }: { who: Principal }) {
                   onPick={(file) => give(one, 'picture', file)}
                   onRemove={() => drop(one, 'picture')}
                 />
+                {/* Which edge they stand at. Theirs: a picture is made for one
+                    side, an arm out and cut where it leaves, so this is set
+                    once here and never changed by where a visitor stands. */}
+                <div className="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2.5">
+                  <span className="w-28 shrink-0 font-medium">Stands on</span>
+                  <span className="text-ink-soft min-w-0 flex-1 text-xs">
+                    The {one.side} of the screen and of every photograph. Choose the side their
+                    arm reaches out of the picture.
+                  </span>
+                  {(['left', 'right'] as const).map((side) => (
+                    <Button
+                      key={side}
+                      tone={one.side === side ? 'primary' : 'quiet'}
+                      aria-pressed={one.side === side}
+                      disabled={!mayWrite || Boolean(busy) || one.side === side}
+                      // The chosen one is disabled, and must not fade for it.
+                      className={one.side === side ? 'disabled:opacity-100' : ''}
+                      onClick={() => stand(one, side)}
+                    >
+                      {side === 'left' ? 'Left' : 'Right'}
+                    </Button>
+                  ))}
+                </div>
                 <Slot
                   name="Getting ready"
                   have={Boolean(one.clip)}

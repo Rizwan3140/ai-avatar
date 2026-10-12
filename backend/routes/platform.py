@@ -381,6 +381,7 @@ def selfie_character(character_id: str, request: Request):
         "name": found.name,
         "picture": found.picture,
         "clip": found.clip,
+        "side": found.side,
         **selfie.status(str(request.base_url)),
     }
 

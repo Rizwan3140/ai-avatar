@@ -835,6 +835,16 @@ check("a PNG is installed",
 check("exactly as it was sent",
       (_selfie.character_dir(WHO) / "selfie.png").read_bytes() == _png)
 check("and is served to the screen", client.get(r.json()["picture"]).content == _png)
+# Which edge they stand at is theirs: set per character, never by the visitor.
+check("they stand on the left unless told otherwise", r.json()["side"] == "left")
+check("the side is set per character, kept, and told to the screen",
+      client.patch(_one, headers=north, json={"side": "right"}).json()["side"] == "right"
+      and client.get(f"/api/selfie/character/{WHO}").json()["side"] == "right"
+      and client.get("/api/studio/selfies", headers=north).json()[0]["side"] == "right")
+check("there are two sides, and another company cannot choose either",
+      client.patch(_one, headers=north, json={"side": "middle"}).status_code == 400
+      and client.patch(_one, headers=south, json={"side": "left"}).status_code == 404
+      and client.get(f"/api/selfie/character/{WHO}").json()["side"] == "right")
 r = client.get(f"/api/selfie/character/{WHO}")
 check("the selfie screen is told who, and what it can do",
       r.status_code == 200 and r.json()["name"] == "Asha Rao" and r.json()["available"] is True

@@ -15,6 +15,10 @@ export type Character = {
   picture: string
   /** Getting ready, played once during the count. Empty until one is given. */
   clip: string
+  /** Which edge they stand at — on the screen and in every photograph. Their
+   *  picture is made for one side, so it is set per character and never
+   *  changed for a visitor. */
+  side: 'left' | 'right'
   /** Whether selfies are switched on here at all. */
   available: boolean
   /** Whether a finished selfie can be handed to a phone. */

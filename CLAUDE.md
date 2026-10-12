@@ -23,10 +23,10 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 132 checks
+(cd frontend && npm test)                   # 133 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 190 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 193 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-852 checks total. **Never run the Python suites through `unittest`** — they are
+856 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -247,11 +247,17 @@ company's prices out loud.
   the preview and the shutter both use, the camera's picture is never moved,
   and the preview draws the character in place live from the same `arrange`.
   A face counts for less the further it is from the centre line, and only
-  faces inside the cut are ever seen. The character keeps the left unless the
-  visitor is plainly standing in it (`0.42`, not the middle — split at the
-  middle, a centred visitor made them change sides with every shift of weight)
-  and on the right is drawn turned round, so the edge their arm is cut at is
-  still the photograph's edge.
+  faces inside the cut are ever seen.
+- **A selfie character's side is theirs, and nothing changes it.** `side` in
+  their `character.json` — left unless set to right in the Selfie tab — is the
+  edge they stand at on the screen and in every photograph. Their picture is
+  made for one side, an arm out and cut where it leaves. For the length of one
+  afternoon the code chose the side from where the visitor stood and drew them
+  turned round on the other; it was asked for straight back out ("dont change
+  the sides … either right or left per avatar"), and rightly: the same person
+  facing the other way from one photograph to the next is not the same person.
+  A visitor standing in their place is not made room for and does not shrink
+  them — they stand in front, the live preview shows it, and the visitor moves.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the

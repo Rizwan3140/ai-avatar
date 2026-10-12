@@ -30,7 +30,6 @@ test("their face is the size of the visitor's, and level with it", () => {
     assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
     const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
     assert.ok(Math.abs(theirs - 400 * DRAWN) < 2, `level at ${tall}: ${theirs.toFixed(0)}`)
-    assert.equal(placed.flip, false)
   }
   const near = arrange(FRAME, VIEW, visitor(260), PORTRAIT, THEIR_FACE)
   const far = arrange(FRAME, VIEW, visitor(110), PORTRAIT, THEIR_FACE)
@@ -73,29 +72,39 @@ test('they stand on the side the visitor is not, out to its edge, and never floa
   assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'their cut edge is the frame edge')
 })
 
-test('somebody standing in front of the camera does not make them change sides', () => {
-  // Dead centre, and a step either way: the left is theirs throughout.
-  for (const cx of [330, 360, 390]) {
-    assert.equal(arrange(FRAME, VIEW, visitor(180, cx), PORTRAIT, THEIR_FACE).flip, false, String(cx))
+test('their side is theirs: a visitor standing anywhere does not move them across', () => {
+  // Dead centre, a step either way, and right over on their side of the picture.
+  for (const cx of [130, 330, 360, 390, 600]) {
+    const placed = arrange(FRAME, VIEW, visitor(180, cx), PORTRAIT, THEIR_FACE)
+    assert.ok(placed.figure.x <= 0, `still at the left edge with the visitor at ${cx}`)
+    assert.ok(placed.figure.x + placed.figure.width / 2 < FRAME.width / 2, String(cx))
   }
 })
 
-test('a visitor on the left gets them on the right, turned round', () => {
-  // Their picture is made for one side: an arm out, cut where it leaves. Put
-  // on the other as it is, that cut is a ruled line across the visitor.
-  const placed = arrange(FRAME, VIEW, visitor(180, 470), PORTRAIT, THEIR_FACE)
-  assert.equal(placed.flip, true)
-  assert.ok(placed.figure.x + placed.figure.width >= FRAME.width, 'out to the right-hand edge')
-  const k = placed.figure.width / PORTRAIT.width
-  // Turned round, their face is measured from the picture's other side.
-  const theirLeft = placed.figure.x + (PORTRAIT.width - THEIR_FACE.x - THEIR_FACE.width) * k
+test('a character set to the right stands at the right edge, the same way round', () => {
+  const left = arrange(FRAME, VIEW, visitor(180, 250), PORTRAIT, THEIR_FACE, 'left')
+  // The visitor on the other side of the camera, the character on the right.
+  const right = arrange(FRAME, VIEW, visitor(180, 470), PORTRAIT, THEIR_FACE, 'right')
+  assert.ok(right.figure.x + right.figure.width >= FRAME.width, 'out to the right-hand edge')
+  assert.equal(right.figure.width, left.figure.width, 'the same size as they would be on the left')
+  assert.equal('flip' in right, false, 'and never turned round')
+  const k = right.figure.width / PORTRAIT.width
+  const theirLeft = right.figure.x + THEIR_FACE.x * k
   const visitorRight = FRAME.width - (470 - 180 * 0.4) * DRAWN
   assert.ok(theirLeft > visitorRight, `${theirLeft.toFixed(0)} > ${visitorRight.toFixed(0)}`)
 })
 
+test('a visitor standing in their place does not shrink them to fit beside', () => {
+  // On the character's own side there is no beside. They stay their size and
+  // stand in front; the preview shows it, and the visitor steps aside.
+  const inTheWay = arrange(FRAME, VIEW, visitor(180, 600), PORTRAIT, THEIR_FACE)
+  const ratio = theirFaceTall(inTheWay) / (180 * DRAWN)
+  assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)}`)
+})
+
 test('with no face found anywhere, it is still a picture of two people', () => {
   const blind = arrange(FRAME, VIEW, null, PORTRAIT, null)
-  assert.equal(blind.flip, false)
+  assert.ok(blind.figure.x <= 0, 'on the left, where they stand unless told otherwise')
   assert.ok(blind.figure.height > 0.45 * FRAME.height && blind.figure.height < 1.5 * FRAME.height)
   assert.ok(blind.figure.y + blind.figure.height >= FRAME.height - 1)
 })

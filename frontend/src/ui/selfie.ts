@@ -209,18 +209,26 @@ type Size = { width: number; height: number }
  * pixels of `view` (not mirrored) and of the avatar's picture. Either may be
  * null: then an ordinary distance is assumed.
  *
- * `figure` is where the avatar's picture is drawn. `flip` is whether it is
- * drawn turned round: it is made for one side — an arm out, cut at the edge it
- * leaves by — and put on the other as it is, that cut edge is a ruled line
- * down the middle of the photograph, across the visitor.
+ * **Their side is theirs, and it is never changed.** `side` is which edge of
+ * the photograph this character stands at, set once for each of them. Their
+ * picture is made for that side — an arm out, cut at the edge it leaves by —
+ * so it is not moved across for a visitor standing there, and it is never
+ * drawn turned round: for one release it was, and the same person facing the
+ * other way from one photograph to the next is not the same person. A visitor
+ * standing in their place sees it in the preview, and steps aside.
+ *
+ * `figure` is where the avatar's picture is drawn.
  */
+export type Side = 'left' | 'right'
+
 export function arrange(
   frame: Size,
   view: Size,
   visitor: Box | null,
   figure: Size,
   figureFace: Box | null,
-): { figure: Box; flip: boolean } {
+  side: Side = 'left',
+): { figure: Box } {
   const { width: W, height: H } = frame
   const scale = W / view.width
 
@@ -230,27 +238,23 @@ export function arrange(
   const headX = visitor ? W - (visitor.x + visitor.width / 2) * scale : 0.5 * W
   const headY = visitor ? (visitor.y + visitor.height / 2) * scale : 0.4 * H
 
-  // On the side the visitor is not, and in the room that side has: from the
-  // picture's edge to the near edge of the visitor's face, less a gap.
-  // The left is theirs unless the visitor is plainly standing in it. Split at
-  // the middle, somebody standing in front of the camera — which is where
-  // people stand — had them change sides with every shift of weight.
-  const onLeft = headX >= 0.42 * W
+  const onLeft = side === 'left'
   // A picture taken from the phone is head and shoulders: without a face found
   // in it, assume one where such a picture has it.
-  const given = figureFace ?? {
+  const face = figureFace ?? {
     x: figure.width * 0.36,
     y: figure.height * 0.1,
     width: figure.width * 0.28,
     height: figure.height * 0.24,
   }
-  // Turned round for the right-hand side, so their face is where a mirror
-  // puts it.
-  const face = onLeft ? given : { ...given, x: figure.width - given.x - given.width }
+  // The room their side has: from the picture's edge to the near edge of the
+  // visitor's face, less a gap.
   const room = (onLeft ? headX - headWide / 2 : W - headX - headWide / 2) - 0.07 * W
   // Their face the size of the visitor's. Held back only by two things: never
-  // a doll, whatever the faces say; and never over the visitor's face.
-  const fits = Math.max(room, 0.15 * W) / face.width
+  // a doll, whatever the faces say; and never over the visitor's face — unless
+  // the visitor is standing where they stand, when there is no beside to keep
+  // to and shrinking them into what is left would make them a doll after all.
+  const fits = room < 0.18 * W ? Infinity : room / face.width
   let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
   // Their picture ends somewhere — the chest, the waist — and that edge has to
   // be the frame's edge, or they are a bust hanging in the room. If, level
@@ -277,7 +281,7 @@ export function arrange(
   // has to be the frame's edge, or they are a bust hanging in the room.
   if (y + drawn.height < H) y = H - drawn.height
 
-  return { figure: { x, y, ...drawn }, flip: !onLeft }
+  return { figure: { x, y, ...drawn } }
 }
 
 /** The middle of a picture, cut to the shape of the frame: how much of it, and

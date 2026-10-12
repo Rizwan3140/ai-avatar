@@ -113,6 +113,8 @@ CLIP = "selfie.mp4"
 
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
+SIDES = ("left", "right")
+
 
 @dataclass
 class Character:
@@ -121,6 +123,10 @@ class Character:
     org_id: str
     picture: str = ""
     clip: str = ""
+    #: Which edge of the photograph they stand at: "left" or "right". Theirs,
+    #: set once, and never changed for a visitor — their picture is made for
+    #: one side, an arm out and cut where it leaves.
+    side: str = "left"
 
 
 def character_dir(character_id: str) -> Path:
@@ -149,6 +155,7 @@ def _read(folder: Path) -> Character:
         org_id=meta.get("org_id") or store.DEFAULT_ORG,
         picture=served(PICTURE),
         clip=served(CLIP),
+        side=meta.get("side") if meta.get("side") in SIDES else "left",
     )
 
 
@@ -179,6 +186,18 @@ def create_character(name: str, org_id: str) -> Character:
         json.dumps({"name": name, "org_id": org_id}, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    return _read(folder)
+
+
+def stand(character_id: str, side: str) -> Character:
+    """Say which edge they stand at. Kept beside their name."""
+    if side not in SIDES:
+        raise ValueError("a character stands on the left or on the right")
+    folder = character_dir(character_id)
+    meta_file = folder / "character.json"
+    meta = json.loads(meta_file.read_text(encoding="utf-8"))
+    meta["side"] = side
+    meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return _read(folder)
 
 
