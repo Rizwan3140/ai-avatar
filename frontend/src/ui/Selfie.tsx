@@ -299,6 +299,17 @@ export function Selfie({ who }: { who: Character }) {
         audio: false,
       })
       stream.current = media
+      // Then its best mode, asked for by name. "Ideal" is a wish: some webcams
+      // answer a wish for 4K with their 640 by 480 default, and a picture that
+      // small enlarged to a photograph is blurred before anything else is
+      // done to it. What the camera says it can do, it is told to do.
+      const [track] = media.getVideoTracks()
+      const can = track?.getCapabilities?.()
+      if (can?.width?.max && can.height?.max) {
+        await track
+          .applyConstraints({ width: can.width.max, height: can.height.max })
+          .catch(() => {})
+      }
       setCount(COUNT)
       setStage('countdown')
       // They get ready, if they have a clip of it.
@@ -424,7 +435,9 @@ export function Selfie({ who }: { who: Character }) {
         pixels.data[i + 1] *= gains[1]
         pixels.data[i + 2] *= gains[2]
       }
-      grade(pixels.data, tone(pixels.data), tone(around), 0.65)
+      // Less than half the way. At 0.65 their blacks were lifted far enough
+      // to look like haze over them, which is its own kind of blur.
+      grade(pixels.data, tone(pixels.data), tone(around), 0.4)
       const graded = canvas(WIDTH, HEIGHT)
       graded.getContext('2d')!.putImageData(pixels, 0, 0)
 
@@ -442,13 +455,16 @@ export function Selfie({ who }: { who: Character }) {
       }
       // The visitor's face, mirrored into the picture as the room was.
       const visitors = visitor && { ...visitor, x: WIDTH - visitor.x - visitor.width }
-      toned = theirs && visitors ? graded : softened(graded, 1.2)
+      toned = theirs && visitors ? graded : softened(graded, 0.5)
       if (theirs && visitors) {
-        const wanted = faceCrispness(room, visitors) * 1.12
-        // And no further than this, however poor the camera. Softened all the
-        // way to a bad webcam they are a bad picture of them, and it is the
-        // gap that has to close, not the character that has to be ruined.
-        for (const radius of [0.6, 1.2, 1.8, 2.4]) {
+        const wanted = faceCrispness(room, visitors) * 1.3
+        // A touch, and no more. This went to 2.4 pixels and nearly always got
+        // there: their face is a close-up and the visitor's is across the
+        // room, and a small face shrunk to the measuring size keeps less
+        // detail than a large one, so they read as far too sharp every time.
+        // "it's coming as blurry." The measure can only be trusted to say
+        // *that* they are crisper, not by how much.
+        for (const radius of [0.5, 0.9]) {
           if (faceCrispness(toned, theirs) <= wanted) break
           toned = softened(graded, radius)
         }
