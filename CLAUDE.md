@@ -278,7 +278,8 @@ company's prices out loud.
   camera it kept. **A 9:16 photograph comes from turning the webcam on its
   side, not from cutting a wide picture**: asked for, then "remove the zoom"
   in the next breath, and those two only meet in the camera's mount. Open
-  `/selfie?id=…&turn=90` once on the machine the camera is plugged into (270
+  `/selfie?id=…&turn=0` on a machine whose camera is the right way up (270 is
+  the default, as this cabinet is mounted;
   if it comes out upside down, 0 to undo); that browser remembers it, and a
   turned 1080p camera gives 1080×1920 with nothing cut or enlarged.
 - **A studio picture beside a webcam's gives the selfie away, and it is closed
