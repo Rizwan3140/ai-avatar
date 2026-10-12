@@ -8,6 +8,7 @@ import {
   arrange,
   bounds,
   centreCut,
+  clarify,
   crispness,
   cutOut,
   frameFor,
@@ -83,21 +84,15 @@ function framed(camera: HTMLVideoElement, across: number, into?: HTMLCanvasEleme
   return out
 }
 
-/** A little edge for the camera's picture: each pixel pushed away from the
- *  four beside it. Mild, because what a webcam has most of is noise. */
-function sharpen(ctx: CanvasRenderingContext2D, width: number, height: number, amount = 0.22) {
+/** The camera's picture given its edge, shape and range back — `clarify`.
+ *  The two blurs are the browser's, sized to the picture, not counted in
+ *  pixels: a 4K camera's softness is twice as many pixels wide. */
+function enhance(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const image = ctx.getImageData(0, 0, width, height)
-  const from = image.data
-  const to = new Uint8ClampedArray(from)
-  const row = width * 4
-  for (let y = 1; y < height - 1; y++) {
-    for (let i = (y * width + 1) * 4; i < ((y + 1) * width - 1) * 4; i += 4) {
-      for (let j = i; j < i + 3; j++) {
-        to[j] = from[j] * (1 + 4 * amount) - amount * (from[j - 4] + from[j + 4] + from[j - row] + from[j + row])
-      }
-    }
-  }
-  image.data.set(to)
+  const blurred = (radius: number) =>
+    softened(ctx.canvas, radius).getContext('2d')!.getImageData(0, 0, width, height).data
+  const { low, high } = tone(image.data)
+  clarify(image.data, blurred(width / 1000), blurred(width / 70), low, high)
   ctx.putImageData(image, 0, 0)
 }
 
@@ -409,17 +404,17 @@ export function Selfie({ who }: { who: Character }) {
     // And lifted a little. Beside a studio picture of the character a webcam's
     // frame is flat, thin and soft, and that gap — not the arrangement — is
     // what gave the first photographs from a real cabinet away. It is closed
-    // from both ends: here the camera's picture is given a little contrast,
-    // colour and edge, and below the character is brought down to meet it.
+    // from both ends: here the camera's picture is given colour, edge, shape
+    // and range (`enhance`), and below the character is brought down to meet it.
     const room = canvas(WIDTH, HEIGHT)
     const ctx = room.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingQuality = 'high'
-    ctx.filter = 'contrast(1.08) saturate(1.12)'
+    ctx.filter = 'saturate(1.12)'
     ctx.setTransform(-1, 0, 0, 1, WIDTH, 0)
     ctx.drawImage(shot, 0, 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.filter = 'none'
-    sharpen(ctx, WIDTH, HEIGHT)
+    enhance(ctx, WIDTH, HEIGHT)
 
     let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null

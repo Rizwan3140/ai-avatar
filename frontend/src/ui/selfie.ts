@@ -471,6 +471,50 @@ export function crispness(rgba: Uint8ClampedArray, side: number): number {
   return squares / (steps + 1) / (spread / n + 1)
 }
 
+/**
+ * The camera's picture, made to look photographed and not streamed.
+ *
+ * `fine` and `coarse` are the same picture blurred a little and a lot. What a
+ * pixel has over the first is edge; over the second, shape — the cheek against
+ * the wall behind it — and a webcam's picture is short of both. Each is given
+ * back, and then the range is opened out: `low` and `high` are the darkest and
+ * lightest the picture really reaches, and become black and white.
+ *
+ * It was a three-by-three sharpen at 0.22 and eight per cent of contrast, and
+ * beside a studio picture of the character the visitor still read as the soft
+ * one. That kernel only sees one pixel either side, and what a webcam blurs
+ * is wider than that.
+ *
+ * Three things are held back. A step smaller than `GRAIN` is noise, and is
+ * not an edge to be raised. Shape is given back no more than `HALO` either
+ * way, or a dark head against a bright ceiling grows a glowing rim. And the
+ * range is never opened by more than a third, so a picture of a grey wall
+ * does not become one of a black and white one.
+ */
+const GRAIN = 2
+const HALO = 18
+
+export function clarify(
+  rgba: Uint8ClampedArray,
+  fine: Uint8ClampedArray,
+  coarse: Uint8ClampedArray,
+  low: number,
+  high: number,
+  edge = 0.9,
+  shape = 0.3,
+): void {
+  const floor = Math.min(low, 40)
+  const gain = Math.min(255 / Math.max(1, Math.max(high, 215) - floor), 4 / 3)
+  for (let i = 0; i < rgba.length; i += 4) {
+    for (let j = i; j < i + 3; j++) {
+      const step = rgba[j] - fine[j]
+      const crisp = Math.sign(step) * Math.max(0, Math.abs(step) - GRAIN)
+      const body = clamp(rgba[j] - coarse[j], -HALO, HALO)
+      rgba[j] = (rgba[j] + edge * crisp + shape * body - floor) * gain
+    }
+  }
+}
+
 export type Look = {
   id: string
   label: string

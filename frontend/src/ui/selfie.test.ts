@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bounds, centreCut, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains,
+  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -263,4 +263,20 @@ test('a sharp face reads crisper than the same face softened, however contrasty'
   // The same sharp edges at a third of the contrast are still sharp.
   const faint = crispness(stripes(1, 100, 170), side)
   assert.ok(faint > soft, `${faint.toFixed(2)} against ${soft.toFixed(2)}`)
+})
+
+test('the camera picture gets its edges back, and its grain is left alone', () => {
+  // An edge from 80 to 160, blurred to a ramp either side of it.
+  const edge = greys([80, 80, 160, 160])
+  clarify(edge, greys([80, 100, 140, 160]), greys([120, 120, 120, 120]), 0, 255)
+  assert.ok(edge[4] < 80 && edge[8] > 160, `the two sides pushed apart: ${edge[4]}, ${edge[8]}`)
+  assert.ok(edge[8] - edge[4] < 80 + 2 * (0.9 * 20 + 0.3 * 18) + 1, 'and by no more than the halo allows')
+  // Two levels of noise on a flat wall are not an edge.
+  const wall = greys([120, 122, 120, 122])
+  clarify(wall, greys([121, 121, 121, 121]), greys([121, 121, 121, 121]), 0, 255)
+  assert.ok(Math.abs(wall[0] - wall[4]) <= 3, `${wall[0]} and ${wall[4]}`)
+  // A flat picture is opened out, but a grey wall stays a grey wall.
+  const flat = greys([100, 150])
+  clarify(flat, greys([100, 150]), greys([100, 150]), 100, 150)
+  assert.ok(flat[0] < 100 && flat[4] - flat[0] <= 50 * 4 / 3 + 1, `${flat[0]}, ${flat[4]}`)
 })
