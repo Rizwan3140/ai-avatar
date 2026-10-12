@@ -286,5 +286,5 @@ test('the camera picture gets its edges back, and its grain is left alone', () =
   // A flat picture is opened out, but a grey wall stays a grey wall.
   const flat = greys([100, 150])
   clarify(flat, greys([100, 150]), greys([100, 150]), 100, 150)
-  assert.ok(flat[0] < 100 && flat[4] - flat[0] <= 50 * 4 / 3 + 1, `${flat[0]}, ${flat[4]}`)
+  assert.ok(flat[4] - flat[0] > 50 && flat[4] - flat[0] <= 50 * 4 / 3 + 1 && flat[4] <= 255, `${flat[0]}, ${flat[4]}`)
 })
