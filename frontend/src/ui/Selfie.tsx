@@ -14,6 +14,8 @@ import {
   frameFor,
   grade,
   tone,
+  turned,
+  turnFrom,
   isCutOut,
   meanColour,
   toneGains,
@@ -63,9 +65,30 @@ const UNATTENDED = 120_000
 const canvas = (width: number, height: number) =>
   Object.assign(document.createElement('canvas'), { width, height })
 
+/**
+ * A webcam stood on its side, so a wide camera takes a tall photograph with
+ * nothing cut and nothing enlarged. The browser cannot know how a camera is
+ * mounted, so it is told once, in the address — `/selfie?id=…&turn=90`, or
+ * 270 if that comes out upside down, or 0 to put it back — and remembered by
+ * this browser, because the camera belongs to the machine the browser is on.
+ */
+const TURN = (() => {
+  const KEY = 'luxora.selfie.turn'
+  try {
+    const said = new URLSearchParams(location.search).get('turn')
+    if (said !== null) localStorage.setItem(KEY, String(turnFrom(said)))
+    return turnFrom(localStorage.getItem(KEY))
+  } catch {
+    return 0 // no storage here, and no address: a camera the right way up
+  }
+})()
+
+/** The camera's picture as it stands once turned. */
+const upright = (camera: HTMLVideoElement) =>
+  turned({ width: camera.videoWidth, height: camera.videoHeight }, TURN)
+
 /** The photograph's shape and size for this camera — see `frameFor`. */
-const frameOf = (camera: HTMLVideoElement) =>
-  frameFor({ width: camera.videoWidth, height: camera.videoHeight })
+const frameOf = (camera: HTMLVideoElement) => frameFor(upright(camera))
 
 /**
  * The camera's picture, cut to the photograph's shape — the middle of it, not
@@ -75,12 +98,19 @@ const frameOf = (camera: HTMLVideoElement) =>
  */
 function framed(camera: HTMLVideoElement, across: number, into?: HTMLCanvasElement): HTMLCanvasElement {
   const frame = frameOf(camera)
-  const cut = centreCut({ width: camera.videoWidth, height: camera.videoHeight }, frame)
+  const whole = upright(camera)
+  const cut = centreCut(whole, frame)
   const width = Math.round(across)
   const height = Math.round((width * frame.height) / frame.width)
   const out = into ?? canvas(width, height)
   if (out.width !== width || out.height !== height) Object.assign(out, { width, height })
-  out.getContext('2d')!.drawImage(camera, cut.x, cut.y, cut.width, cut.height, 0, 0, width, height)
+  const ctx = out.getContext('2d')!
+  // The cut laid over the whole of `out`, and the camera stood up inside it.
+  const by = width / cut.width
+  ctx.setTransform(by, 0, 0, by, (whole.width / 2 - cut.x) * by, (whole.height / 2 - cut.y) * by)
+  ctx.rotate((TURN * Math.PI) / 180)
+  ctx.drawImage(camera, -camera.videoWidth / 2, -camera.videoHeight / 2)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
   return out
 }
 
@@ -389,7 +419,7 @@ export function Selfie({ who }: { who: Character }) {
     // worth ruling out before any other, and it is a number: a camera handing
     // over 640 by 480 makes a soft photograph whatever is done afterwards.
     setTaken(`Camera: ${camera.videoWidth} × ${camera.videoHeight}. Photo: ${WIDTH} × ${HEIGHT}.`)
-    keeping.current = `${camera.videoWidth}x${camera.videoHeight}`
+    keeping.current = `${camera.videoWidth}x${camera.videoHeight}${TURN ? `x${TURN}` : ''}`
     console.info('selfie:', camera.videoWidth, 'x', camera.videoHeight, 'camera ->', WIDTH, 'x', HEIGHT, 'photo')
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.

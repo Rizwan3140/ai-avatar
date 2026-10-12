@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 138 checks
+(cd frontend && npm test)                   # 139 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-864 checks total. **Never run the Python suites through `unittest`** — they are
+865 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -275,7 +275,12 @@ company's prices out loud.
   a 1080p camera nothing is enlarged at all; one stood on its side still gives
   the tall one. The raised resolution and the bigger output of an earlier fix
   were treating the symptom — the picture was soft because of how little of the
-  camera it kept.
+  camera it kept. **A 9:16 photograph comes from turning the webcam on its
+  side, not from cutting a wide picture**: asked for, then "remove the zoom"
+  in the next breath, and those two only meet in the camera's mount. Open
+  `/selfie?id=…&turn=90` once on the machine the camera is plugged into (270
+  if it comes out upside down, 0 to undo); that browser remembers it, and a
+  turned 1080p camera gives 1080×1920 with nothing cut or enlarged.
 - **A studio picture beside a webcam's gives the selfie away, and it is closed
   from both ends.** The first photograph from the real cabinet was arranged
   correctly and still read as a paste: she was crisp, contrasty and rich, the

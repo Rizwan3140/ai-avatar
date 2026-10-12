@@ -295,17 +295,32 @@ export function arrange(
  *
  * So the photograph follows the camera. A wide camera gives a wide photograph,
  * four by three: all of its height and three quarters of its width, and from a
- * 1080p camera not one pixel enlarged. A camera stood on its side still gives
- * the tall one. Enlarged only when the camera is too small to make 1080 on the
- * short side, and never past 2160 on the long one.
+ * 1080p camera not one pixel enlarged.
+ *
+ * **A camera stood on its side gives nine by sixteen** - a phone's shape and
+ * the panel's, which is the photograph that was wanted - and gives all of
+ * itself to it: nothing cut, nothing enlarged. That is the only way a wide
+ * webcam makes a tall photograph without the zoom above, so it is done with
+ * the camera's mount and `turned`, not here. Enlarged only when the camera is
+ * too small to make 1080 on the short side, never past 2160 on the long one.
  */
 export function frameFor(camera: Size): Size {
-  const cut = centreCut(camera, camera.width >= camera.height ? { width: 4, height: 3 } : { width: 2, height: 3 })
+  const cut = centreCut(camera, camera.width >= camera.height ? { width: 4, height: 3 } : { width: 9, height: 16 })
   const short = Math.min(cut.width, cut.height)
   const long = Math.max(cut.width, cut.height)
   const scale = Math.min(Math.max(1, 1080 / short), 2160 / long)
   return { width: Math.round(cut.width * scale), height: Math.round(cut.height * scale) }
 }
+
+/** How far a camera mounted on its side has to be turned to stand its picture
+ *  up: a quarter turn either way, half, or not at all. Anything else is none. */
+export type Turn = 0 | 90 | 180 | 270
+export const turnFrom = (said: string | null): Turn =>
+  ([90, 180, 270] as const).find((turn) => String(turn) === said) ?? 0
+
+/** The size of a camera's picture once it has been stood up. */
+export const turned = (camera: Size, turn: Turn): Size =>
+  turn % 180 ? { width: camera.height, height: camera.width } : camera
 
 /** The middle of a picture, cut to the shape of the frame: how much of it, and
  *  from where. The preview and the photograph both use this, so they are the

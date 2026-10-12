@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains,
+  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -26,10 +26,18 @@ test('the photograph follows the camera, so a webcam is not cut to a strip and b
   // Smaller cameras are brought up to the same size and no further.
   assert.deepEqual(frameFor({ width: 1280, height: 720 }), { width: 1440, height: 1080 })
   assert.deepEqual(frameFor({ width: 640, height: 480 }), { width: 1440, height: 1080 })
-  // A camera stood on its side still gives the tall photograph.
-  assert.deepEqual(frameFor({ width: 1080, height: 1920 }), { width: 1080, height: 1620 })
   // And a 4K one is not kept at a size nothing here needs.
   assert.deepEqual(frameFor({ width: 3840, height: 2160 }), { width: 2160, height: 1620 })
+})
+
+test('a camera stood on its side gives nine by sixteen, all of it and none of it enlarged', () => {
+  const upright = turned({ width: 1920, height: 1080 }, 90)
+  assert.deepEqual(upright, { width: 1080, height: 1920 })
+  assert.deepEqual(frameFor(upright), { width: 1080, height: 1920 })
+  assert.deepEqual(centreCut(upright, frameFor(upright)), { x: 0, y: 0, width: 1080, height: 1920 })
+  assert.deepEqual(turned({ width: 1920, height: 1080 }, 180), { width: 1920, height: 1080 })
+  // Only a turn that is one. Anything else typed into the address is none.
+  assert.deepEqual(['90', '270', '180', '45', '', null].map(turnFrom), [90, 270, 180, 0, 0, 0])
 })
 
 test('the preview and the photograph are the same cut of the camera', () => {
