@@ -1,40 +1,48 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { arrange, bounds, cutOut, isCutOut, meanColour, toneGains } from './selfie.ts'
+import { arrange, bounds, centreCut, cutOut, isCutOut, meanColour, toneGains } from './selfie.ts'
 
-// A 1440x2160 picture, a 1920x1080 webcam, and a head-and-shoulders PNG of the
-// avatar whose face is 300 pixels tall.
+// A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
+// 720x1080; and a PNG of the character, head to waist, whose face is 300 tall.
 const FRAME = { width: 1440, height: 2160 }
-const WEBCAM = { width: 1920, height: 1080 }
+const VIEW = { width: 720, height: 1080 }
+const DRAWN = FRAME.width / VIEW.width
 const PORTRAIT = { width: 900, height: 1700 }
 const THEIR_FACE = { x: 320, y: 140, width: 260, height: 300 }
-/** A visitor's face in the webcam frame: this tall, centred here. */
-const visitor = (tall: number, cx = 960, cy = 400) => ({
+/** A visitor's face in the camera's picture (not mirrored): this tall, centred
+ *  here. Left of the middle there is right of it in the photograph. */
+const visitor = (tall: number, cx = 250, cy = 400) => ({
   x: cx - tall * 0.4, y: cy - tall / 2, width: tall * 0.8, height: tall,
 })
+const theirFaceTall = (placed: ReturnType<typeof arrange>, picture = PORTRAIT) =>
+  (THEIR_FACE.height * placed.figure.height) / picture.height
 
-test('the avatar is sized from the visitor, so neither is a giant beside a doll', () => {
-  const near = arrange(FRAME, WEBCAM, visitor(180), PORTRAIT, THEIR_FACE)
-  const far = arrange(FRAME, WEBCAM, visitor(110), PORTRAIT, THEIR_FACE)
-  assert.ok(near.figure.height > far.figure.height * 1.2, 'closer visitor, larger avatar')
-  for (const [tall, placed] of [[180, near], [110, far], [260, arrange(FRAME, WEBCAM, visitor(260), PORTRAIT, THEIR_FACE)]] as const) {
-    // Their face against the visitor's, as both are drawn: the same size.
-    const scale = placed.room.height / WEBCAM.height
-    const ratio = (THEIR_FACE.height * placed.figure.height) / PORTRAIT.height / (tall * scale)
-    assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
-    // And level with it: the middle of one face beside the middle of the other.
-    const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
-    const visitors = placed.room.y + 400 * scale
-    assert.ok(Math.abs(theirs - visitors) < 2, `level at ${tall}: ${theirs.toFixed(0)} vs ${visitors.toFixed(0)}`)
-  }
+test('the preview and the photograph are the same cut of the camera', () => {
+  assert.deepEqual(centreCut({ width: 1920, height: 1080 }, FRAME), { x: 600, y: 0, width: 720, height: 1080 })
+  // A camera stood on its side has more height than the frame wants, not width.
+  assert.deepEqual(centreCut({ width: 1080, height: 1920 }, FRAME), { x: 0, y: 150, width: 1080, height: 1620 })
 })
 
-test('a short picture of them is enlarged a little before they are lowered', () => {
-  // Head and shoulders only. Level with the visitor at the same size, it would
-  // end in mid-air: so a little larger first, and only then lower.
+test("their face is the size of the visitor's, and level with it", () => {
+  for (const tall of [180, 260]) {
+    const placed = arrange(FRAME, VIEW, visitor(tall), PORTRAIT, THEIR_FACE)
+    const ratio = theirFaceTall(placed) / (tall * DRAWN)
+    assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
+    const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
+    assert.ok(Math.abs(theirs - 400 * DRAWN) < 2, `level at ${tall}: ${theirs.toFixed(0)}`)
+    assert.equal(placed.flip, false)
+  }
+  const near = arrange(FRAME, VIEW, visitor(260), PORTRAIT, THEIR_FACE)
+  const far = arrange(FRAME, VIEW, visitor(110), PORTRAIT, THEIR_FACE)
+  assert.ok(near.figure.height > far.figure.height * 1.5, 'closer visitor, larger avatar')
+})
+
+test('a picture of them that would end in mid-air is enlarged a little before they are lowered', () => {
+  // Head and shoulders only. Level with the visitor at the same size, its cut
+  // edge would hang above the bottom: so a little larger first, and only then lower.
   const bust = { width: 900, height: 1200 }
-  const placed = arrange(FRAME, WEBCAM, visitor(180), bust, THEIR_FACE)
-  const ratio = (THEIR_FACE.height * placed.figure.height) / bust.height / (180 * 2)
+  const placed = arrange(FRAME, VIEW, visitor(180), bust, THEIR_FACE)
+  const ratio = theirFaceTall(placed, bust) / (180 * DRAWN)
   assert.ok(ratio > 1.1 && ratio <= 1.151, `enlarged, by no more than 15%: ${ratio.toFixed(2)}`)
   assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'and their edge is the frame edge')
 })
@@ -44,46 +52,52 @@ test('a wide picture of them is not shrunk to fit: they run off the edge', () =>
   // not grow to match a visitor at a kiosk, and came out two thirds the size.
   const wide = { width: 1400, height: 1500 }
   const face = { x: 620, y: 200, width: 260, height: 300 }
-  const placed = arrange(FRAME, WEBCAM, visitor(260), wide, face)
-  const scale = placed.room.height / WEBCAM.height
-  assert.ok(Math.abs((face.height * placed.figure.width) / wide.width / (260 * scale) - 1) < 0.02)
+  const placed = arrange(FRAME, VIEW, visitor(260), wide, face)
+  assert.ok(Math.abs((face.height * placed.figure.width) / wide.width / (260 * DRAWN) - 1) < 0.02)
   assert.ok(placed.figure.x < 0, 'their arm is off the left of the picture')
 })
 
 test('two large faces stand side by side, never one over the other', () => {
-  const close = arrange(FRAME, WEBCAM, visitor(420), PORTRAIT, THEIR_FACE)
-  const scale = close.room.height / WEBCAM.height
+  const close = arrange(FRAME, VIEW, visitor(420), PORTRAIT, THEIR_FACE)
   const k = close.figure.width / PORTRAIT.width
   const theirRight = close.figure.x + (THEIR_FACE.x + THEIR_FACE.width) * k
   // The visitor's face, mirrored into the picture.
-  const visitorLeft = close.room.x + close.room.width - (960 + 420 * 0.4) * scale
+  const visitorLeft = FRAME.width - (250 + 420 * 0.4) * DRAWN
   assert.ok(theirRight < visitorLeft, `${theirRight.toFixed(0)} < ${visitorLeft.toFixed(0)}`)
-  assert.ok(visitorLeft + 420 * 0.8 * scale <= FRAME.width, 'and the visitor is still in the picture')
 })
 
-test('somebody across the room is brought nearer, but only so far', () => {
-  const tiny = arrange(FRAME, WEBCAM, visitor(40), PORTRAIT, THEIR_FACE)
-  assert.ok(tiny.room.height > FRAME.height, 'the camera picture is enlarged toward them')
-  assert.ok(tiny.room.height <= FRAME.height * 1.5 + 1, 'and no more than half again')
-  assert.ok(tiny.figure.height >= 0.45 * FRAME.height - 1, 'and the avatar is never a doll')
-})
-
-test('they stand on the side the visitor is not, and never float', () => {
-  const placed = arrange(FRAME, WEBCAM, visitor(200), PORTRAIT, THEIR_FACE)
-  const middle = placed.figure.x + placed.figure.width / 2
-  assert.ok(middle < FRAME.width / 2, 'visitor slid to the right, avatar on the left')
-  assert.ok(placed.figure.x <= 0, 'and out to the edge: where their arm is cut is never inside the picture')
+test('they stand on the side the visitor is not, out to its edge, and never float', () => {
+  const placed = arrange(FRAME, VIEW, visitor(200), PORTRAIT, THEIR_FACE)
+  assert.ok(placed.figure.x + placed.figure.width / 2 < FRAME.width / 2, 'visitor on the right, avatar on the left')
+  assert.ok(placed.figure.x <= 0, 'where their arm is cut is never inside the picture')
   assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'their cut edge is the frame edge')
-  // The room still covers the whole frame after being slid.
-  assert.ok(placed.room.x <= 0 && placed.room.x + placed.room.width >= FRAME.width - 1)
-  assert.ok(placed.room.y <= 0 && placed.room.y + placed.room.height >= FRAME.height - 1)
+})
+
+test('somebody standing in front of the camera does not make them change sides', () => {
+  // Dead centre, and a step either way: the left is theirs throughout.
+  for (const cx of [330, 360, 390]) {
+    assert.equal(arrange(FRAME, VIEW, visitor(180, cx), PORTRAIT, THEIR_FACE).flip, false, String(cx))
+  }
+})
+
+test('a visitor on the left gets them on the right, turned round', () => {
+  // Their picture is made for one side: an arm out, cut where it leaves. Put
+  // on the other as it is, that cut is a ruled line across the visitor.
+  const placed = arrange(FRAME, VIEW, visitor(180, 470), PORTRAIT, THEIR_FACE)
+  assert.equal(placed.flip, true)
+  assert.ok(placed.figure.x + placed.figure.width >= FRAME.width, 'out to the right-hand edge')
+  const k = placed.figure.width / PORTRAIT.width
+  // Turned round, their face is measured from the picture's other side.
+  const theirLeft = placed.figure.x + (PORTRAIT.width - THEIR_FACE.x - THEIR_FACE.width) * k
+  const visitorRight = FRAME.width - (470 - 180 * 0.4) * DRAWN
+  assert.ok(theirLeft > visitorRight, `${theirLeft.toFixed(0)} > ${visitorRight.toFixed(0)}`)
 })
 
 test('with no face found anywhere, it is still a picture of two people', () => {
-  const blind = arrange(FRAME, WEBCAM, null, PORTRAIT, null)
-  assert.ok(blind.figure.height > 0.45 * FRAME.height && blind.figure.height < 1.5 * FRAME.height + 1)
-  assert.ok(blind.figure.width <= 0.9 * FRAME.width + 1)
-  assert.ok(blind.room.x <= 0 && blind.room.x + blind.room.width >= FRAME.width - 1)
+  const blind = arrange(FRAME, VIEW, null, PORTRAIT, null)
+  assert.equal(blind.flip, false)
+  assert.ok(blind.figure.height > 0.45 * FRAME.height && blind.figure.height < 1.5 * FRAME.height)
+  assert.ok(blind.figure.y + blind.figure.height >= FRAME.height - 1)
 })
 
 test('a picture that arrives cut out is not cut again', () => {

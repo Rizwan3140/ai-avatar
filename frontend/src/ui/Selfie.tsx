@@ -7,6 +7,7 @@ import {
   LOOKS,
   arrange,
   bounds,
+  centreCut,
   cutOut,
   isCutOut,
   meanColour,
@@ -62,6 +63,38 @@ const UNATTENDED = 120_000
 const canvas = (width: number, height: number) =>
   Object.assign(document.createElement('canvas'), { width, height })
 
+const FRAME = { width: WIDTH, height: HEIGHT }
+
+/**
+ * The camera's picture, cut to the frame's shape — the middle of it, not
+ * mirrored. One function for the preview and for the photograph, because they
+ * have to be the same picture: the visitor poses with the one and is handed
+ * the other. `across` is how wide to make it; the camera's own size if 0.
+ */
+function framed(camera: HTMLVideoElement, across = 0, into?: HTMLCanvasElement): HTMLCanvasElement {
+  const cut = centreCut({ width: camera.videoWidth, height: camera.videoHeight }, FRAME)
+  const width = across || Math.round(cut.width)
+  const height = Math.round((width * HEIGHT) / WIDTH)
+  const out = into ?? canvas(width, height)
+  if (out.width !== width || out.height !== height) Object.assign(out, { width, height })
+  out.getContext('2d')!.drawImage(camera, cut.x, cut.y, cut.width, cut.height, 0, 0, width, height)
+  return out
+}
+
+/** Put the character where `arrange` said, turned round if it said so. */
+function drawFigure(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLCanvasElement,
+  { figure: at, flip }: ReturnType<typeof arrange>,
+) {
+  if (!flip) return ctx.drawImage(image, at.x, at.y, at.width, at.height)
+  ctx.save()
+  ctx.translate(at.x + at.width, at.y)
+  ctx.scale(-1, 1)
+  ctx.drawImage(image, 0, 0, at.width, at.height)
+  ctx.restore()
+}
+
 const PANEL =
   'bg-canvas/85 border-line/60 shadow-float rounded-[clamp(16px,1.8vh,60px)] border p-[clamp(14px,1.6vh,58px)] backdrop-blur-xl'
 const YES = 'bg-ink text-label rounded-full px-[1.6em] py-[0.8em] font-medium text-white'
@@ -96,8 +129,55 @@ export function Selfie({ who }: { who: Character }) {
   /** Which attempt this is. A picture still being composed when the visitor
    *  closed, or asked for another, belongs to nobody and is dropped. */
   const attempt = useRef(0)
+  /** The picture as it will be taken, drawn live through the count. */
+  const preview = useRef<HTMLCanvasElement | null>(null)
+  /** The same `figure`, once it has arrived, for the preview to draw. */
+  const ready = useRef<Figure | null>(null)
 
   const open = stage !== 'closed'
+
+  // The preview is the photograph, not a view of the camera.
+  //
+  // It was the camera's picture in a corner: the visitor alone, at one shape,
+  // while the photograph was cut to another, slid, enlarged and given a second
+  // person. They posed with one picture and were handed a different one. This
+  // draws what `shoot` will draw — the same cut, the character placed by the
+  // same `arrange` from a face found a few times a second — so where they are
+  // standing, and where the character will stand beside them, is settled
+  // before the shutter and not discovered after it.
+  useEffect(() => {
+    if (stage !== 'countdown') return
+    const small = canvas(1, 1)
+    let face: Awaited<ReturnType<typeof findFace>> = null
+    let looking = false
+    let looked = 0
+    let next = 0
+    const draw = (now: number) => {
+      const camera = video.current
+      const onto = preview.current
+      if (camera?.videoWidth && onto) {
+        framed(camera, onto.width, small)
+        const ctx = onto.getContext('2d')!
+        // Mirrored, because an unmirrored self-view reads as someone else.
+        ctx.setTransform(-1, 0, 0, 1, onto.width, 0)
+        ctx.drawImage(small, 0, 0)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        const who = ready.current
+        if (who) drawFigure(ctx, who.image, arrange(onto, small, face, who.image, who.face))
+        if (!looking && now - looked > 350) {
+          looking = true
+          looked = now
+          void findFace(small, true).then((found) => {
+            face = found
+            looking = false
+          })
+        }
+      }
+      next = requestAnimationFrame(draw)
+    }
+    next = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(next)
+  }, [stage])
 
   function stopCamera() {
     stream.current?.getTracks().forEach((track) => track.stop())
@@ -113,6 +193,7 @@ export function Selfie({ who }: { who: Character }) {
     photo.current = null
     layers.current = null
     figure.current = null
+    ready.current = null
     attempt.current++
     setStage('closed')
     setPicture('')
@@ -166,7 +247,11 @@ export function Selfie({ who }: { who: Character }) {
       bus.emit('SELFIE_POSING', { posing: true })
       // Both take a moment, and the count is a moment nobody is waiting in.
       warmFaces()
+      const mine = attempt.current
       figure.current = portrait()
+      void figure.current.then((who) => {
+        if (mine === attempt.current) ready.current = who
+      })
     } catch {
       setProblem('The camera could not be opened. It may be in use, or not permitted here.')
       setStage('refused')
@@ -227,10 +312,9 @@ export function Selfie({ who }: { who: Character }) {
     }
     const mine = attempt.current
 
-    // The moment, at the camera's own size. Everything after this is
-    // arithmetic on a picture that already exists.
-    const shot = canvas(camera.videoWidth, camera.videoHeight)
-    shot.getContext('2d')!.drawImage(camera, 0, 0)
+    // The moment, at the camera's own size, cut exactly as the preview was.
+    // Everything after this is arithmetic on a picture that already exists.
+    const shot = framed(camera)
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.
     stopCamera()
@@ -242,20 +326,12 @@ export function Selfie({ who }: { who: Character }) {
     const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
     if (mine !== attempt.current) return
 
-    const place = arrange(
-      { width: WIDTH, height: HEIGHT },
-      shot,
-      visitor,
-      who?.image ?? { width: 1, height: 1 },
-      who?.face ?? null,
-    )
-
     // Mirrored, as the preview was: this is the picture they posed for.
     const room = canvas(WIDTH, HEIGHT)
     const ctx = room.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingQuality = 'high'
-    ctx.setTransform(-1, 0, 0, 1, place.room.x + place.room.width, 0)
-    ctx.drawImage(shot, 0, place.room.y, place.room.width, place.room.height)
+    ctx.setTransform(-1, 0, 0, 1, WIDTH, 0)
+    ctx.drawImage(shot, 0, 0, WIDTH, HEIGHT)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     let placed: HTMLCanvasElement | null = null
@@ -264,7 +340,7 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      onto.drawImage(who.image, place.figure.x, place.figure.y, place.figure.width, place.figure.height)
+      drawFigure(onto, who.image, arrange(FRAME, shot, visitor, who.image, who.face))
 
       const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
       const gains = toneGains(
@@ -405,8 +481,9 @@ export function Selfie({ who }: { who: Character }) {
           >
             {count || ''}
           </span>
-          {/* Themselves, small, so they can see they are in the frame.
-              Mirrored, because an unmirrored self-view reads as someone else. */}
+          {/* The camera, playing but not shown: the preview below is drawn
+              from it. In the page and a pixel across rather than hidden,
+              because a browser may stop feeding a video it is not laying out. */}
           <video
             ref={(element) => {
               video.current = element
@@ -417,7 +494,16 @@ export function Selfie({ who }: { who: Character }) {
             autoPlay
             playsInline
             muted
-            className="border-line/60 shadow-float absolute right-safe bottom-safe aspect-[3/4] w-[26%] -scale-x-100 rounded-[clamp(10px,1.1vh,36px)] border object-cover"
+            aria-hidden
+            className="absolute size-px opacity-0"
+          />
+          {/* The photograph as it will be taken — see the effect that draws it. */}
+          <canvas
+            ref={preview}
+            width={480}
+            height={720}
+            aria-label="A preview of your selfie"
+            className="border-line/60 shadow-float absolute right-safe bottom-safe aspect-[2/3] w-[30%] rounded-[clamp(10px,1.1vh,36px)] border"
           />
           <button
             type="button"

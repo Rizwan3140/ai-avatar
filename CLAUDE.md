@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 130 checks
+(cd frontend && npm test)                   # 132 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 190 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-850 checks total. **Never run the Python suites through `unittest`** — they are
+852 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -238,6 +238,20 @@ company's prices out loud.
   has. Now: the same size, level, off the edge of the frame on her own side,
   enlarged by up to 15% before she is ever lowered, and no outline shadow.
   Test with the customer's file the day it exists.
+- **The selfie's preview is the photograph.** It was the camera in a corner,
+  while the photograph was cut to another shape, slid sideways to make room and
+  enlarged toward a far visitor — and, measuring faces across the camera's
+  whole frame, it once slid over to a man passing at the very edge, nearer the
+  lens than the visitor posing in the middle, and photographed *him*. The
+  visitor was not in his own selfie. Now `framed()` makes one centre cut that
+  the preview and the shutter both use, the camera's picture is never moved,
+  and the preview draws the character in place live from the same `arrange`.
+  A face counts for less the further it is from the centre line, and only
+  faces inside the cut are ever seen. The character keeps the left unless the
+  visitor is plainly standing in it (`0.42`, not the middle — split at the
+  middle, a centred visitor made them change sides with every shift of weight)
+  and on the right is drawn turned round, so the edge their arm is cut at is
+  still the photograph's edge.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the

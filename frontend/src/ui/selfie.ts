@@ -179,13 +179,12 @@ export function bounds(rgba: Uint8ClampedArray, width: number, height: number): 
 type Size = { width: number; height: number }
 
 /**
- * Where everything goes: the camera's picture in the frame, and the avatar on it.
+ * Where the avatar goes on the camera's picture.
  *
  * At one fixed size the avatar is right for exactly one visitor. Somebody who
  * steps close fills the frame beside a doll; somebody who hangs back is a
  * figure across the room behind a giant. So the avatar's face is drawn the
- * size of the visitor's own and level with it, and the camera's picture is
- * slid so the visitor is where the avatar is not.
+ * size of the visitor's own, level with it, on the side the visitor is not.
  *
  * The same size, not a little larger. It was 1.15, on the reasoning that
  * whoever holds the phone is nearer the lens — and it was also capped so the
@@ -197,61 +196,57 @@ type Size = { width: number; height: number }
  * any selfie, and the only thing that holds their size back is the two faces
  * needing room side by side.
  *
- * `visitor` and `figureFace` are faces as the detector found them, in the
- * pixels of the camera frame and of the avatar's picture. Either may be null:
- * then an ordinary distance is assumed, which is the arrangement this had
- * before it could see.
+ * **The camera's picture is never moved.** It was: slid sideways so the
+ * visitor stood two thirds across, and enlarged toward anybody standing far
+ * back. That made the photograph a different picture from the one in the
+ * preview the visitor had just posed with — and, measuring faces across the
+ * camera's whole frame, it once slid over to a man at the very edge of it,
+ * outside the preview altogether, and photographed him. What the visitor is
+ * shown is what is taken: `view` is the camera's picture already cut to the
+ * frame's shape, the same cut the preview shows, and only the avatar is placed.
  *
- * `room` is where the camera frame is drawn before it is mirrored. `figure` is
- * where the avatar's picture is drawn.
+ * `visitor` and `figureFace` are faces as the detector found them, in the
+ * pixels of `view` (not mirrored) and of the avatar's picture. Either may be
+ * null: then an ordinary distance is assumed.
+ *
+ * `figure` is where the avatar's picture is drawn. `flip` is whether it is
+ * drawn turned round: it is made for one side — an arm out, cut at the edge it
+ * leaves by — and put on the other as it is, that cut edge is a ruled line
+ * down the middle of the photograph, across the visitor.
  */
 export function arrange(
   frame: Size,
-  camera: Size,
+  view: Size,
   visitor: Box | null,
   figure: Size,
   figureFace: Box | null,
-): { room: Box; figure: Box } {
+): { figure: Box; flip: boolean } {
   const { width: W, height: H } = frame
+  const scale = W / view.width
 
-  // Fill the frame. If they are standing a long way back, come in toward them
-  // — but only so far, because every step in is the camera's pixels enlarged.
-  let scale = Math.max(W / camera.width, H / camera.height)
-  if (visitor && visitor.height * scale < 0.13 * H) {
-    scale *= Math.min(1.5, (0.13 * H) / (visitor.height * scale))
-  }
-  const wide = camera.width * scale
-  const tall = camera.height * scale
-
-  // Mirrored, so their face is measured from the far edge.
-  const faceX = visitor ? wide - (visitor.x + visitor.width / 2) * scale : wide / 2
-  const faceY = visitor ? (visitor.y + visitor.height / 2) * scale : tall * 0.4
   const headTall = visitor ? visitor.height * scale : 0.17 * H
   const headWide = visitor ? visitor.width * scale : headTall * 0.8
-  // Two thirds of the way across — further, the bigger their face is, so a
-  // face that fills a third of the picture leaves the other two thirds free;
-  // but never so far that it leaves the picture.
-  const across = clamp(
-    0.66 * W + 0.6 * (headWide - 0.2 * W),
-    0.66 * W,
-    Math.max(0.66 * W, 0.95 * W - headWide / 2),
-  )
-  const left = clamp(across - faceX, W - wide, 0)
-  const top = clamp(0.38 * H - faceY, H - tall, 0)
-  const headX = left + faceX
-  const headY = top + faceY
+  // Mirrored, as the preview is, so their face is measured from the far edge.
+  const headX = visitor ? W - (visitor.x + visitor.width / 2) * scale : 0.5 * W
+  const headY = visitor ? (visitor.y + visitor.height / 2) * scale : 0.4 * H
 
+  // On the side the visitor is not, and in the room that side has: from the
+  // picture's edge to the near edge of the visitor's face, less a gap.
+  // The left is theirs unless the visitor is plainly standing in it. Split at
+  // the middle, somebody standing in front of the camera — which is where
+  // people stand — had them change sides with every shift of weight.
+  const onLeft = headX >= 0.42 * W
   // A picture taken from the phone is head and shoulders: without a face found
   // in it, assume one where such a picture has it.
-  const face = figureFace ?? {
+  const given = figureFace ?? {
     x: figure.width * 0.36,
     y: figure.height * 0.1,
     width: figure.width * 0.28,
     height: figure.height * 0.24,
   }
-  // On the side the visitor is not, and in the room that side has: from the
-  // picture's edge to the near edge of the visitor's face, less a gap.
-  const onLeft = headX >= W / 2
+  // Turned round for the right-hand side, so their face is where a mirror
+  // puts it.
+  const face = onLeft ? given : { ...given, x: figure.width - given.x - given.width }
   const room = (onLeft ? headX - headWide / 2 : W - headX - headWide / 2) - 0.07 * W
   // Their face the size of the visitor's. Held back only by two things: never
   // a doll, whatever the faces say; and never over the visitor's face.
@@ -282,10 +277,16 @@ export function arrange(
   // has to be the frame's edge, or they are a bust hanging in the room.
   if (y + drawn.height < H) y = H - drawn.height
 
-  return {
-    room: { x: left, y: top, width: wide, height: tall },
-    figure: { x, y, ...drawn },
-  }
+  return { figure: { x, y, ...drawn }, flip: !onLeft }
+}
+
+/** The middle of a picture, cut to the shape of the frame: how much of it, and
+ *  from where. The preview and the photograph both use this, so they are the
+ *  same picture. */
+export function centreCut(picture: Size, frame: Size): Box {
+  const width = Math.min(picture.width, (picture.height * frame.width) / frame.height)
+  const height = (width * frame.height) / frame.width
+  return { x: (picture.width - width) / 2, y: (picture.height - height) / 2, width, height }
 }
 
 type Colour = [number, number, number]

@@ -47,7 +47,11 @@ export function SelfieBooth() {
   }, [posing])
 
   const usable = who !== null && who.available && Boolean(who.picture)
-  const stand = 'absolute inset-0 size-full object-contain object-bottom'
+  // Against the left edge and the floor, not centred. Their picture is cut
+  // where their arm leaves it, on the left; centred in a window that is not
+  // exactly its shape, that cut stood a little way in from the edge of the
+  // screen with a strip of nothing beside it.
+  const stand = 'absolute inset-0 size-full object-contain object-left-bottom'
 
   return (
     <main className="kiosk-root bg-canvas relative flex h-full flex-col overflow-hidden">

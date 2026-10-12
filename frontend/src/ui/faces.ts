@@ -55,9 +55,18 @@ export function warmFaces(): void {
 }
 
 /**
- * The largest face — the person nearest the lens — or null.
+ * The visitor's face — large, and near the middle — or null.
  *
- * Looked for three times, closer each time, stopping at the first look that
+ * Not simply the largest. That was the rule, and it photographed the wrong
+ * man: somebody passing at the edge of the frame, nearer the lens than the
+ * visitor posing in the middle of it. Whoever is having their picture taken
+ * stands in front of the camera, so a face counts for less the further it is
+ * from the centre line, down to a fifth at the very edge.
+ *
+ * `quick` is for the preview, many times a second: one look at the whole
+ * picture, and no waiting for a detector that has not finished loading.
+ *
+ * Otherwise looked for three times, closer each time, stopping at the first look that
  * finds anybody. The model sees every picture shrunk to 128 pixels square, and
  * was made for a face held at arm's length: in a whole webcam frame, somebody
  * standing two metres back is a face five pixels tall, and it finds nothing —
@@ -65,28 +74,31 @@ export function warmFaces(): void {
  * frame it is shown the frame in squares, and then in squares half that size,
  * where the same face is twenty pixels and plain.
  */
-export async function findFace(image: HTMLCanvasElement): Promise<Box | null> {
+export async function findFace(image: HTMLCanvasElement, quick = false): Promise<Box | null> {
   // Waited for, but not for ever. The detector is thirteen megabytes, and a
   // panel that reaches this server down a tunnel may still be fetching it
   // when the shutter goes. A picture arranged without it is better than a
   // visitor watching three dots; the next one has it.
   const found = await Promise.race([
     detector(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PATIENCE)),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), quick ? 0 : PATIENCE)),
   ])
   if (!found) return null
   const { width, height } = image
   const short = Math.min(width, height)
+  const weight = (face: Box) => {
+    const off = Math.min(1, Math.abs(face.x + face.width / 2 - width / 2) / (width / 2))
+    return face.width * face.height * (1 - 0.8 * off * off)
+  }
   try {
-    for (const side of [0, short, Math.round(short / 2)]) {
+    for (const side of quick ? [0] : [0, short, Math.round(short / 2)]) {
       let best: Box | null = null
       for (const [x, y, size] of side ? tiles(width, height, side) : [[0, 0, 0] as const]) {
         const view = size ? crop(image, x, y, size) : image
         for (const { boundingBox: box } of found.detect(view).detections) {
           if (!box) continue
-          if (!best || box.width * box.height > best.width * best.height) {
-            best = { x: x + box.originX, y: y + box.originY, width: box.width, height: box.height }
-          }
+          const face = { x: x + box.originX, y: y + box.originY, width: box.width, height: box.height }
+          if (!best || weight(face) > weight(best)) best = face
         }
       }
       if (best) return best
