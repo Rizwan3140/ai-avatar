@@ -27,6 +27,9 @@ type Detector = {
 
 const HOME = '/facefinder'
 
+/** How long a picture waits for the detector to finish loading. */
+const PATIENCE = 6000
+
 let loading: Promise<Detector | null> | null = null
 
 function detector(): Promise<Detector | null> {
@@ -63,7 +66,14 @@ export function warmFaces(): void {
  * where the same face is twenty pixels and plain.
  */
 export async function findFace(image: HTMLCanvasElement): Promise<Box | null> {
-  const found = await detector()
+  // Waited for, but not for ever. The detector is thirteen megabytes, and a
+  // panel that reaches this server down a tunnel may still be fetching it
+  // when the shutter goes. A picture arranged without it is better than a
+  // visitor watching three dots; the next one has it.
+  const found = await Promise.race([
+    detector(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), PATIENCE)),
+  ])
   if (!found) return null
   const { width, height } = image
   const short = Math.min(width, height)

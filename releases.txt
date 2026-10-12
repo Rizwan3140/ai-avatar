@@ -3,7 +3,8 @@
 # release's copy is the one read, so older lines never need changing.
 #
 # version | what someone choosing a version needs to know
-v2.2.0 | The selfie as a photo booth of its own: make a selfie character in the studio's Selfie tab from a cut-out picture and a getting-ready clip - no showroom avatar involved. Sized to the visitor's own face, an eight-second count, a sharper picture. Recommended.
+v2.2.1 | 2.2.0 with the selfie picture put right: the character is the same size as the visitor and level with them, reaches the edge of the photo, and no longer has a sticker's shadow round it. Recommended.
+v2.2.0 | The selfie as a photo booth of its own: make a selfie character in the studio's Selfie tab from a cut-out picture and a getting-ready clip - no showroom avatar involved. Sized to the visitor's own face, an eight-second count, a sharper picture.
 v2.1.0 | Everything in 2.0, plus the first selfie screen: a visitor is photographed with the avatar and can send the picture to their phone. Opened from the studio's Selfie tab.
 v2.0.0 | Telugu and Hindi avatars that hear and speak, a product shelf that scrolls, try-on through the Anywear extension, and this version menu. No selfie screen.
 v1.0.0 | English only - the last version before Telugu and Hindi. Go back here if 2.x misbehaves.

@@ -178,19 +178,24 @@ export function bounds(rgba: Uint8ClampedArray, width: number, height: number): 
 
 type Size = { width: number; height: number }
 
-/** How much bigger than the visitor's the avatar's face is drawn. They are the
- *  one holding the phone, so they are the one nearer the lens. */
-const NEARER = 1.15
-
 /**
  * Where everything goes: the camera's picture in the frame, and the avatar on it.
  *
  * At one fixed size the avatar is right for exactly one visitor. Somebody who
  * steps close fills the frame beside a doll; somebody who hangs back is a
- * figure across the room behind a giant. So the avatar is sized from the
- * visitor's own face — a little larger, being nearer the lens — and stood
- * level with it, and the camera's picture is slid so the visitor is where the
- * avatar is not.
+ * figure across the room behind a giant. So the avatar's face is drawn the
+ * size of the visitor's own and level with it, and the camera's picture is
+ * slid so the visitor is where the avatar is not.
+ *
+ * The same size, not a little larger. It was 1.15, on the reasoning that
+ * whoever holds the phone is nearer the lens — and it was also capped so the
+ * avatar's whole picture stayed inside the frame. A real picture of them is a
+ * wide close-up with an arm out, so the cap bit first: beside a visitor
+ * standing at a kiosk, whom a landscape webcam cropped to a portrait always
+ * shows large, they came out two thirds the size and read as a sticker. They
+ * run off the edge of the frame now, as the person holding the phone does in
+ * any selfie, and the only thing that holds their size back is the two faces
+ * needing room side by side.
  *
  * `visitor` and `figureFace` are faces as the detector found them, in the
  * pixels of the camera frame and of the avatar's picture. Either may be null:
@@ -221,11 +226,20 @@ export function arrange(
   // Mirrored, so their face is measured from the far edge.
   const faceX = visitor ? wide - (visitor.x + visitor.width / 2) * scale : wide / 2
   const faceY = visitor ? (visitor.y + visitor.height / 2) * scale : tall * 0.4
-  const left = clamp(0.66 * W - faceX, W - wide, 0)
+  const headTall = visitor ? visitor.height * scale : 0.17 * H
+  const headWide = visitor ? visitor.width * scale : headTall * 0.8
+  // Two thirds of the way across — further, the bigger their face is, so a
+  // face that fills a third of the picture leaves the other two thirds free;
+  // but never so far that it leaves the picture.
+  const across = clamp(
+    0.66 * W + 0.6 * (headWide - 0.2 * W),
+    0.66 * W,
+    Math.max(0.66 * W, 0.95 * W - headWide / 2),
+  )
+  const left = clamp(across - faceX, W - wide, 0)
   const top = clamp(0.38 * H - faceY, H - tall, 0)
   const headX = left + faceX
   const headY = top + faceY
-  const headTall = visitor ? visitor.height * scale : 0.17 * H
 
   // A picture taken from the phone is head and shoulders: without a face found
   // in it, assume one where such a picture has it.
@@ -235,16 +249,35 @@ export function arrange(
     width: figure.width * 0.28,
     height: figure.height * 0.24,
   }
-  // Never a doll and never a wall, whatever the two faces say.
-  const k = Math.min(
-    clamp((headTall * NEARER) / face.height, (0.45 * H) / figure.height, (1.5 * H) / figure.height),
-    (0.9 * W) / figure.width,
-  )
+  // On the side the visitor is not, and in the room that side has: from the
+  // picture's edge to the near edge of the visitor's face, less a gap.
+  const onLeft = headX >= W / 2
+  const room = (onLeft ? headX - headWide / 2 : W - headX - headWide / 2) - 0.07 * W
+  // Their face the size of the visitor's. Held back only by two things: never
+  // a doll, whatever the faces say; and never over the visitor's face.
+  const fits = Math.max(room, 0.15 * W) / face.width
+  let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
+  // Their picture ends somewhere — the chest, the waist — and that edge has to
+  // be the frame's edge, or they are a bust hanging in the room. If, level
+  // with the visitor, it would stop short of the bottom, they are first made a
+  // little larger: up to 15%, which nobody reads as a different size, where
+  // a head set lower than the visitor's is read at once. Only what that
+  // leaves is made up by lowering them, further down.
+  const reach = (H - headY) / (figure.height - (face.y + face.height / 2))
+  if (reach > k) k = Math.min(reach, k * 1.15, fits)
   const drawn = { width: figure.width * k, height: figure.height * k }
-  // On the side the visitor is not.
-  const side = headX >= W / 2 ? 0.27 : 0.73
-  const x = side * W - (face.x + face.width / 2) * k
-  let y = headY - 0.02 * H - (face.y + face.height / 2) * k
+  const faceWide = face.width * k
+  // A quarter of the way in from their side, or nearer the edge if their face
+  // would otherwise reach the visitor's.
+  const fromEdge = clamp(0.27 * W, 0.03 * W + faceWide / 2, Math.max(0.03 * W + faceWide / 2, room + 0.03 * W - faceWide / 2))
+  const centre = onLeft ? fromEdge : W - fromEdge
+  // And out to the edge on their own side, at least. Their picture is cut
+  // where their arm leaves it; a little way inside the frame, that cut is a
+  // ruled line down the photograph.
+  const placed = centre - (face.x + face.width / 2) * k
+  const x = onLeft ? Math.min(placed, 0) : Math.max(placed, W - drawn.width)
+  // Level: eyes beside eyes.
+  let y = headY - (face.y + face.height / 2) * k
   // They do not float. The picture of them ends at the chest, and that edge
   // has to be the frame's edge, or they are a bust hanging in the room.
   if (y + drawn.height < H) y = H - drawn.height

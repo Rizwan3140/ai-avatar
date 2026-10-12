@@ -299,13 +299,12 @@ export function Selfie({ who }: { who: Character }) {
       // As filmed and simply placed: the honest paste.
       ctx.drawImage(held.figure, 0, 0)
     } else if (held.figure) {
-      // Leaned toward the room's light, and casting a little of their own
-      // shadow on it — the difference between standing there and a sticker.
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.32)'
-      ctx.shadowBlur = 42
-      ctx.shadowOffsetX = 14
+      // Leaned toward the room's light, and nothing else. This also cast a
+      // soft shadow from their whole outline, to stop them looking like a
+      // sticker — and a dark edge all the way round a cut-out is precisely
+      // what a sticker has. Somebody standing in a room throws a shadow on
+      // the floor behind them, not a halo on the air beside them.
       ctx.drawImage(held.toned ?? held.figure, 0, 0)
-      ctx.shadowColor = 'transparent'
     }
     ctx.filter = 'none'
     if (style.tint) {

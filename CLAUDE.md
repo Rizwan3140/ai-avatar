@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 128 checks
+(cd frontend && npm test)                   # 130 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 190 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-848 checks total. **Never run the Python suites through `unittest`** — they are
+850 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -221,11 +221,23 @@ company's prices out loud.
   dependency.** `ui/faces.ts` loads MediaPipe's face detector from
   `public/facefinder` — served here, so it works offline; lazily, so the
   showroom never fetches it. Chrome's own `FaceDetector` is behind a flag and
-  absent on a real cabinet. `selfie.arrange` then draws the character's face a
-  little larger than the visitor's and slides the camera picture so the visitor
-  is where the character is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
+  absent on a real cabinet. `selfie.arrange` then draws the character's face
+  the size of the visitor's, level with it, and slides the camera picture so
+  the visitor is where the character is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
   folder must not be called `vendor/`: `.gitignore` drops that name, and with it
   the copy in `dist` that a release serves.
+- **A stand-in picture proves the code runs, not that the picture is right.**
+  The sizing was tested with a PNG cut from footage: narrow, head to waist. The
+  real one was a wide close-up with an arm out and a third of it empty, and
+  three things written for the stand-in were wrong for it. A cap keeping the
+  whole picture inside the frame stopped her growing to match a visitor at a
+  kiosk — whom a landscape webcam cropped to a portrait always shows large —
+  so she was two thirds his size. A rule that her cut-off edge must reach the
+  bottom slid her down until her head was below his. And a soft shadow round
+  her outline, added to stop her looking like a sticker, is what a sticker
+  has. Now: the same size, level, off the edge of the frame on her own side,
+  enlarged by up to 15% before she is ever lowered, and no outline shadow.
+  Test with the customer's file the day it exists.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the
