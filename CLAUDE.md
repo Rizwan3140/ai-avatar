@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 134 checks
+(cd frontend && npm test)                   # 137 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 193 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-857 checks total. **Never run the Python suites through `unittest`** — they are
+860 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -258,6 +258,18 @@ company's prices out loud.
   the tall one. The raised resolution and the bigger output of an earlier fix
   were treating the symptom — the picture was soft because of how little of the
   camera it kept.
+- **A studio picture beside a webcam's gives the selfie away, and it is closed
+  from both ends.** The first photograph from the real cabinet was arranged
+  correctly and still read as a paste: she was crisp, contrasty and rich, the
+  visitor soft, flat and thin. "Realistic" had only leaned her colour toward
+  the room. Now the camera's picture is lifted a little (contrast, colour, a
+  mild sharpen), and she is brought down to it: her tonal range graded 65% of
+  the way to the room's (`selfie.tone`, `grade`), then softened a step at a
+  time until her face is no crisper than the visitor's, both measured at one
+  small size (`crispness`), and never past 2.4px. **Sharpness is not the sum
+  of the steps between pixels** — that is the same however an edge is spread,
+  and the first `crispness` scored a blurred face as the crisper of two. Its
+  own check caught it before it reached a panel.
 - **A selfie character's side is theirs, and nothing changes it.** `side` in
   their `character.json` — left unless set to right in the Selfie tab — is the
   edge they stand at on the screen and in every photograph. Their picture is

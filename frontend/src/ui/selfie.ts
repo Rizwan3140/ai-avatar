@@ -360,6 +360,117 @@ export function toneGains(room: Colour, figure: Colour): Colour {
   ) as Colour
 }
 
+/** How dark the darks are, how bright the brights, and how much colour. */
+export type Tone = { low: number; high: number; colour: number }
+
+/**
+ * The tonal range of a picture: the brightness its darkest and brightest
+ * fiftieths sit at, and how saturated it is on average. What is transparent
+ * does not count.
+ *
+ * A studio picture runs from near black to near white and is rich. A webcam's
+ * does not: its blacks are lifted, its whites dulled, its colour thin. Laid
+ * side by side unmatched, that difference is the whole of "the avatar's
+ * quality and the user's do not match" — before sharpness is even looked at.
+ */
+export function tone(rgba: Uint8ClampedArray): Tone {
+  const seen = new Uint32Array(256)
+  let colour = 0
+  let n = 0
+  for (let i = 0; i < rgba.length; i += 16) {
+    if (rgba[i + 3] < 128) continue
+    const r = rgba[i]
+    const g = rgba[i + 1]
+    const b = rgba[i + 2]
+    seen[Math.round(0.299 * r + 0.587 * g + 0.114 * b)]++
+    const most = Math.max(r, g, b)
+    colour += most ? (most - Math.min(r, g, b)) / most : 0
+    n++
+  }
+  if (!n) return { low: 0, high: 255, colour: 0 }
+  const at = (share: number) => {
+    let under = 0
+    for (let level = 0; level < 256; level++) {
+      under += seen[level]
+      if (under >= share * n) return level
+    }
+    return 255
+  }
+  return { low: at(0.02), high: at(0.98), colour: colour / n }
+}
+
+/**
+ * Give a picture another's tonal range, in place: its darks to where the
+ * other's are, its brights likewise, its colour as thin or as rich.
+ *
+ * `strength` is how far to go, 0 to 1. Not all the way: a studio portrait
+ * dragged the whole distance to a webcam's range is a bad photograph of them,
+ * and it is the gap that has to close, not the avatar that has to be ruined.
+ */
+export function grade(rgba: Uint8ClampedArray, from: Tone, to: Tone, strength: number): void {
+  const mix = (a: number, b: number) => a + (b - a) * strength
+  const low = mix(from.low, to.low)
+  const high = mix(from.high, to.high)
+  const span = (high - low) / Math.max(1, from.high - from.low)
+  const rich = from.colour > 0.01 ? clamp(mix(1, to.colour / from.colour), 0.6, 1.15) : 1
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (!rgba[i + 3]) continue
+    const r = rgba[i]
+    const g = rgba[i + 1]
+    const b = rgba[i + 2]
+    const light = 0.299 * r + 0.587 * g + 0.114 * b
+    const moved = low + (light - from.low) * span
+    // Each channel keeps its distance from grey, scaled by how rich the other
+    // picture is, around the new brightness.
+    rgba[i] = moved + (r - light) * span * rich
+    rgba[i + 1] = moved + (g - light) * span * rich
+    rgba[i + 2] = moved + (b - light) * span * rich
+  }
+}
+
+/**
+ * How crisp a square picture is, as a number that does not care how bright or
+ * how contrasty it is: how tall its typical edge is in one pixel's step,
+ * against how much the picture varies at all.
+ *
+ * Not the *sum* of the steps between neighbouring pixels, which is what this
+ * first added up. That sum is the same however an edge is spread: a rise of a
+ * hundred in one pixel and a rise of a hundred over four are both a hundred.
+ * It scored a blurred face as the crisper of two, and would have softened
+ * nothing. Each step is weighted by its own size instead, so one tall step
+ * counts for more than four short ones.
+ *
+ * Asked of two faces each shrunk to the same small square, it says which was
+ * photographed more sharply — and a face is what the eye compares. Shrinking
+ * also averages a webcam's noise away, which measured at full size reads as
+ * detail and makes the soft picture look like the sharp one.
+ */
+export function crispness(rgba: Uint8ClampedArray, side: number): number {
+  const light = new Float32Array(side * side)
+  let sum = 0
+  for (let i = 0; i < light.length; i++) {
+    light[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2]
+    sum += light[i]
+  }
+  const mean = sum / light.length
+  let steps = 0
+  let squares = 0
+  let spread = 0
+  let n = 0
+  for (let y = 0; y < side - 1; y++) {
+    for (let x = 0; x < side - 1; x++) {
+      const i = y * side + x
+      const across = Math.abs(light[i] - light[i + 1])
+      const down = Math.abs(light[i] - light[i + side])
+      steps += across + down
+      squares += across * across + down * down
+      spread += Math.abs(light[i] - mean)
+      n++
+    }
+  }
+  return squares / (steps + 1) / (spread / n + 1)
+}
+
 export type Look = {
   id: string
   label: string

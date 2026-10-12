@@ -8,8 +8,11 @@ import {
   arrange,
   bounds,
   centreCut,
+  crispness,
   cutOut,
   frameFor,
+  grade,
+  tone,
   isCutOut,
   meanColour,
   toneGains,
@@ -78,6 +81,45 @@ function framed(camera: HTMLVideoElement, across: number, into?: HTMLCanvasEleme
   if (out.width !== width || out.height !== height) Object.assign(out, { width, height })
   out.getContext('2d')!.drawImage(camera, cut.x, cut.y, cut.width, cut.height, 0, 0, width, height)
   return out
+}
+
+/** A little edge for the camera's picture: each pixel pushed away from the
+ *  four beside it. Mild, because what a webcam has most of is noise. */
+function sharpen(ctx: CanvasRenderingContext2D, width: number, height: number, amount = 0.22) {
+  const image = ctx.getImageData(0, 0, width, height)
+  const from = image.data
+  const to = new Uint8ClampedArray(from)
+  const row = width * 4
+  for (let y = 1; y < height - 1; y++) {
+    for (let i = (y * width + 1) * 4; i < ((y + 1) * width - 1) * 4; i += 4) {
+      for (let j = i; j < i + 3; j++) {
+        to[j] = from[j] * (1 + 4 * amount) - amount * (from[j - 4] + from[j + 4] + from[j - row] + from[j + row])
+      }
+    }
+  }
+  image.data.set(to)
+  ctx.putImageData(image, 0, 0)
+}
+
+/** A softer copy of a layer. */
+function softened(layer: HTMLCanvasElement, radius: number): HTMLCanvasElement {
+  const out = canvas(layer.width, layer.height)
+  const ctx = out.getContext('2d', { willReadFrequently: true })!
+  ctx.filter = `blur(${radius}px)`
+  ctx.drawImage(layer, 0, 0)
+  return out
+}
+
+const SAMPLE = 96
+let sample: HTMLCanvasElement | null = null
+
+/** How crisp one face is, shrunk to a size every face is measured at. */
+function faceCrispness(layer: HTMLCanvasElement, face: Box): number {
+  sample ??= canvas(SAMPLE, SAMPLE)
+  const ctx = sample.getContext('2d', { willReadFrequently: true })!
+  ctx.clearRect(0, 0, SAMPLE, SAMPLE)
+  ctx.drawImage(layer, face.x, face.y, face.width, face.height, 0, 0, SAMPLE, SAMPLE)
+  return crispness(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data, SAMPLE)
 }
 
 /** Put the character where `arrange` said. */
@@ -345,12 +387,21 @@ export function Selfie({ who }: { who: Character }) {
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
+    //
+    // And lifted a little. Beside a studio picture of the character a webcam's
+    // frame is flat, thin and soft, and that gap — not the arrangement — is
+    // what gave the first photographs from a real cabinet away. It is closed
+    // from both ends: here the camera's picture is given a little contrast,
+    // colour and edge, and below the character is brought down to meet it.
     const room = canvas(WIDTH, HEIGHT)
     const ctx = room.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingQuality = 'high'
+    ctx.filter = 'contrast(1.08) saturate(1.12)'
     ctx.setTransform(-1, 0, 0, 1, WIDTH, 0)
     ctx.drawImage(shot, 0, 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.filter = 'none'
+    sharpen(ctx, WIDTH, HEIGHT)
 
     let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null
@@ -358,21 +409,50 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      drawFigure(onto, who.image, arrange(frame, shot, visitor, who.image, who.face, side))
+      const place = arrange(frame, shot, visitor, who.image, who.face, side)
+      drawFigure(onto, who.image, place)
 
+      // Their colour leaned toward the room's cast, then their whole tonal
+      // range brought most of the way to the room's: blacks as lifted, whites
+      // as dull, colour as thin.
       const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
-      const gains = toneGains(
-        meanColour(ctx.getImageData(0, 0, WIDTH, HEIGHT).data),
-        meanColour(pixels.data),
-      )
+      const around = ctx.getImageData(0, 0, WIDTH, HEIGHT).data
+      const gains = toneGains(meanColour(around), meanColour(pixels.data))
       for (let i = 0; i < pixels.data.length; i += 4) {
         if (!pixels.data[i + 3]) continue
         pixels.data[i] *= gains[0]
         pixels.data[i + 1] *= gains[1]
         pixels.data[i + 2] *= gains[2]
       }
-      toned = canvas(WIDTH, HEIGHT)
-      toned.getContext('2d')!.putImageData(pixels, 0, 0)
+      grade(pixels.data, tone(pixels.data), tone(around), 0.65)
+      const graded = canvas(WIDTH, HEIGHT)
+      graded.getContext('2d')!.putImageData(pixels, 0, 0)
+
+      // Then as sharp as the visitor is, and no sharper. Their face and the
+      // visitor's are each measured at the same small size, and theirs is
+      // softened a step at a time until it is no crisper — a face is what the
+      // eye sets beside a face. With no visitor's face to measure against, a
+      // little, which is what a webcam costs.
+      const k = place.figure.width / who.image.width
+      const theirs = who.face && {
+        x: place.figure.x + who.face.x * k,
+        y: place.figure.y + who.face.y * k,
+        width: who.face.width * k,
+        height: who.face.height * k,
+      }
+      // The visitor's face, mirrored into the picture as the room was.
+      const visitors = visitor && { ...visitor, x: WIDTH - visitor.x - visitor.width }
+      toned = theirs && visitors ? graded : softened(graded, 1.2)
+      if (theirs && visitors) {
+        const wanted = faceCrispness(room, visitors) * 1.12
+        // And no further than this, however poor the camera. Softened all the
+        // way to a bad webcam they are a bad picture of them, and it is the
+        // gap that has to close, not the character that has to be ruined.
+        for (const radius of [0.6, 1.2, 1.8, 2.4]) {
+          if (faceCrispness(toned, theirs) <= wanted) break
+          toned = softened(graded, radius)
+        }
+      }
     }
 
     layers.current = { room, figure: placed, toned }

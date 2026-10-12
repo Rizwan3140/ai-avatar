@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { arrange, bounds, centreCut, cutOut, frameFor, isCutOut, meanColour, toneGains } from './selfie.ts'
+import {
+  arrange, bounds, centreCut, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains,
+} from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
 // 720x1080; and a PNG of the character, head to waist, whose face is 300 tall.
@@ -218,4 +220,47 @@ test('the avatar leans toward the room, and only so far', () => {
   for (const gain of toneGains([4, 30, 6], [220, 200, 190])) {
     assert.ok(gain >= 0.86 * 0.88 && gain <= 1.1 * 1.14, String(gain))
   }
+})
+
+/** Opaque grey pixels at these brightnesses. */
+const greys = (levels: number[]) => {
+  const rgba = new Uint8ClampedArray(levels.length * 4)
+  levels.forEach((v, i) => rgba.set([v, v, v, 255], i * 4))
+  return rgba
+}
+
+test('a studio picture is brought toward a webcam’s range, and not all the way', () => {
+  // Every sixteenth byte is sampled, so one pixel in four: enough of each.
+  const studio = { low: 10, high: 245, colour: 0.5 }
+  const webcam = { low: 50, high: 205, colour: 0.25 }
+  const rgba = new Uint8ClampedArray([10, 10, 10, 255, 245, 245, 245, 255, 200, 100, 100, 255, 0, 0, 0, 0])
+  grade(rgba, studio, webcam, 0.5)
+  assert.equal(rgba[0], 30, 'its black, halfway to the lifted one')
+  assert.equal(rgba[4], 225, 'its white, halfway to the dulled one')
+  assert.ok(rgba[8] - rgba[9] < 100, 'its colour thinner than it was')
+  assert.ok(rgba[8] - rgba[9] > 40, 'and still colour')
+  assert.deepEqual([...rgba.slice(12)], [0, 0, 0, 0], 'what is transparent is left alone')
+})
+
+test('the range of a picture is read from what is there', () => {
+  const flat = tone(greys(Array.from({ length: 400 }, (_, i) => 60 + (i % 100))))
+  assert.ok(flat.low >= 60 && flat.low <= 66 && flat.high >= 154 && flat.high <= 160, JSON.stringify(flat))
+  assert.equal(flat.colour, 0)
+  assert.deepEqual(tone(new Uint8ClampedArray(64)), { low: 0, high: 255, colour: 0 })
+})
+
+test('a sharp face reads crisper than the same face softened, however contrasty', () => {
+  const side = 16
+  const stripes = (edge: number, low: number, high: number) =>
+    greys(Array.from({ length: side * side }, (_, i) => {
+      const x = i % side
+      const t = Math.min(1, Math.max(0, (x % 8) / edge))
+      return low + (high - low) * (x % 8 < 4 ? t : 1 - Math.min(1, ((x % 8) - 4) / edge))
+    }))
+  const sharp = crispness(stripes(1, 20, 230), side)
+  const soft = crispness(stripes(4, 20, 230), side)
+  assert.ok(sharp > soft * 1.5, `${sharp.toFixed(2)} against ${soft.toFixed(2)}`)
+  // The same sharp edges at a third of the contrast are still sharp.
+  const faint = crispness(stripes(1, 100, 170), side)
+  assert.ok(faint > soft, `${faint.toFixed(2)} against ${soft.toFixed(2)}`)
 })
