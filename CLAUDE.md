@@ -279,8 +279,8 @@ company's prices out loud.
   side, not from cutting a wide picture**: asked for, then "remove the zoom"
   in the next breath, and those two only meet in the camera's mount. Open
   `/selfie?id=…&turn=0` on a machine whose camera is the right way up (270 is
-  the default, as this cabinet is mounted;
-  if it comes out upside down, 0 to undo); that browser remembers it, and a
+  the default, as this cabinet is mounted; 90 for one turned the other way);
+  that browser remembers it, and a
   turned 1080p camera gives 1080×1920 with nothing cut or enlarged.
 - **A studio picture beside a webcam's gives the selfie away, and it is closed
   from both ends.** The first photograph from the real cabinet was arranged
