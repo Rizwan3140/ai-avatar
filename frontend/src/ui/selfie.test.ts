@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { arrange, bounds, centreCut, cutOut, isCutOut, meanColour, toneGains } from './selfie.ts'
+import { arrange, bounds, centreCut, cutOut, frameFor, isCutOut, meanColour, toneGains } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
 // 720x1080; and a PNG of the character, head to waist, whose face is 300 tall.
@@ -16,6 +16,19 @@ const visitor = (tall: number, cx = 250, cy = 400) => ({
 })
 const theirFaceTall = (placed: ReturnType<typeof arrange>, picture = PORTRAIT) =>
   (THEIR_FACE.height * placed.figure.height) / picture.height
+
+test('the photograph follows the camera, so a webcam is not cut to a strip and blown up', () => {
+  // A 1080p webcam: all of its height, three quarters of its width, and not
+  // one pixel enlarged. It was a 720-wide strip made 1440.
+  assert.deepEqual(frameFor({ width: 1920, height: 1080 }), { width: 1440, height: 1080 })
+  // Smaller cameras are brought up to the same size and no further.
+  assert.deepEqual(frameFor({ width: 1280, height: 720 }), { width: 1440, height: 1080 })
+  assert.deepEqual(frameFor({ width: 640, height: 480 }), { width: 1440, height: 1080 })
+  // A camera stood on its side still gives the tall photograph.
+  assert.deepEqual(frameFor({ width: 1080, height: 1920 }), { width: 1080, height: 1620 })
+  // And a 4K one is not kept at a size nothing here needs.
+  assert.deepEqual(frameFor({ width: 3840, height: 2160 }), { width: 2160, height: 1620 })
+})
 
 test('the preview and the photograph are the same cut of the camera', () => {
   assert.deepEqual(centreCut({ width: 1920, height: 1080 }, FRAME), { x: 600, y: 0, width: 720, height: 1080 })

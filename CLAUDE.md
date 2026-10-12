@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 133 checks
+(cd frontend && npm test)                   # 134 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 193 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-856 checks total. **Never run the Python suites through `unittest`** — they are
+857 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -248,6 +248,16 @@ company's prices out loud.
   and the preview draws the character in place live from the same `arrange`.
   A face counts for less the further it is from the centre line, and only
   faces inside the cut are ever seen.
+- **The selfie takes the camera's shape, not a phone's.** The photograph was
+  one shape whatever the camera — tall, two by three. A webcam's picture is
+  wide, so a little over a third of its width survived and that strip was
+  enlarged to twice its size: "the cam is zooming in so much it's making the
+  pic blurred". `selfie.frameFor` follows the camera instead: a wide one gives
+  a 4:3 photograph, all of its height and three quarters of its width, and from
+  a 1080p camera nothing is enlarged at all; one stood on its side still gives
+  the tall one. The raised resolution and the bigger output of an earlier fix
+  were treating the symptom — the picture was soft because of how little of the
+  camera it kept.
 - **A selfie character's side is theirs, and nothing changes it.** `side` in
   their `character.json` — left unless set to right in the Selfie tab — is the
   edge they stand at on the screen and in every photograph. Their picture is

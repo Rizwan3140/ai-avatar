@@ -284,6 +284,29 @@ export function arrange(
   return { figure: { x, y, ...drawn } }
 }
 
+/**
+ * The shape and size of the photograph, for the camera it is taken with.
+ *
+ * It was one shape whatever the camera: tall, two by three, the shape of a
+ * phone held upright. A webcam's picture is wide. Cut to that shape, a little
+ * over a third of its width survived, and that strip was then enlarged to
+ * twice its size to fill the frame — a photograph zoomed in on the visitor's
+ * face and soft all over, from a camera that was neither.
+ *
+ * So the photograph follows the camera. A wide camera gives a wide photograph,
+ * four by three: all of its height and three quarters of its width, and from a
+ * 1080p camera not one pixel enlarged. A camera stood on its side still gives
+ * the tall one. Enlarged only when the camera is too small to make 1080 on the
+ * short side, and never past 2160 on the long one.
+ */
+export function frameFor(camera: Size): Size {
+  const cut = centreCut(camera, camera.width >= camera.height ? { width: 4, height: 3 } : { width: 2, height: 3 })
+  const short = Math.min(cut.width, cut.height)
+  const long = Math.max(cut.width, cut.height)
+  const scale = Math.min(Math.max(1, 1080 / short), 2160 / long)
+  return { width: Math.round(cut.width * scale), height: Math.round(cut.height * scale) }
+}
+
 /** The middle of a picture, cut to the shape of the frame: how much of it, and
  *  from where. The preview and the photograph both use this, so they are the
  *  same picture. */

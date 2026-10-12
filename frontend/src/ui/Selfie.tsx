@@ -9,6 +9,7 @@ import {
   bounds,
   centreCut,
   cutOut,
+  frameFor,
   isCutOut,
   meanColour,
   toneGains,
@@ -42,14 +43,6 @@ import {
  */
 type Stage = 'closed' | 'consent' | 'countdown' | 'result' | 'refused'
 
-/**
- * Portrait, the shape of a phone held upright — and large. At 1080 across the
- * picture was enlarged to fill its card on a 2160-wide panel, and a webcam's
- * frame enlarged twice is the soft, "below average" picture it was called.
- */
-const WIDTH = 1440
-const HEIGHT = 2160
-
 /** Seconds of count. Long enough for the clip of them getting ready — five or
  *  six seconds — to finish and be held, and for a visitor to stop laughing. */
 const COUNT = 8
@@ -63,18 +56,21 @@ const UNATTENDED = 120_000
 const canvas = (width: number, height: number) =>
   Object.assign(document.createElement('canvas'), { width, height })
 
-const FRAME = { width: WIDTH, height: HEIGHT }
+/** The photograph's shape and size for this camera — see `frameFor`. */
+const frameOf = (camera: HTMLVideoElement) =>
+  frameFor({ width: camera.videoWidth, height: camera.videoHeight })
 
 /**
- * The camera's picture, cut to the frame's shape — the middle of it, not
+ * The camera's picture, cut to the photograph's shape — the middle of it, not
  * mirrored. One function for the preview and for the photograph, because they
  * have to be the same picture: the visitor poses with the one and is handed
- * the other. `across` is how wide to make it; the camera's own size if 0.
+ * the other. `across` is how wide to make it.
  */
-function framed(camera: HTMLVideoElement, across = 0, into?: HTMLCanvasElement): HTMLCanvasElement {
-  const cut = centreCut({ width: camera.videoWidth, height: camera.videoHeight }, FRAME)
-  const width = across || Math.round(cut.width)
-  const height = Math.round((width * HEIGHT) / WIDTH)
+function framed(camera: HTMLVideoElement, across: number, into?: HTMLCanvasElement): HTMLCanvasElement {
+  const frame = frameOf(camera)
+  const cut = centreCut({ width: camera.videoWidth, height: camera.videoHeight }, frame)
+  const width = Math.round(across)
+  const height = Math.round((width * frame.height) / frame.width)
   const out = into ?? canvas(width, height)
   if (out.width !== width || out.height !== height) Object.assign(out, { width, height })
   out.getContext('2d')!.drawImage(camera, cut.x, cut.y, cut.width, cut.height, 0, 0, width, height)
@@ -153,6 +149,17 @@ export function Selfie({ who }: { who: Character }) {
       const camera = video.current
       const onto = preview.current
       if (camera?.videoWidth && onto) {
+        // The preview takes the photograph's shape, which is the camera's to
+        // decide: wide from a webcam, tall from one stood on its side.
+        const frame = frameOf(camera)
+        const wide = frame.width >= frame.height
+        const across = wide ? 640 : 480
+        const tall = Math.round((across * frame.height) / frame.width)
+        if (onto.width !== across || onto.height !== tall) {
+          Object.assign(onto, { width: across, height: tall })
+          onto.style.aspectRatio = `${across} / ${tall}`
+          onto.style.width = wide ? '46%' : '30%'
+        }
         framed(camera, onto.width, small)
         const ctx = onto.getContext('2d')!
         // Mirrored, because an unmirrored self-view reads as someone else.
@@ -309,9 +316,11 @@ export function Selfie({ who }: { who: Character }) {
     }
     const mine = attempt.current
 
-    // The moment, at the camera's own size, cut exactly as the preview was.
-    // Everything after this is arithmetic on a picture that already exists.
-    const shot = framed(camera)
+    // The moment, at the photograph's own size, cut exactly as the preview
+    // was. Everything after this is arithmetic on a picture that already exists.
+    const frame = frameOf(camera)
+    const { width: WIDTH, height: HEIGHT } = frame
+    const shot = framed(camera, WIDTH)
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.
     stopCamera()
@@ -328,7 +337,7 @@ export function Selfie({ who }: { who: Character }) {
     const ctx = room.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingQuality = 'high'
     ctx.setTransform(-1, 0, 0, 1, WIDTH, 0)
-    ctx.drawImage(shot, 0, 0, WIDTH, HEIGHT)
+    ctx.drawImage(shot, 0, 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     let placed: HTMLCanvasElement | null = null
@@ -337,7 +346,7 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      drawFigure(onto, who.image, arrange(FRAME, shot, visitor, who.image, who.face, side))
+      drawFigure(onto, who.image, arrange(frame, shot, visitor, who.image, who.face, side))
 
       const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
       const gains = toneGains(
@@ -363,6 +372,7 @@ export function Selfie({ who }: { who: Character }) {
     const held = layers.current
     if (!held) return
     const style = LOOKS.find((l) => l.id === id) ?? LOOKS[0]
+    const { width: WIDTH, height: HEIGHT } = held.room
     const out = canvas(WIDTH, HEIGHT)
     const ctx = out.getContext('2d')!
 
@@ -497,10 +507,12 @@ export function Selfie({ who }: { who: Character }) {
           {/* The photograph as it will be taken — see the effect that draws it. */}
           <canvas
             ref={preview}
-            width={480}
-            height={720}
+            // Sized and shaped by the effect that draws it, once the camera
+            // has said what shape its picture is.
+            width={640}
+            height={480}
             aria-label="A preview of your selfie"
-            className="border-line/60 shadow-float absolute right-safe bottom-safe aspect-[2/3] w-[30%] rounded-[clamp(10px,1.1vh,36px)] border"
+            className="border-line/60 shadow-float absolute right-safe bottom-safe aspect-[4/3] w-[46%] rounded-[clamp(10px,1.1vh,36px)] border"
           />
           <button
             type="button"
