@@ -446,12 +446,15 @@ export function Selfie({ who }: { who: Character }) {
     // And lifted a little. Beside a studio picture of the character a webcam's
     // frame is flat, thin and soft, and that gap — not the arrangement — is
     // what gave the first photographs from a real cabinet away. It is closed
-    // from both ends: here the camera's picture is given colour, edge, shape
+    // from both ends: here the camera's picture is given edge, shape
     // and range (`enhance`), and below the character is brought down to meet it.
     const room = canvas(WIDTH, HEIGHT)
     const ctx = room.getContext('2d', { willReadFrequently: true })!
     ctx.imageSmoothingQuality = 'high'
-    ctx.filter = 'saturate(1.12)'
+    // A touch less colour than the camera gave, not more. This added 12%,
+    // for a flat 1080p webcam; the panel's 4K one is rich already, and on
+    // it skin under office light came out red.
+    ctx.filter = 'saturate(0.96)'
     ctx.setTransform(-1, 0, 0, 1, WIDTH, 0)
     ctx.drawImage(shot, 0, 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
