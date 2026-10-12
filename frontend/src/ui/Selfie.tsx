@@ -33,15 +33,18 @@ import {
  * The same rules as try-on, because it is the same legal object — a kiosk
  * photographing a member of the public:
  *
- * - The camera does not open until someone has read what happens and said yes.
+ * - The camera opens when the visitor presses the camera, and not before. There
+ *   was a card in between — "A selfie with …?", what would happen, yes and no —
+ *   and the owner had it taken out: on a screen whose one button is a camera,
+ *   pressing it is the asking. The count that follows has a Cancel on it, and
+ *   is the visitor's eight seconds to change their mind.
  * - The frame is taken once and the camera stops that instant.
- * - Declining is a button the same size as accepting.
  * - Nothing is kept. Closing deletes it, and so does walking away: a stranger's
  *   face is not left on a shop window for the next person.
  * - It leaves the screen only if they press "share to my phone", which says
  *   what that means before they press it.
  */
-type Stage = 'closed' | 'consent' | 'countdown' | 'result' | 'refused'
+type Stage = 'closed' | 'countdown' | 'result' | 'refused'
 
 /** Seconds of count. Long enough for the clip of them getting ready — five or
  *  six seconds — to finish and be held, and for a visitor to stop laughing. */
@@ -126,6 +129,8 @@ export function Selfie({ who }: { who: Character }) {
   const preview = useRef<HTMLCanvasElement | null>(null)
   /** The same `figure`, once it has arrived, for the preview to draw. */
   const ready = useRef<Figure | null>(null)
+  /** A selfie is under way, from the press of the camera until it is closed. */
+  const going = useRef(false)
 
   const open = stage !== 'closed'
 
@@ -198,6 +203,7 @@ export function Selfie({ who }: { who: Character }) {
     layers.current = null
     figure.current = null
     ready.current = null
+    going.current = false
     attempt.current++
     setStage('closed')
     setPicture('')
@@ -209,10 +215,16 @@ export function Selfie({ who }: { who: Character }) {
 
   useEffect(() => close, [])
 
-  // The tap opens the offer and stops there: it is agreement to see what is
-  // being offered, never agreement to be photographed.
+  // The camera button starts it: the camera opens and the count begins. Once,
+  // however many times it is pressed while the camera is still opening.
   useEffect(
-    () => bus.on('SELFIE_REQUESTED', () => setStage((s) => (s === 'closed' ? 'consent' : s))),
+    () =>
+      bus.on('SELFIE_REQUESTED', () => {
+        if (going.current) return
+        going.current = true
+        void start()
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
 
@@ -444,35 +456,6 @@ export function Selfie({ who }: { who: Character }) {
 
   return createPortal(
     <>
-      {stage === 'consent' && (
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-end px-safe pb-safe">
-          <div className={`${PANEL} lay-down pointer-events-auto flex w-full flex-col gap-[1em]`}>
-            <h2 className="font-display text-title leading-tight text-balance">
-              A selfie with {name || 'me'}?
-            </h2>
-            <ul className="text-ink-soft text-label flex flex-col gap-[0.4em]">
-              <li>The camera takes one photograph, after a count of {COUNT}.</li>
-              <li>It stays on this screen. It is not saved, and closing this deletes it.</li>
-              {who.share && (
-                <li>
-                  You can send it to your phone if you choose to. Only then is it uploaded,
-                  and it is deleted after 24 hours.
-                </li>
-              )}
-            </ul>
-            <div className="flex flex-wrap gap-[0.7em]">
-              <button type="button" onClick={() => void start()} className={YES}>
-                Yes, take it
-              </button>
-              {/* The same size as yes. See TryOn. */}
-              <button type="button" onClick={close} className={NO}>
-                No thanks
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {stage === 'countdown' && (
         // Over them, not instead of them: they are holding the pose, and the
         // count sits on their chest the way it does on a phone's own timer.
