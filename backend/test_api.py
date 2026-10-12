@@ -862,6 +862,18 @@ check("the picture can be taken away, and only once",
       client.delete(f"{_one}/picture", headers=north).json()["picture"] == ""
       and client.delete(f"{_one}/picture", headers=north).status_code == 404
       and client.delete(f"{_one}/wave", headers=north).status_code == 400)
+check("a selfie is not written to disk, and the route that would is not there",
+      client.get(f"/api/selfie/character/{WHO}").json()["keep"] is False
+      and client.post(f"/api/selfie/keep?character={WHO}", content=_jpeg).status_code == 404)
+config.SELFIE_KEEP = True  # what LUXORA_SELFIE_KEEP=1 does, on a bench
+r = client.post(f"/api/selfie/keep?character={WHO}&note=1920x1080", content=_jpeg)
+check("unless it is switched on for tuning, when it is kept with what the camera gave",
+      r.status_code == 200 and r.json()["kept"].endswith("-1920x1080.jpg")
+      and (config.DATA / "selfie-tests" / r.json()["kept"]).read_bytes() == _jpeg, r.text[:160])
+check("and only a photograph, with a character on the screen",
+      client.post(f"/api/selfie/keep?character={WHO}", content=b"<html>").status_code == 400
+      and client.post("/api/selfie/keep?character=nobody-000000", content=_jpeg).status_code == 404)
+config.SELFIE_KEEP = False
 config.SELFIE_ENABLED = False  # what LUXORA_SELFIE=0 does
 check("switched off, it says so",
       client.get("/api/selfie").json() == {"available": False, "share": False})

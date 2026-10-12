@@ -269,6 +269,17 @@ TRYON_ENABLED = _get("LUXORA_TRYON", "").strip().lower() in ("1", "on", "true", 
 #: `LUXORA_SELFIE=0` removes it, and the routes that hold a shared photograph.
 SELFIE_ENABLED = _get("LUXORA_SELFIE", "").strip().lower() not in ("0", "off", "false", "no")
 
+#: Keep every selfie taken here as a file, to look at afterwards.
+#:
+#: Off unless set, and it has to stay that way anywhere the public stands: it
+#: is the one switch that breaks "a visitor's photograph is never written to
+#: disk". Asked for by the owner during testing, while the picture's quality
+#: was being tuned against a real panel and the only other record of a result
+#: was a phone held up to the screen. The selfie screen says so on the
+#: photograph while it is on. Delete the line from `.env`, and
+#: `selfie-tests/`, when the tuning is done.
+SELFIE_KEEP = _get("LUXORA_SELFIE_KEEP", "").strip().lower() in ("1", "on", "true", "yes")
+
 #: The address a visitor's phone reaches this cabinet at, for the QR code a
 #: shared selfie is fetched by. Empty falls back to the tunnel `start.ps1`
 #: opens — see `selfie.public_base`.

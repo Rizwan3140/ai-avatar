@@ -23,6 +23,18 @@ export type Character = {
   available: boolean
   /** Whether a finished selfie can be handed to a phone. */
   share: boolean
+  /** Testing only: every selfie is saved on the server. See `SELFIE_KEEP`. */
+  keep?: boolean
+}
+
+/** Save one selfie on the server, while the picture is being tuned. Nothing
+ *  depends on it arriving. */
+export function keepSelfie(photo: Blob, character: string, note: string): void {
+  void fetch(`/api/selfie/keep?${new URLSearchParams({ character, note })}`, {
+    method: 'POST',
+    body: photo,
+    headers: { 'Content-Type': 'application/octet-stream' },
+  }).catch(() => {})
 }
 
 export async function fetchCharacter(id: string): Promise<Character> {

@@ -79,6 +79,22 @@ def hold(image: bytes) -> str:
     return token
 
 
+def keep(image: bytes, note: str = "") -> Path:
+    """Write one selfie to `selfie-tests/` - only ever called with
+    `config.SELFIE_KEEP` on, which see. `note` is what the camera gave, and
+    goes in the name so a soft picture can be told from a small one."""
+    if not image or len(image) > MAX_IMAGE:
+        raise ValueError("that photograph is missing or too large")
+    if not image.startswith(bytes.fromhex("ffd8ff")):
+        raise ValueError("that is not a photograph")
+    folder = config.DATA / "selfie-tests"
+    folder.mkdir(parents=True, exist_ok=True)
+    said = re.sub(r"[^0-9x]+", "", note.lower())[:24]
+    path = folder / f"{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}{'-' + said if said else ''}.jpg"
+    path.write_bytes(image)
+    return path
+
+
 def fetch(token: str) -> tuple[bytes, str] | None:
     """The photograph and its media type, or None once it is gone."""
     with _lock:

@@ -26,7 +26,7 @@ Full scope: `Docs/`, and the plan at
 (cd frontend && npm test)                   # 138 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 193 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-861 checks total. **Never run the Python suites through `unittest`** — they are
+864 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -206,6 +206,13 @@ company's prices out loud.
   product. Consent is a required parameter with no default. This is DPDP/GDPR
   scope, not a preference, and it is why local try-on is the preferred provider
   independent of cost.
+- **`LUXORA_SELFIE_KEEP=1` saves every selfie as a file, and is the one
+  exception to the rule above.** Off unless set. Asked for by the owner in the
+  testing phase, when the only record of what a real panel produced was a
+  phone held up to it. Files go to `selfie-tests/` in the data folder with the
+  camera's size in the name; the route is a 404 without the flag and the
+  result screen says the photo is saved. Take the line out of `.env` and
+  delete the folder before a cabinet faces the public.
 - **The selfie is a thing by itself. It has no avatar.** `/selfie?id=…` is a
   photo booth: a selfie *character* (`backend/selfie.py`, a folder under
   `frontend/public/selfies/`) made in the studio's Selfie tab from a name, and

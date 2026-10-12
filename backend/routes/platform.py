@@ -383,7 +383,26 @@ def selfie_character(character_id: str, request: Request):
         "clip": found.clip,
         "side": found.side,
         **selfie.status(str(request.base_url)),
+        "keep": config.SELFIE_KEEP,
     }
+
+
+@router.post("/selfie/keep")
+async def selfie_keep(request: Request, character: str = "", note: str = ""):
+    """Save one selfie as a file, for tuning - see `config.SELFIE_KEEP`.
+
+    Not there at all unless that is set: this is the only route that writes a
+    photograph of a person to disk, and the answer anywhere else is 404.
+    """
+    if not (config.SELFIE_ENABLED and config.SELFIE_KEEP) or selfie.character(character) is None:
+        raise HTTPException(404, "not found")
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > selfie.MAX_IMAGE:
+        raise HTTPException(413, "that photograph is too large")
+    try:
+        return {"kept": selfie.keep(await request.body(), note).name}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.post("/selfie")

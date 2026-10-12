@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
-import { shareSelfie, type Character } from './booth.ts'
+import { keepSelfie, shareSelfie, type Character } from './booth.ts'
 import { findFace, warmFaces } from './faces.ts'
 import {
   LOOKS,
@@ -152,6 +152,8 @@ export function Selfie({ who }: { who: Character }) {
   const [problem, setProblem] = useState('')
   /** The camera's size and the photograph's, for whoever is setting this up. */
   const [taken, setTaken] = useState('')
+  /** What the camera gave, until this shot has been saved for tuning. */
+  const keeping = useRef('')
 
   const video = useRef<HTMLVideoElement | null>(null)
   const stream = useRef<MediaStream | null>(null)
@@ -387,6 +389,7 @@ export function Selfie({ who }: { who: Character }) {
     // worth ruling out before any other, and it is a number: a camera handing
     // over 640 by 480 makes a soft photograph whatever is done afterwards.
     setTaken(`Camera: ${camera.videoWidth} × ${camera.videoHeight}. Photo: ${WIDTH} × ${HEIGHT}.`)
+    keeping.current = `${camera.videoWidth}x${camera.videoHeight}`
     console.info('selfie:', camera.videoWidth, 'x', camera.videoHeight, 'camera ->', WIDTH, 'x', HEIGHT, 'photo')
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.
@@ -514,6 +517,8 @@ export function Selfie({ who }: { who: Character }) {
         if (url.current) URL.revokeObjectURL(url.current)
         url.current = URL.createObjectURL(blob)
         photo.current = blob
+        if (who.keep && keeping.current) keepSelfie(blob, who.id, keeping.current)
+        keeping.current = ''
         setPicture(url.current)
       },
       'image/jpeg',
@@ -626,6 +631,12 @@ export function Selfie({ who }: { who: Character }) {
                   />
                 ))}
               </div>
+            )}
+            {/* Whoever is in it is told, because whoever is in it was not asked. */}
+            {who.keep && (
+              <p className="text-ink-soft text-label shrink-0 text-center">
+                Test mode: this photo is saved on this machine.
+              </p>
             )}
 
             {/* Wrapped, not scrolled: a scrollbar under a photograph on a shop

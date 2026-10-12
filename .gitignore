@@ -129,3 +129,6 @@ frontend/public/campaigns/
 # it is ~80 MB of platform-specific binary and every machine needs its own.
 tools/ffmpeg
 tools/ffmpeg.exe
+
+# Test selfies kept by LUXORA_SELFIE_KEEP: photographs of people, never committed.
+selfie-tests/
