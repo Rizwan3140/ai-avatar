@@ -655,13 +655,16 @@ export function Selfie({ who }: { who: Character }) {
             {picture ? (
               <img
                 src={picture}
+              // Last, though written first: the looks and the buttons go above
+              // the photograph, where a hand is. Under a tall picture on a tall
+              // panel they were at knee height.
                 alt={`You and ${name || 'the avatar'}`}
                 // Shown on hover: the sizes, for the person setting it up.
                 title={taken}
-                className="min-h-0 flex-1 rounded-[clamp(10px,1.1vh,36px)] object-contain"
+                className="order-last min-h-0 flex-1 rounded-[clamp(10px,1.1vh,36px)] object-contain"
               />
             ) : (
-              <div className="flex min-h-[30vh] flex-1 items-center justify-center gap-[0.4em]" aria-hidden>
+              <div className="order-last flex min-h-[30vh] flex-1 items-center justify-center gap-[0.4em]" aria-hidden>
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}

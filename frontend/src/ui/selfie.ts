@@ -221,6 +221,9 @@ type Size = { width: number; height: number }
  */
 export type Side = 'left' | 'right'
 
+/** How much larger than the visitor they may be drawn, to fill a tall frame. */
+const NEARER = 1.6
+
 export function arrange(
   frame: Size,
   view: Size,
@@ -258,12 +261,15 @@ export function arrange(
   let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
   // Their picture ends somewhere — the chest, the waist — and that edge has to
   // be the frame's edge, or they are a bust hanging in the room. If, level
-  // with the visitor, it would stop short of the bottom, they are first made a
-  // little larger: up to 15%, which nobody reads as a different size, where
-  // a head set lower than the visitor's is read at once. Only what that
-  // leaves is made up by lowering them, further down.
+  // with the visitor, it would stop short of the bottom, they are made larger
+  // until it does not: up to `NEARER` times the visitor's size. That was 15%,
+  // chosen for a wide photograph. In a tall one, beside a visitor standing
+  // back, 15% left them a small figure at the bottom with their head at the
+  // visitor's waist — and whoever holds the phone *is* the nearer and larger
+  // of the two, in every selfie there has ever been. Only what this leaves is
+  // made up by lowering them, further down.
   const reach = (H - headY) / (figure.height - (face.y + face.height / 2))
-  if (reach > k) k = Math.min(reach, k * 1.15, fits)
+  if (reach > k) k = Math.min(reach, k * NEARER, fits)
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // A quarter of the way in from their side, or nearer the edge if their face
