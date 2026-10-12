@@ -117,12 +117,12 @@ function framed(camera: HTMLVideoElement, across: number, into?: HTMLCanvasEleme
 /** The camera's picture given its edge, shape and range back — `clarify`.
  *  The two blurs are the browser's, sized to the picture, not counted in
  *  pixels: a 4K camera's softness is twice as many pixels wide. */
-function enhance(ctx: CanvasRenderingContext2D, width: number, height: number) {
+function enhance(ctx: CanvasRenderingContext2D, width: number, height: number, by = 1) {
   const image = ctx.getImageData(0, 0, width, height)
   const blurred = (radius: number) =>
     softened(ctx.canvas, radius).getContext('2d')!.getImageData(0, 0, width, height).data
   const { low, high } = tone(image.data)
-  clarify(image.data, blurred(width / 1000), blurred(width / 70), low, high)
+  clarify(image.data, blurred(width / 1000), blurred(width / 70), low, high, 0.9 * by, 0.3 * by)
   ctx.putImageData(image, 0, 0)
 }
 
@@ -415,6 +415,10 @@ export function Selfie({ who }: { who: Character }) {
     const frame = frameOf(camera)
     const { width: WIDTH, height: HEIGHT } = frame
     const shot = framed(camera, WIDTH)
+    // How much the camera needs. One enlarged to make the photograph is soft
+    // and gets all of `enhance`; a 4K one shrunk to it is sharp already, and
+    // given the same came out crunchy, with dark faces darker still.
+    const needs = Math.min(1, Math.max(0.3, (WIDTH / centreCut(upright(camera), frame).width) ** 2))
     // What the camera actually gave. "I'm blurry, she is fine" has one cause
     // worth ruling out before any other, and it is a number: a camera handing
     // over 640 by 480 makes a soft photograph whatever is done afterwards.
@@ -447,7 +451,7 @@ export function Selfie({ who }: { who: Character }) {
     ctx.drawImage(shot, 0, 0)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.filter = 'none'
-    enhance(ctx, WIDTH, HEIGHT)
+    enhance(ctx, WIDTH, HEIGHT, needs)
 
     let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null

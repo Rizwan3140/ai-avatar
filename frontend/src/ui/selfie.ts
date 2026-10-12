@@ -518,7 +518,9 @@ export function clarify(
   edge = 0.9,
   shape = 0.3,
 ): void {
-  const floor = Math.min(low, 40)
+  // Half of the way to black, not all of it: a face under ceiling lights is
+  // already the darkest thing in the room.
+  const floor = Math.min(low, 40) / 2
   const gain = Math.min(255 / Math.max(1, Math.max(high, 215) - floor), 4 / 3)
   for (let i = 0; i < rgba.length; i += 4) {
     for (let j = i; j < i + 3; j++) {
