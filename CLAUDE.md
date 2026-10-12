@@ -179,6 +179,17 @@ company's prices out loud.
   puts a cabinet back on `master` is the behaviour being removed. Cut a tag to
   ship. This is not signature verification; the remaining half is a protected
   branch and signed tags, which is a GitHub setting rather than a patch.
+- **A release is republished, not renumbered, and the launcher watches for
+  it.** Fixes go into the version that is already out: its tag is moved. So
+  `Luxora.bat`, once it has started everything, runs `start.ps1 -Watch`: once
+  a minute it reads `.version` (the tag and commit this machine is running),
+  asks GitHub where that tag points now, and on a difference runs
+  `start.ps1 -Reload` — the updater and a server restart, and **not the
+  tunnel**. A quick tunnel gets a new address every start, and the panel is a
+  browser on another machine holding the old one. No answer from GitHub is not
+  a change; a reload that did not take is not tried again for the same commit.
+  The first fourteen lines of `Luxora.bat` are kept byte for byte: cmd resumes
+  a batch file by offset, and the update that file starts replaces it mid-run.
 - **Consent is a nonce, not a flag.** `?consent=1` was a constant the browser
   typed into every request: the check was real and the value proved nothing,
   and there was no record tying an agreement to a photograph. The token is

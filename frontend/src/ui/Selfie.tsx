@@ -155,6 +155,8 @@ export function Selfie({ who }: { who: Character }) {
   const [shared, setShared] = useState('')
   const [sharing, setSharing] = useState(false)
   const [problem, setProblem] = useState('')
+  /** The camera's size and the photograph's, for whoever is setting this up. */
+  const [taken, setTaken] = useState('')
 
   const video = useRef<HTMLVideoElement | null>(null)
   const stream = useRef<MediaStream | null>(null)
@@ -386,6 +388,11 @@ export function Selfie({ who }: { who: Character }) {
     const frame = frameOf(camera)
     const { width: WIDTH, height: HEIGHT } = frame
     const shot = framed(camera, WIDTH)
+    // What the camera actually gave. "I'm blurry, she is fine" has one cause
+    // worth ruling out before any other, and it is a number: a camera handing
+    // over 640 by 480 makes a soft photograph whatever is done afterwards.
+    setTaken(`Camera: ${camera.videoWidth} × ${camera.videoHeight}. Photo: ${WIDTH} × ${HEIGHT}.`)
+    console.info('selfie:', camera.videoWidth, 'x', camera.videoHeight, 'camera ->', WIDTH, 'x', HEIGHT, 'photo')
     // The instant the frame is taken. A camera left running behind a picture
     // is a recording light nobody agreed to.
     stopCamera()
@@ -610,6 +617,8 @@ export function Selfie({ who }: { who: Character }) {
               <img
                 src={picture}
                 alt={`You and ${name || 'the avatar'}`}
+                // Shown on hover: the sizes, for the person setting it up.
+                title={taken}
                 className="min-h-0 flex-1 rounded-[clamp(10px,1.1vh,36px)] object-contain"
               />
             ) : (

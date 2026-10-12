@@ -21,6 +21,14 @@ param(
     # a person double-clicked Luxora.bat, and off for the scheduled run, which
     # has nobody sitting in front of it.
     [switch]$Open,
+    # Stay, and reload whenever the release this machine is running is
+    # republished. What Luxora.bat does after it has started everything.
+    [switch]$Watch,
+    # Update and restart the server, and leave the tunnel alone. What -Watch
+    # runs when it sees a change.
+    [switch]$Reload,
+    # Seconds between looks at GitHub.
+    [int]$Every = 60,
     [int]$Port = 8000
 )
 
@@ -30,6 +38,55 @@ $taskName = 'Luxora start'
 $linkFile = Join-Path $root 'tunnel-url.txt'
 $tunnelLog = Join-Path $root 'tunnel.log'
 $serverLog = Join-Path $root 'server.log'
+
+# --- watch --------------------------------------------------------------------
+# A release is a tag, and a tag can be moved: fixes go into the version that is
+# already out rather than into a new one. A machine running v2.1.0 was then
+# running yesterday's v2.1.0 until somebody closed this window and
+# double-clicked Luxora.bat again - which is a thing to remember to do, at the
+# one machine nobody is sitting at.
+#
+# So it looks. `.version` says which release this machine is running and at
+# which commit; GitHub is asked where that release's tag points now; and when
+# the two differ, -Reload is run. One request a minute, a few hundred bytes.
+if ($Watch) {
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Host "`n  git is not on this machine, so it cannot watch for changes." -ForegroundColor Yellow
+        Write-Host "  Run Luxora.bat again to pick up an update." -ForegroundColor DarkGray
+        return
+    }
+    $versionFile = Join-Path $root '.version'
+    # What was tried last, so a reload that did not take is not tried again
+    # every minute with the server restarted each time.
+    $tried = ''
+    Write-Host "`nWatching for changes to the version this machine is running." -ForegroundColor Cyan
+    Write-Host "  Leave this window open. Closing it stops the watching, not the server." -ForegroundColor DarkGray
+    while ($true) {
+        Start-Sleep -Seconds $Every
+        if (-not (Test-Path $versionFile)) { continue }
+        # 'v2.1.0 55d31eb 2026-10-12 11:57 the commit's subject'
+        $stamp = ((Get-Content $versionFile -Raw) -split '\s+') | Where-Object { $_ }
+        if ($stamp.Count -lt 2 -or $stamp[0] -notmatch '^v\d') { continue }
+        $tag, $running = $stamp[0], $stamp[1]
+
+        # An annotated tag lists itself and then, with ^{}, the commit it
+        # points at. The commit is the one that matters, and it is last.
+        $listed = @(git -C $root ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}" 2>$null)
+        # No answer is not a change. A network that drops must not restart
+        # a showroom.
+        if ($LASTEXITCODE -ne 0 -or -not $listed) { continue }
+        $published = (($listed | Select-Object -Last 1) -split '\s+')[0]
+        if (-not $published -or $published.StartsWith($running) -or $published -eq $tried) { continue }
+
+        $tried = $published
+        $now = Get-Date -Format 'HH:mm:ss'
+        Write-Host "`n$now  $tag was updated ($running -> $($published.Substring(0, 7))). Reloading." -ForegroundColor Green
+        # A new process, so it is the start.ps1 the update is about to lay
+        # down that runs the reload after this one, not this copy of it.
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'start.ps1') -Reload -Port $Port
+        Write-Host "  Refresh any open page (Ctrl+F5) to see it." -ForegroundColor DarkGray
+    }
+}
 
 if ($Unschedule) {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -61,7 +118,13 @@ Write-Host "`nLuxora" -ForegroundColor Cyan
 # --- clear out a previous run -------------------------------------------------
 # Matched on path, so this never touches an unrelated python somebody is using
 # for something else on the same machine.
-foreach ($name in @('python', 'cloudflared')) {
+# A reload leaves the tunnel standing. A quick tunnel is given a new address
+# every time it starts, and the panel is a browser somewhere else holding the
+# old one: restart the tunnel and every screen showing Luxora goes dead until
+# somebody sends it a new link. The server comes back on the same port behind
+# the same tunnel, and those screens never know.
+$stopping = if ($Reload) { @('python') } else { @('python', 'cloudflared') }
+foreach ($name in $stopping) {
     Get-Process -Name $name -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -and $_.Path.StartsWith($root, 'OrdinalIgnoreCase') } |
         Stop-Process -Force -ErrorAction SilentlyContinue
@@ -123,7 +186,7 @@ Write-Host "  serving on http://localhost:$Port" -ForegroundColor Green
 # tunnel having come up.
 if ($Open) { Start-Process "http://localhost:$Port/" }
 
-if ($NoTunnel) { return }
+if ($NoTunnel -or $Reload) { return }
 
 # --- 3. the tunnel ------------------------------------------------------------
 Write-Host "`n[3/3] publishing" -ForegroundColor Cyan
