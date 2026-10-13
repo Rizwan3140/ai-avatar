@@ -221,9 +221,6 @@ type Size = { width: number; height: number }
  */
 export type Side = 'left' | 'right'
 
-/** How much larger than the visitor they may be drawn, to fill a tall frame. */
-const NEARER = 1.6
-
 export function arrange(
   frame: Size,
   view: Size,
@@ -259,17 +256,13 @@ export function arrange(
   // to and shrinking them into what is left would make them a doll after all.
   const fits = room < 0.18 * W ? Infinity : room / face.width
   let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
-  // Their picture ends somewhere — the chest, the waist — and that edge has to
-  // be the frame's edge, or they are a bust hanging in the room. If, level
-  // with the visitor, it would stop short of the bottom, they are made larger
-  // until it does not: up to `NEARER` times the visitor's size. That was 15%,
-  // chosen for a wide photograph. In a tall one, beside a visitor standing
-  // back, 15% left them a small figure at the bottom with their head at the
-  // visitor's waist — and whoever holds the phone *is* the nearer and larger
-  // of the two, in every selfie there has ever been. Only what this leaves is
-  // made up by lowering them, further down.
-  const reach = (H - headY) / (figure.height - (face.y + face.height / 2))
-  if (reach > k) k = Math.min(reach, k * NEARER, fits)
+  // They are never made larger than the visitor to fill the frame. They were,
+  // by up to 60%, so that a picture ending at the waist still reached the
+  // bottom of a tall photograph; beside a visitor standing back that made
+  // their face twice the visitor's, and it was asked for straight back out:
+  // "dont make the image larger ... I want the height to match head to head".
+  // A picture that would end in mid-air is lowered instead, further down. A
+  // full-length picture of them - head to shoes - never needs to be.
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // A quarter of the way in from their side, or nearer the edge if their face

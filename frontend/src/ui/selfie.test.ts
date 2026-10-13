@@ -66,13 +66,13 @@ test("their face is the size of the visitor's, and level with it", () => {
   assert.ok(near.figure.height > far.figure.height * 1.5, 'closer visitor, larger avatar')
 })
 
-test('a picture of them that would end in mid-air is enlarged before they are lowered', () => {
+test('a picture of them that would end in mid-air is lowered, never enlarged', () => {
   // Head and shoulders only. Level with the visitor at the same size, its cut
-  // edge would hang above the bottom: so a little larger first, and only then lower.
+  // edge would hang above the bottom: it is moved down, and kept their size.
   const bust = { width: 900, height: 1200 }
   const placed = arrange(FRAME, VIEW, visitor(180), bust, THEIR_FACE)
   const ratio = theirFaceTall(placed, bust) / (180 * DRAWN)
-  assert.ok(ratio > 1.15 && ratio <= 1.601, `enlarged, by no more than 60%: ${ratio.toFixed(2)}`)
+  assert.ok(Math.abs(ratio - 1) < 0.02, `the visitor's size: ${ratio.toFixed(2)}`)
   assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'and their edge is the frame edge')
 })
 
