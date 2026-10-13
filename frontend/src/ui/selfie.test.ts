@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bounds, centreCut, groundOf, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
+  arrange, bodyOf, bounds, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -296,35 +296,42 @@ test('the camera picture gets its edges back, and its grain is left alone', () =
   assert.ok(flat[4] - flat[0] > 50 && flat[4] - flat[0] <= 50 * 4 / 3 + 1 && flat[4] <= 255, `${flat[0]}, ${flat[4]}`)
 })
 
-test('a full-length character stands on the visitor\'s floor, eyes level', () => {
-  // Their face 300 tall in a picture 1700 tall: head to shoes. The visitor's
-  // face is centred at 400 and their feet meet the floor at 1000, in the view.
-  const placed = arrange(FRAME, VIEW, visitor(150), PORTRAIT, THEIR_FACE, 'left', 1000)
-  const feet = placed.figure.y + placed.figure.height
-  assert.ok(Math.abs(feet - 1000 * DRAWN) < 2, `feet on the floor: ${feet.toFixed(0)}`)
-  const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
-  assert.ok(Math.abs(theirs - 400 * DRAWN) < 2, `eyes level: ${theirs.toFixed(0)}`)
-  // A floor misread far away does not make a giant: within a fifth of the face's size.
-  const giant = arrange(FRAME, VIEW, visitor(150), PORTRAIT, THEIR_FACE, 'left', 5000)
-  assert.ok(theirFaceTall(giant) / (150 * DRAWN) <= 1.251, 'kept near their size')
-  // A picture that ends at the waist is not stood on anything.
-  const bust = { width: 900, height: 1200 }
-  const asBefore = arrange(FRAME, VIEW, visitor(180), bust, THEIR_FACE, 'left', 1000)
-  assert.ok(asBefore.figure.y + asBefore.figure.height >= FRAME.height - 1, 'a bust still reaches the bottom')
+test('the character is cut where the visitor is: knees at the visitor\'s knees, noses level', () => {
+  // Their picture, 1700 tall, head to shoes. The visitor is seen to the knees.
+  const figure = { nose: 290, shoulders: 500, hips: 900, knees: 1250, ankles: 1600 }
+  const visitorBody = { nose: 400, shoulders: 520, hips: 760, knees: 1000, ankles: null }
+  const placed = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: visitorBody, figure })
+  const k = placed.figure.height / PORTRAIT.height
+  const at = (mark: number) => placed.figure.y + mark * k
+  assert.ok(Math.abs(at(figure.knees) - 1000 * DRAWN) < 2, `knees: ${at(figure.knees).toFixed(0)}`)
+  assert.ok(Math.abs(at(figure.nose) - 400 * DRAWN) < 2, `noses: ${at(figure.nose).toFixed(0)}`)
+  // Seen to the shoes, shoes on the same line - and not lifted to the bottom edge.
+  const whole = { ...visitorBody, knees: 900, ankles: 1020 }
+  const standing = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: whole, figure })
+  const k2 = standing.figure.height / PORTRAIT.height
+  assert.ok(Math.abs(standing.figure.y + figure.ankles * k2 - 1020 * DRAWN) < 2, 'shoes on the floor')
 })
 
-test('the floor is the lowest point of the visitor under their face, if it is in the picture', () => {
-  // A 10x20 mask of a 100x200 view; the person is columns 4-6, rows 2-15.
-  const mask = new Float32Array(200)
-  for (let y = 2; y <= 15; y++) for (let x = 4; x <= 6; x++) mask[y * 10 + x] = 1
-  const person = { mask, width: 10, height: 20 }
-  const face = { x: 45, y: 25, width: 10, height: 12 }
-  assert.equal(groundOf(person, face, { width: 100, height: 200 }), 160)
-  // Feet at the bottom edge are the frame cutting them off: no floor.
-  for (let y = 16; y < 20; y++) for (let x = 4; x <= 6; x++) mask[y * 10 + x] = 1
-  assert.equal(groundOf(person, face, { width: 100, height: 200 }), null)
-  // Somebody off to one side is not the visitor's feet.
-  const aside = new Float32Array(200)
-  for (let y = 2; y <= 15; y++) aside[y * 10 + 0] = 1
-  assert.equal(groundOf({ mask: aside, width: 10, height: 20 }, { x: 75, y: 25, width: 10, height: 12 }, { width: 100, height: 200 }), null)
+test('a misread body does not make a giant, and no body leaves the face to decide', () => {
+  const figure = { nose: 290, shoulders: 500, hips: 900, knees: 1250, ankles: 1600 }
+  const wild = { nose: 400, shoulders: null, hips: null, knees: null, ankles: 5000 }
+  const placed = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: wild, figure })
+  assert.ok(theirFaceTall(placed) / (180 * DRAWN) <= 1.601, 'within 40% of the face')
+  const byFace = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE)
+  const noBody = { nose: null, shoulders: null, hips: null, knees: null, ankles: null }
+  assert.deepEqual(arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: noBody, figure }), byFace)
+  assert.equal(fitBodies(noBody, figure), null)
+})
+
+test('a body mark counts when it is seen and inside the picture', () => {
+  const points = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0.9 }))
+  points[0] = { x: 0.5, y: 0.1, visibility: 0.99 } // nose
+  points[25] = { x: 0.45, y: 0.8, visibility: 0.9 } // one knee seen
+  points[26] = { x: 0.55, y: 0.82, visibility: 0.2 } // the other not
+  points[27] = { x: 0.45, y: 1.1, visibility: 0.9 } // ankles below the frame
+  points[28] = { x: 0.55, y: 0.99, visibility: 0.9 }
+  const body = bodyOf(points, 1000)
+  assert.equal(body.nose, 100)
+  assert.equal(body.knees, 800)
+  assert.equal(body.ankles, null)
 })
