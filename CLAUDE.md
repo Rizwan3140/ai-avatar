@@ -354,10 +354,13 @@ company's prices out loud.
   Set beside two reference selfies the owner liked, ours read as two cut-outs
   laid side by side: the same size, the character studio-bright in a dim
   office, one shoulder over the other's. Now, chosen from those differences:
-  after the body fit the character is grown by `NEARER` (1.2) about the
-  visitor's chest - the one holding the phone is nearer, so their head rises
-  and their legs run lower - and moved toward their own edge until their
-  shoulder is no further across than the visitor's. Their whites are brought
+  after the body fit the character is grown by `NEARER` (1.3, raised from
+  1.2: "the avatar is the hero of the image") about the visitor's chest - the
+  one holding the phone is nearer, so their head rises and their legs run
+  lower - and stood shoulder to shoulder with the visitor, theirs a little in
+  front: "no gap between the user and the avatar". Never over the visitor's
+  face, never so far across that the cut end of their arm shows; when that
+  leaves a gap, the preview tells the visitor to step closer. Their whites are brought
   down to the visitor's (`lightGain`, darken only, never past 0.7), their
   colour and range matched to the visitor rather than the ceiling of lamps,
   their cut-out's rim pulled in. Then one grade over the whole photograph -

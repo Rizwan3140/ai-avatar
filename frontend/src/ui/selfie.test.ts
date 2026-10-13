@@ -316,17 +316,27 @@ test('the character is fitted to the visitor\'s body, then stands a step nearer'
   assert.ok(standing.figure.y + figure.ankles * k2 >= 1020 * DRAWN, 'shoes at or below the visitor\'s')
 })
 
-test('the character keeps clear of the visitor\'s shoulder', () => {
-  // A visitor just right of the middle of the photograph.
-  for (const cx of [300, 330]) {
+test('the character stands shoulder to shoulder with the visitor, no gap', () => {
+  // A visitor just right of the middle of the photograph, and a little further.
+  for (const cx of [300, 330, 360]) {
     const placed = arrange(FRAME, VIEW, visitor(180, cx), PORTRAIT, THEIR_FACE)
     const k = placed.figure.width / PORTRAIT.width
     const theirFace = placed.figure.x + (THEIR_FACE.x + THEIR_FACE.width / 2) * k
     const theirShoulder = theirFace + 1.3 * THEIR_FACE.width * k
     const headX = FRAME.width - cx * DRAWN
     const visitorShoulder = headX - 1.2 * 180 * 0.8 * DRAWN
-    assert.ok(theirShoulder <= visitorShoulder + 1 || theirFace <= 0.1 * FRAME.width + 1, `${cx}: ${theirShoulder.toFixed(0)} vs ${visitorShoulder.toFixed(0)}`)
+    const gap = visitorShoulder - theirShoulder
+    // Touching, theirs a little in front - unless the picture could not follow.
+    assert.ok(gap <= 0.5 * THEIR_FACE.width * k || placed.apart, `${cx}: gap ${gap.toFixed(0)}`)
+    // Not laid over the visitor - unless, larger than them beside a visitor in
+    // the middle, their face is already as near their own edge as it goes.
+    const pinned = theirFace <= (THEIR_FACE.width * k) / 2 + 1
+    assert.ok(gap > -0.5 * THEIR_FACE.width * k || pinned, `${cx}: not laid over the visitor: ${gap.toFixed(0)}`)
+    // And never over the visitor's face.
+    assert.ok(theirFace + (THEIR_FACE.width / 2) * k < headX - 180 * 0.4 * DRAWN, `${cx}: faces apart`)
   }
+  // A visitor right over at the far side: as close as the picture allows, and told to step in.
+  assert.equal(arrange(FRAME, VIEW, visitor(120, 40), PORTRAIT, THEIR_FACE).apart, true)
 })
 
 test('the character is brought down to the visitor\'s light, never up', () => {

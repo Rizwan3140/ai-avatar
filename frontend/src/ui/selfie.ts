@@ -225,9 +225,11 @@ export type Side = 'left' | 'right'
  * How much nearer the camera the character stands than the visitor: the one
  * holding the phone. Matched size for size they read as two cut-outs laid
  * side by side; in a real selfie the person with the phone is nearer, larger,
- * and in front. Asked for after seeing exactly that in two reference selfies.
+ * and in front. Asked for after seeing exactly that in two reference selfies,
+ * then raised from 1.2: "the avatar is the hero of the image, so make it a bit
+ * larger than the user".
  */
-export const NEARER = 1.2
+export const NEARER = 1.3
 
 export function arrange(
   frame: Size,
@@ -237,7 +239,7 @@ export function arrange(
   figureFace: Box | null,
   side: Side = 'left',
   bodies: { visitor: Body; figure: Body } | null = null,
-): { figure: Box } {
+): { figure: Box; apart: boolean } {
   const { width: W, height: H } = frame
   const scale = W / view.width
 
@@ -282,26 +284,38 @@ export function arrange(
   // nearer person's head rises in the picture and their legs run lower.
   const chest =
     fit && bodies!.visitor.shoulders !== null ? bodies!.visitor.shoulders * scale : headY + 1.6 * headTall
-  y = chest - (chest - y) * NEARER
-  k *= NEARER
+  // Not past the room beside the visitor's face, though: two faces never one
+  // over the other, the nearer one included.
+  const nearer = Math.max(1, Math.min(NEARER, fits / k))
+  y = chest - (chest - y) * nearer
+  k *= nearer
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
-  // A quarter of the way in from their side, or nearer the edge if their face
-  // would otherwise reach the visitor's.
-  const fromEdge = clamp(0.27 * W, 0.03 * W + faceWide / 2, Math.max(0.03 * W + faceWide / 2, room + 0.03 * W - faceWide / 2))
-  let centre = onLeft ? fromEdge : W - fromEdge
-  // Clear of the visitor: their shoulder no further across than the
-  // visitor's. Laid over the visitor's shoulder and arm, the two read as one
-  // cut-out on another. Moved toward their own edge for it, never past a
-  // tenth of the way in - and not at all for a visitor standing in their
-  // place, where there is no beside to keep to.
-  if (fits !== Infinity) {
-    const theirShoulder = centre + (onLeft ? 1 : -1) * 1.3 * faceWide
-    const visitorShoulder = headX + (onLeft ? -1 : 1) * 1.2 * headWide
-    const over = onLeft ? theirShoulder - visitorShoulder : visitorShoulder - theirShoulder
-    const spare = onLeft ? centre - 0.1 * W : 0.9 * W - centre
-    if (over > 0) centre += (onLeft ? -1 : 1) * Math.min(over, Math.max(0, spare))
+  // Shoulder to shoulder with the visitor, theirs a little in front: "no gap
+  // between the user and the avatar". Kept apart, the two read as a pair of
+  // cut-outs; this is two people standing together. Held back by three
+  // things only: never over the visitor's face; never so far across that the
+  // cut end of their outstretched arm shows inside the frame (their picture
+  // is cut where the arm leaves it); and their face inside the frame. A
+  // visitor standing in their place has no beside to stand at, so then they
+  // keep to a quarter of the way in, as they always did.
+  const toward = onLeft ? 1 : -1
+  const visitorShoulder = headX - toward * 1.2 * headWide
+  const faceAt = (face.x + face.width / 2) * k
+  let centre: number
+  if (fits === Infinity) {
+    const fromEdge = clamp(0.27 * W, 0.03 * W + faceWide / 2, Math.max(0.03 * W + faceWide / 2, room + 0.03 * W - faceWide / 2))
+    centre = onLeft ? fromEdge : W - fromEdge
+  } else {
+    const touching = visitorShoulder - toward * 1.1 * faceWide
+    const clearOfFace = headX - toward * (headWide / 2 + faceWide / 2 + 0.02 * W)
+    const armOut = onLeft ? faceAt : W - (drawn.width - faceAt)
+    centre = onLeft ? Math.min(touching, clearOfFace, armOut) : Math.max(touching, clearOfFace, armOut)
+    centre = onLeft ? Math.max(centre, faceWide / 2) : Math.min(centre, W - faceWide / 2)
   }
+  // Still a gap, because the visitor stands further over than the picture
+  // can follow: the preview asks them to step closer.
+  const apart = fits !== Infinity && toward * (visitorShoulder - (centre + toward * 1.3 * faceWide)) > 0.5 * faceWide
   // And out to the edge on their own side, at least. Their picture is cut
   // where their arm leaves it; a little way inside the frame, that cut is a
   // ruled line down the photograph.
@@ -313,7 +327,7 @@ export function arrange(
   const shod = fit !== null && bodies!.figure.ankles !== null
   if (!shod && y + drawn.height < H) y = H - drawn.height
 
-  return { figure: { x, y, ...drawn } }
+  return { figure: { x, y, ...drawn }, apart }
 }
 
 /**
