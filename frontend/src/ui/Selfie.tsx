@@ -212,8 +212,8 @@ export function Selfie({ who }: { who: Character }) {
   const stream = useRef<MediaStream | null>(null)
   const layers = useRef<Layers | null>(null)
   // A visitor standing where the character stands, in the live preview.
-  const behind = useRef(false)
-  const [blocked, setBlocked] = useState(false)
+  const behind = useRef('')
+  const [blocked, setBlocked] = useState('')
   const photo = useRef<Blob | null>(null)
   const url = useRef('')
   const painting = useRef(0)
@@ -285,9 +285,12 @@ export function Selfie({ who }: { who: Character }) {
           const hidden =
             !!face &&
             onFigure(who.image, place.figure, onto.width - (face.x + face.width / 2), face.y + face.height / 2)
-          if (hidden !== behind.current) {
-            behind.current = hidden
-            setBlocked(hidden)
+          // Or so far over that, with the character as close as their picture
+          // allows, there is still a gap between them.
+          const say = hidden ? 'behind' : face && place.apart ? 'apart' : ''
+          if (say !== behind.current) {
+            behind.current = say
+            setBlocked(say)
           }
         }
         if (!cutting && face && now - cut > 1000) {
@@ -336,8 +339,8 @@ export function Selfie({ who }: { who: Character }) {
     url.current = ''
     photo.current = null
     layers.current = null
-    behind.current = false
-    setBlocked(false)
+    behind.current = ''
+    setBlocked('')
     figure.current = null
     ready.current = null
     going.current = false
@@ -683,13 +686,16 @@ export function Selfie({ who }: { who: Character }) {
         <div className="pointer-events-none absolute inset-0 z-30">
           {blocked && (
             // A mirror: stepping to their right moves them right on the
-            // screen, away from a character standing at the left.
+            // screen, away from a character standing at the left; to their
+            // left, toward them.
             <p
               aria-live="polite"
               // On a dark pill: the page behind it is near white.
               className="bg-ink/85 absolute inset-x-0 top-[12%] mx-auto w-fit max-w-[90%] rounded-full px-[1.2em] py-[0.5em] text-center text-[clamp(22px,3.2vh,96px)] font-semibold text-white"
             >
-              Step to your {side === 'left' ? 'right' : 'left'} — you are behind {name || 'them'}
+              {blocked === 'behind'
+                ? `Step to your ${side === 'left' ? 'right' : 'left'} — you are behind ${name || 'them'}`
+                : `Step to your ${side === 'left' ? 'left' : 'right'} — closer to ${name || 'them'}`}
             </p>
           )}
           <span
