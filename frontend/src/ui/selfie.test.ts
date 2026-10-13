@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom,
+  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, portrait,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -287,4 +287,19 @@ test('the camera picture gets its edges back, and its grain is left alone', () =
   const flat = greys([100, 150])
   clarify(flat, greys([100, 150]), greys([100, 150]), 100, 150)
   assert.ok(flat[4] - flat[0] > 50 && flat[4] - flat[0] <= 50 * 4 / 3 + 1 && flat[4] <= 255, `${flat[0]}, ${flat[4]}`)
+})
+
+test('portrait keeps the person sharp and softens the room behind them', () => {
+  // Four pixels across, one down; the mask, two across, says the left half is a person.
+  const sharp = greys([200, 200, 200, 200])
+  const soft = greys([100, 100, 100, 100])
+  portrait(sharp, soft, { mask: new Float32Array([1, 0]), width: 2, height: 1 }, 4, 1)
+  assert.equal(sharp[0], 200, 'the person, kept')
+  assert.equal(sharp[12], 100, 'the room, softened')
+  assert.ok(sharp[4] > 100 && sharp[8] < 200 && sharp[4] >= sharp[8], `between, a blend: ${sharp[4]}, ${sharp[8]}`)
+  // Mirrored, the person is on the other side.
+  const turnedRound = greys([200, 200, 200, 200])
+  portrait(turnedRound, soft, { mask: new Float32Array([1, 0]), width: 2, height: 1 }, 4, 1, true)
+  assert.equal(turnedRound[0], 100)
+  assert.equal(turnedRound[12], 200)
 })

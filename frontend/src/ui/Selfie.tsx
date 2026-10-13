@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { findFace, warmFaces } from './faces.ts'
+import { findFace, findPerson, warmFaces } from './faces.ts'
 import {
   LOOKS,
   arrange,
@@ -18,6 +18,7 @@ import {
   turnFrom,
   isCutOut,
   meanColour,
+  portrait as softenBehind,
   toneGains,
   type Box,
   type Turn,
@@ -172,6 +173,26 @@ type Layers = {
   /** The avatar, cut out and placed — as filmed, and leaned toward the room. */
   figure: HTMLCanvasElement | null
   toned: HTMLCanvasElement | null
+  /** The room with what is behind the visitor softened — see `portrait`.
+   *  Null when the segmenter could not say where they are. */
+  portrait: HTMLCanvasElement | null
+}
+
+/** Each figure's own pixels, read once, to tell whether a point is on them. */
+const opacity = new WeakMap<HTMLCanvasElement, Uint8ClampedArray>()
+
+/** Whether a point of the preview falls on the character, not just inside
+ *  the box their picture is drawn in — most of which is empty. */
+function onFigure(image: HTMLCanvasElement, at: Box, x: number, y: number): boolean {
+  if (x < at.x || y < at.y || x >= at.x + at.width || y >= at.y + at.height) return false
+  let pixels = opacity.get(image)
+  if (!pixels) {
+    pixels = image.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, image.width, image.height).data
+    opacity.set(image, pixels)
+  }
+  const ix = Math.floor(((x - at.x) / at.width) * image.width)
+  const iy = Math.floor(((y - at.y) / at.height) * image.height)
+  return pixels[(iy * image.width + ix) * 4 + 3] > 128
 }
 
 export function Selfie({ who }: { who: Character }) {
@@ -193,6 +214,9 @@ export function Selfie({ who }: { who: Character }) {
   const video = useRef<HTMLVideoElement | null>(null)
   const stream = useRef<MediaStream | null>(null)
   const layers = useRef<Layers | null>(null)
+  // A visitor standing where the character stands, in the live preview.
+  const behind = useRef(false)
+  const [blocked, setBlocked] = useState(false)
   const photo = useRef<Blob | null>(null)
   const url = useRef('')
   const painting = useRef(0)
@@ -225,6 +249,9 @@ export function Selfie({ who }: { who: Character }) {
     let face: Awaited<ReturnType<typeof findFace>> = null
     let looking = false
     let looked = 0
+    // When a thorough look last ran, and when a face was last seen.
+    let searched = 0
+    let seen = 0
     let next = 0
     const draw = (now: number) => {
       const camera = video.current
@@ -248,12 +275,33 @@ export function Selfie({ who }: { who: Character }) {
         ctx.drawImage(small, 0, 0)
         ctx.setTransform(1, 0, 0, 1, 0, 0)
         const who = ready.current
-        if (who) drawFigure(ctx, who.image, arrange(onto, small, face, who.image, who.face, side))
+        if (who) {
+          const place = arrange(onto, small, face, who.image, who.face, side)
+          drawFigure(ctx, who.image, place)
+          // Their face, mirrored as the preview is, on the character rather
+          // than beside them: they are standing where the character stands.
+          const hidden =
+            !!face &&
+            onFigure(who.image, place.figure, onto.width - (face.x + face.width / 2), face.y + face.height / 2)
+          if (hidden !== behind.current) {
+            behind.current = hidden
+            setBlocked(hidden)
+          }
+        }
         if (!looking && now - looked > 350) {
           looking = true
           looked = now
-          void findFace(small, true).then((found) => {
-            face = found
+          // A quick look many times a second, and a closer one at most once
+          // a second when it finds nobody: the quick look sees the whole
+          // picture at 128 pixels, where a visitor standing back is no face
+          // at all - and neither the sizing nor the step-aside line saw them.
+          const closer = now - seen > 1000 && now - searched > 1200
+          if (closer) searched = now
+          void findFace(small, !closer).then((found) => {
+            if (found) seen = performance.now()
+            // A quick miss straight after a close find is the quick look's
+            // blindness, not the visitor leaving.
+            if (found || performance.now() - seen > 1500) face = found
             looking = false
           })
         }
@@ -277,6 +325,8 @@ export function Selfie({ who }: { who: Character }) {
     url.current = ''
     photo.current = null
     layers.current = null
+    behind.current = false
+    setBlocked(false)
     figure.current = null
     ready.current = null
     going.current = false
@@ -438,7 +488,7 @@ export function Selfie({ who }: { who: Character }) {
     setShared('')
     setStage('result')
 
-    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
+    const [who, visitor, person] = await Promise.all([figure.current, findFace(shot), findPerson(shot)])
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
@@ -460,6 +510,17 @@ export function Selfie({ who }: { who: Character }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.filter = 'none'
     enhance(ctx, WIDTH, HEIGHT, needs)
+
+    // Portrait: the same room with what is behind the visitor softened. The
+    // mask is of the camera's picture, and the room is that picture mirrored.
+    let behindThem: HTMLCanvasElement | null = null
+    if (person) {
+      behindThem = softened(room, WIDTH / 160)
+      const onto = behindThem.getContext('2d', { willReadFrequently: true })!
+      const sharp = ctx.getImageData(0, 0, WIDTH, HEIGHT)
+      softenBehind(sharp.data, onto.getImageData(0, 0, WIDTH, HEIGHT).data, person, WIDTH, HEIGHT, true)
+      onto.putImageData(sharp, 0, 0)
+    }
 
     let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null
@@ -518,7 +579,7 @@ export function Selfie({ who }: { who: Character }) {
       }
     }
 
-    layers.current = { room, figure: placed, toned }
+    layers.current = { room, figure: placed, toned, portrait: behindThem }
     paint(LOOKS[0].id)
   }
 
@@ -532,7 +593,8 @@ export function Selfie({ who }: { who: Character }) {
     const ctx = out.getContext('2d')!
 
     ctx.filter = style.filter ?? 'none'
-    ctx.drawImage(held.room, 0, 0)
+    // Without a mask the portrait is the room as it is: a photograph, still.
+    ctx.drawImage(id === 'portrait' ? (held.portrait ?? held.room) : held.room, 0, 0)
     if (held.figure && id === 'original') {
       // As filmed and simply placed: the honest paste.
       ctx.drawImage(held.figure, 0, 0)
@@ -605,6 +667,17 @@ export function Selfie({ who }: { who: Character }) {
         // Over them, not instead of them: they are holding the pose, and the
         // count sits on their chest the way it does on a phone's own timer.
         <div className="pointer-events-none absolute inset-0 z-30">
+          {blocked && (
+            // A mirror: stepping to their right moves them right on the
+            // screen, away from a character standing at the left.
+            <p
+              aria-live="polite"
+              // On a dark pill: the page behind it is near white.
+              className="bg-ink/85 absolute inset-x-0 top-[12%] mx-auto w-fit max-w-[90%] rounded-full px-[1.2em] py-[0.5em] text-center text-[clamp(22px,3.2vh,96px)] font-semibold text-white"
+            >
+              Step to your {side === 'left' ? 'right' : 'left'} — you are behind {name || 'them'}
+            </p>
+          )}
           <span
             key={count}
             aria-live="assertive"
