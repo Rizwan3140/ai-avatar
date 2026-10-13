@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { findFace, findPerson, warmFaces } from './faces.ts'
+import { findFace, warmFaces } from './faces.ts'
 import {
-  LOOKS,
   arrange,
   bounds,
   centreCut,
@@ -18,7 +17,6 @@ import {
   turned,
   isCutOut,
   meanColour,
-  portrait as softenBehind,
   toneGains,
   type Box,
 } from './selfie.ts'
@@ -153,9 +151,6 @@ type Layers = {
   /** The avatar, cut out and placed — as filmed, and leaned toward the room. */
   figure: HTMLCanvasElement | null
   toned: HTMLCanvasElement | null
-  /** The room with what is behind the visitor softened — see `portrait`.
-   *  Null when the segmenter could not say where they are. */
-  portrait: HTMLCanvasElement | null
 }
 
 /** Each figure's own pixels, read once, to tell whether a point is on them. */
@@ -181,7 +176,6 @@ export function Selfie({ who }: { who: Character }) {
   const side = who.side
   const [stage, setStage] = useState<Stage>('closed')
   const [count, setCount] = useState(COUNT)
-  const [look, setLook] = useState(LOOKS[0].id)
   const [picture, setPicture] = useState('')
   const [shared, setShared] = useState('')
   const [sharing, setSharing] = useState(false)
@@ -316,7 +310,6 @@ export function Selfie({ who }: { who: Character }) {
     setShared('')
     setSharing(false)
     setProblem('')
-    setLook(LOOKS[0].id)
   }
 
   useEffect(() => close, [])
@@ -341,7 +334,7 @@ export function Selfie({ who }: { who: Character }) {
     const timer = setTimeout(close, UNATTENDED)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, look, shared, sharing])
+  }, [stage, shared, sharing])
 
   useEffect(() => {
     if (stage !== 'countdown') return
@@ -464,11 +457,10 @@ export function Selfie({ who }: { who: Character }) {
     // is a recording light nobody agreed to.
     stopCamera()
     bus.emit('SELFIE_POSING', { posing: false })
-    setLook(LOOKS[0].id)
     setShared('')
     setStage('result')
 
-    const [who, visitor, person] = await Promise.all([figure.current, findFace(shot), findPerson(shot)])
+    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
@@ -490,17 +482,6 @@ export function Selfie({ who }: { who: Character }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.filter = 'none'
     enhance(ctx, WIDTH, HEIGHT, needs)
-
-    // Portrait: the same room with what is behind the visitor softened. The
-    // mask is of the camera's picture, and the room is that picture mirrored.
-    let behindThem: HTMLCanvasElement | null = null
-    if (person) {
-      behindThem = softened(room, WIDTH / 160)
-      const onto = behindThem.getContext('2d', { willReadFrequently: true })!
-      const sharp = ctx.getImageData(0, 0, WIDTH, HEIGHT)
-      softenBehind(sharp.data, onto.getImageData(0, 0, WIDTH, HEIGHT).data, person, WIDTH, HEIGHT, true)
-      onto.putImageData(sharp, 0, 0)
-    }
 
     let placed: HTMLCanvasElement | null = null
     let toned: HTMLCanvasElement | null = null
@@ -559,44 +540,30 @@ export function Selfie({ who }: { who: Character }) {
       }
     }
 
-    layers.current = { room, figure: placed, toned, portrait: behindThem }
-    paint(LOOKS[0].id)
+    layers.current = { room, figure: placed, toned }
+    paint()
   }
 
-  /** Lay the two layers down in one look, and show the result. */
-  function paint(id: string) {
+  /**
+   * Lay the two layers down and show the result. One picture, the realistic
+   * one: there were six looks to choose between (Portrait, Original, B&W,
+   * Vivid, Warm, Cool) and they were asked to be taken off - "just give the
+   * original output". The character is the toned one, leaned toward the
+   * room's light and softened to the visitor's sharpness.
+   */
+  function paint() {
     const held = layers.current
     if (!held) return
-    const style = LOOKS.find((l) => l.id === id) ?? LOOKS[0]
     const { width: WIDTH, height: HEIGHT } = held.room
     const out = canvas(WIDTH, HEIGHT)
     const ctx = out.getContext('2d')!
-
-    ctx.filter = style.filter ?? 'none'
-    // Without a mask the portrait is the room as it is: a photograph, still.
-    ctx.drawImage(id === 'portrait' ? (held.portrait ?? held.room) : held.room, 0, 0)
-    if (held.figure && id === 'original') {
-      // As filmed and simply placed: the honest paste.
-      ctx.drawImage(held.figure, 0, 0)
-    } else if (held.figure) {
-      // Leaned toward the room's light, and nothing else. This also cast a
-      // soft shadow from their whole outline, to stop them looking like a
-      // sticker — and a dark edge all the way round a cut-out is precisely
-      // what a sticker has. Somebody standing in a room throws a shadow on
-      // the floor behind them, not a halo on the air beside them.
-      ctx.drawImage(held.toned ?? held.figure, 0, 0)
-    }
-    ctx.filter = 'none'
-    if (style.tint) {
-      ctx.globalCompositeOperation = 'soft-light'
-      ctx.fillStyle = style.tint
-      ctx.fillRect(0, 0, WIDTH, HEIGHT)
-    }
+    ctx.drawImage(held.room, 0, 0)
+    if (held.figure) ctx.drawImage(held.toned ?? held.figure, 0, 0)
 
     const turn = ++painting.current
     out.toBlob(
       (blob) => {
-        // Closed, or overtaken by the next look, while this was encoding.
+        // Closed, or overtaken by the next photograph, while this was encoding.
         if (!blob || turn !== painting.current || !layers.current) return
         if (url.current) URL.revokeObjectURL(url.current)
         url.current = URL.createObjectURL(blob)
@@ -608,13 +575,6 @@ export function Selfie({ who }: { who: Character }) {
       'image/jpeg',
       0.93,
     )
-  }
-
-  function choose(id: string) {
-    setLook(id)
-    // A different look is a different picture; the code on screen is the old one.
-    setShared('')
-    paint(id)
   }
 
   async function share() {
@@ -736,24 +696,6 @@ export function Selfie({ who }: { who: Character }) {
                 Test mode: this photo is saved on this machine.
               </p>
             )}
-
-            {/* Wrapped, not scrolled: a scrollbar under a photograph on a shop
-                window is a desktop control nobody there will drag. */}
-            <div className="flex shrink-0 flex-wrap justify-center gap-[0.5em]">
-              {LOOKS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => choose(id)}
-                  aria-pressed={look === id}
-                  className={`text-label shrink-0 rounded-full px-[1.1em] py-[0.5em] transition-colors ${
-                    look === id ? 'bg-ink text-white' : 'text-ink-soft hover:bg-line/40'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
 
             <div className="flex shrink-0 flex-col items-center gap-[0.6em] text-center">
               {shared ? (

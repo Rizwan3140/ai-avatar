@@ -33,8 +33,7 @@ const PATIENCE = 6000
 let loading: Promise<Detector | null> | null = null
 let runtime: Promise<{ vision: typeof import('@mediapipe/tasks-vision'); files: unknown }> | null = null
 
-/** MediaPipe and its WASM, loaded once for the face detector and the
- *  segmenter both. */
+/** MediaPipe and its WASM, loaded once. */
 function mediapipe() {
   runtime ??= (async () => {
     const vision = await import('@mediapipe/tasks-vision')
@@ -59,67 +58,9 @@ function detector(): Promise<Detector | null> {
   return loading
 }
 
-/** Start loading both, so the wait is spent during the count and not after it. */
+/** Start loading it, so the wait is spent during the count and not after it. */
 export function warmFaces(): void {
   void detector()
-  void segmenter()
-}
-
-/** Where the person is, pixel by pixel: 0 for the room, 1 for them. At the
- *  model's own size, which is smaller than the picture. */
-export type Person = { mask: Float32Array; width: number; height: number }
-
-type Segmenter = {
-  segment(image: CanvasImageSource): {
-    confidenceMasks?: { width: number; height: number; getAsFloat32Array(): Float32Array }[]
-    close(): void
-  }
-}
-
-let cutting: Promise<Segmenter | null> | null = null
-
-/**
- * Google's selfie segmenter, the same MediaPipe as the face detector and a
- * quarter of a megabyte more. Of four open-source photo booths looked at as
- * ways to a better picture, this was the one part worth taking: the others
- * kept galleries of visitors' photographs, or replaced the room on a server
- * the photograph would have had to be sent to.
- */
-function segmenter(): Promise<Segmenter | null> {
-  cutting ??= (async () => {
-    try {
-      const { vision, files } = await mediapipe()
-      return (await vision.ImageSegmenter.createFromOptions(files as never, {
-        baseOptions: { modelAssetPath: `${HOME}/selfie_segmenter.tflite` },
-        runningMode: 'IMAGE',
-        outputConfidenceMasks: true,
-        outputCategoryMask: false,
-      })) as unknown as Segmenter
-    } catch (failure) {
-      console.warn('person segmentation is unavailable; the selfie keeps a sharp room:', failure)
-      return null
-    }
-  })()
-  return cutting
-}
-
-/** The person in a picture, or null — never thrown, and not waited for past
- *  `PATIENCE`, for the reasons `findFace` gives. */
-export async function findPerson(image: HTMLCanvasElement): Promise<Person | null> {
-  const found = await Promise.race([
-    segmenter(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PATIENCE)),
-  ])
-  if (!found) return null
-  try {
-    const result = found.segment(image)
-    const [first] = result.confidenceMasks ?? []
-    const person = first && { mask: first.getAsFloat32Array().slice(), width: first.width, height: first.height }
-    result.close()
-    return person ?? null
-  } catch {
-    return null
-  }
 }
 
 /**
