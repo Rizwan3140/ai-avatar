@@ -318,6 +318,16 @@ TRYON_MODEL_REPLICATE = _get(
 )
 TRYON_MODEL_FAL = _get("TRYON_MODEL_FAL", "fal-ai/idm-vton")
 
+#: Google's Virtual Try-On on Vertex AI - the try-on of release v2.2.0. A
+#: service account's JSON key (`GOOGLE_APPLICATION_CREDENTIALS` is Google's own
+#: name for where it is), and the project it bills. Set, they outrank
+#: `TRYON_PROVIDER=extension`; see `tryon.provider`. The model is named so that
+#: its successor is a line here: Google retires this one on 2027-01-20.
+GOOGLE_CLOUD_PROJECT = _get("GOOGLE_CLOUD_PROJECT", "").strip()
+GOOGLE_APPLICATION_CREDENTIALS = _get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+GOOGLE_CLOUD_REGION = _get("GOOGLE_CLOUD_REGION", "us-central1").strip() or "us-central1"
+TRYON_MODEL_GOOGLE = _get("TRYON_MODEL_GOOGLE", "virtual-try-on-001").strip() or "virtual-try-on-001"
+
 # --- operations --------------------------------------------------------------
 LANGFUSE_PUBLIC_KEY = _get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = _get("LANGFUSE_SECRET_KEY")
@@ -404,6 +414,7 @@ _GROUPS = {
     "generation": [
         ("fal.ai", FAL_KEY, "try-on, avatar clips"),
         ("Replicate", REPLICATE_API_TOKEN, "try-on, avatar clips"),
+        ("Google Cloud", GOOGLE_CLOUD_PROJECT, "virtual try-on (v2.2.0)"),
         ("Try-on", TRYON_PROVIDER, "garment swap"),
     ],
     "operations": [

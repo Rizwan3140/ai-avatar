@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom,
+  arrange, bounds, centreCut, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -36,6 +36,13 @@ test('a camera stood on its side gives nine by sixteen, all of it and none of it
   assert.deepEqual(frameFor(upright), { width: 1080, height: 1920 })
   assert.deepEqual(centreCut(upright, frameFor(upright)), { x: 0, y: 0, width: 1080, height: 1920 })
   assert.deepEqual(turned({ width: 1920, height: 1080 }, 180), { width: 1920, height: 1080 })
+  // Mounted as this cabinet's is, unless the machine has been told otherwise;
+  // told once, it remembers.
+  const kept = new Map<string, string>()
+  const storage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v) }
+  assert.equal(cameraTurn({ search: '', storage }), 270)
+  assert.equal(cameraTurn({ search: '?turn=0', storage }), 0)
+  assert.equal(cameraTurn({ search: '', storage }), 0)
   // Only a turn that is one. Anything else typed into the address is none.
   assert.deepEqual(['90', '270', '180', '45', '', null].map(turnFrom), [90, 270, 180, 0, 0, 0])
 })

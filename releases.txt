@@ -3,6 +3,7 @@
 # release's copy is the one read, so older lines never need changing.
 #
 # version | what someone choosing a version needs to know
+v2.2.0 | Everything in 2.1, but try-on runs in the app through Google's Virtual Try-On: one photo, and the garment is put on the visitor in a few seconds. Needs a Google Cloud key in .env; the photo is sent to Google. Without the key it behaves like 2.1.
 v2.1.0 | Everything in 2.0, plus the selfie: a photo booth of its own, opened from the studio's Selfie tab. Make a selfie character from a cut-out picture and a getting-ready clip; a visitor is photographed beside them and can send the picture to their phone. Recommended.
 v2.0.0 | Telugu and Hindi avatars that hear and speak, a product shelf that scrolls, try-on through the Anywear extension, and this version menu. No selfie.
 v1.0.0 | English only - the last version before Telugu and Hindi. Go back here if 2.x misbehaves.

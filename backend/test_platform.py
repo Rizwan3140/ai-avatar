@@ -500,6 +500,72 @@ try:
     check("the server never swaps when the extension does", False)
 except tryon.TryOnUnavailable as exc:
     check("the server never swaps when the extension does", "extension" in str(exc))
+# Google's try-on, release v2.2.0. Configured, it outranks the extension the
+# cabinet's .env still names for v2.1.0 - choosing the version is the switch.
+_g = tryon.GoogleProvider()
+_gcfg = (tryon.config.GOOGLE_CLOUD_PROJECT, tryon.config.GOOGLE_APPLICATION_CREDENTIALS)
+tryon.config.GOOGLE_CLOUD_PROJECT, tryon.config.GOOGLE_APPLICATION_CREDENTIALS = "", ""
+check("google is not available without a project and a key", not _g.available())
+try:
+    _g.swap(b"\xff\xd8\xff", "data:image/png;base64,AAAA", "")
+    check("and says which settings are missing", False)
+except tryon.TryOnUnavailable as exc:
+    check("and says which settings are missing", "GOOGLE_CLOUD_PROJECT" in str(exc))
+tryon.config.GOOGLE_CLOUD_PROJECT, tryon.config.GOOGLE_APPLICATION_CREDENTIALS = "shop-1", "key.json"
+tryon._PROVIDERS = {"google": _g, "local": tryon.LocalProvider(), "extension": _ext}
+check("configured, google outranks the named extension", tryon.provider().name == "google")
+tryon.config.TRYON_PROVIDER = "fal"
+check("and is fallen through to first", tryon.provider().name == "google")
+
+_sent = {}
+_g._token = lambda: "tok"
+_real_post = tryon._post
+
+
+def _google_answers(url, payload, headers, timeout=tryon.TIMEOUT):
+    _sent.update(url=url, payload=payload, headers=headers, timeout=timeout)
+    return {"predictions": [{"bytesBase64Encoded": "aGk=", "mimeType": "image/png"}]}
+
+
+tryon._post = _google_answers
+_made = _g.swap(b"\xff\xd8\xffme", "data:image/png;base64,c2hpcnQ=", "")
+_inst = _sent["payload"]["instances"][0]
+check("google is sent both pictures inline",
+      _inst["personImage"]["image"]["bytesBase64Encoded"] == "/9j/bWU="
+      and _inst["productImages"][0]["image"]["bytesBase64Encoded"] == "c2hpcnQ=")
+check("and asked for one picture, kept nowhere",
+      _sent["payload"]["parameters"] == {"sampleCount": 1} and "storageUri" not in str(_sent["payload"]))
+check("at the project's own endpoint, signed in",
+      "/projects/shop-1/locations/us-central1/publishers/google/models/virtual-try-on-001:predict" in _sent["url"]
+      and _sent["headers"]["Authorization"] == "Bearer tok")
+check("and given time to render", _sent["timeout"] == tryon.MAX_WAIT)
+check("its picture comes back as the result",
+      _made.image == b"hi" and _made.media_type == "image/png" and _made.provider == "google")
+
+tryon._post = lambda *a, **k: {"predictions": []}
+try:
+    _g.swap(b"\xff\xd8\xff", "data:image/png;base64,AAAA", "")
+    check("an empty answer is a refusal, said plainly", False)
+except tryon.TryOnUnavailable as exc:
+    check("an empty answer is a refusal, said plainly", "no picture" in str(exc))
+
+
+def _google_refuses(code):
+    def post(*a, **k):
+        raise tryon.urllib.error.HTTPError("u", code, "no", {}, None)
+    return post
+
+
+for _code, _says in ((429, "busy"), (400, "could not use that photo"), (403, "refused the key")):
+    tryon._post = _google_refuses(_code)
+    try:
+        _g.swap(b"\xff\xd8\xff", "data:image/png;base64,AAAA", "")
+        check(f"google's {_code} is explained", False)
+    except tryon.TryOnUnavailable as exc:
+        check(f"google's {_code} is explained", _says in str(exc))
+tryon._post = _real_post
+tryon.config.GOOGLE_CLOUD_PROJECT, tryon.config.GOOGLE_APPLICATION_CREDENTIALS = _gcfg
+
 tryon.config.TRYON_PROVIDER = _was
 tryon._PROVIDERS = {"local": tryon.LocalProvider()}
 

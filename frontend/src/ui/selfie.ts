@@ -324,6 +324,36 @@ export type Turn = 0 | 90 | 180 | 270
 export const turnFrom = (said: string | null): Turn =>
   ([90, 180, 270] as const).find((turn) => String(turn) === said) ?? 0
 
+/**
+ * How this machine's webcam is mounted, for the selfie and try-on alike.
+ *
+ * A webcam stood on its side, so a wide camera takes a tall photograph with
+ * nothing cut and nothing enlarged. The browser cannot know how a camera is
+ * mounted, so it assumes how this cabinet's is — a quarter turn, 270, asked
+ * for as the default once that mount had been tried — and is told otherwise
+ * in the address: `?turn=0` for a camera the right way up, or 90 for one
+ * turned the other way. That browser remembers what it was told, because the
+ * camera belongs to the machine the browser is on. `from` is for the checks.
+ */
+export const MOUNTED: Turn = 270
+
+export function cameraTurn(
+  from: { search: string; storage?: Pick<Storage, 'getItem' | 'setItem'> } = {
+    search: globalThis.location?.search ?? '',
+    storage: globalThis.localStorage,
+  },
+): Turn {
+  const KEY = 'luxora.selfie.turn'
+  try {
+    const said = new URLSearchParams(from.search).get('turn')
+    if (said !== null) from.storage?.setItem(KEY, String(turnFrom(said)))
+    const kept = from.storage?.getItem(KEY) ?? null
+    return kept === null ? MOUNTED : turnFrom(kept)
+  } catch {
+    return MOUNTED // no storage here to say otherwise
+  }
+}
+
 /** The size of a camera's picture once it has been stood up. */
 export const turned = (camera: Size, turn: Turn): Size =>
   turn % 180 ? { width: camera.height, height: camera.width } : camera

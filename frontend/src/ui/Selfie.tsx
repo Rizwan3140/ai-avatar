@@ -14,13 +14,12 @@ import {
   frameFor,
   grade,
   tone,
+  cameraTurn,
   turned,
-  turnFrom,
   isCutOut,
   meanColour,
   toneGains,
   type Box,
-  type Turn,
 } from './selfie.ts'
 
 /**
@@ -66,27 +65,8 @@ const UNATTENDED = 120_000
 const canvas = (width: number, height: number) =>
   Object.assign(document.createElement('canvas'), { width, height })
 
-/**
- * A webcam stood on its side, so a wide camera takes a tall photograph with
- * nothing cut and nothing enlarged. The browser cannot know how a camera is
- * mounted, so it assumes how this cabinet's is — a quarter turn, 270, asked
- * for as the default once that mount had been tried — and is told otherwise
- * in the address: `/selfie?id=…&turn=0` for a camera the right way up, or 90
- * for one turned the other way. That browser remembers what it was told,
- * because the camera belongs to the machine the browser is on.
- */
-const MOUNTED: Turn = 270
-const TURN = (() => {
-  const KEY = 'luxora.selfie.turn'
-  try {
-    const said = new URLSearchParams(location.search).get('turn')
-    if (said !== null) localStorage.setItem(KEY, String(turnFrom(said)))
-    const kept = localStorage.getItem(KEY)
-    return kept === null ? MOUNTED : turnFrom(kept)
-  } catch {
-    return MOUNTED // no storage here to say otherwise
-  }
-})()
+/** How the camera is mounted — see `cameraTurn`. */
+const TURN = cameraTurn()
 
 /** The camera's picture as it stands once turned. */
 const upright = (camera: HTMLVideoElement) =>

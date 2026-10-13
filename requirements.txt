@@ -10,10 +10,13 @@ segno==1.6.6     # QR codes, rendered locally so they survive the network droppi
 pypdf==6.16.1    # PDF text only. DOCX is a zip of XML and needs no library.
 rembg==2.0.84    # Cuts a subject from its background for make_poster.py. Edge-only.
 pillow==12.3.0   # What make_poster.py composites the cutout onto white with.
+google-auth==2.60.0  # Google try-on's sign-in only: a service account's token is
+                     # an RS256 signature, which the standard library cannot make.
 
 # Not listed, on purpose:
 #   auth        hashlib.scrypt, hmac and secrets are stdlib and are the parts
-#               that matter. See backend/accounts.py.
+#               that matter. See backend/accounts.py. (google-auth above signs
+#               in to Google, not anyone to Luxora.)
 #   database    sqlite3 is stdlib, and the whole catalog is a few thousand rows.
 #   http        urllib does every outbound call here. requests would be nicer to
 #               read and would not do anything urllib does not.

@@ -151,7 +151,28 @@ def garment_source(image: str) -> str:
     """
     if image.startswith(("http://", "https://", "data:")):
         return image
+    return _data_uri(_served_file(image))
 
+
+def garment_bytes(image: str) -> bytes:
+    """The garment itself, for a provider that takes pictures rather than
+    addresses. Google's does: it is handed both images inline, so a public
+    image is fetched here instead of by them."""
+    if image.startswith("data:"):
+        try:
+            return base64.b64decode(image.split(",", 1)[-1], validate=True)
+        except ValueError as exc:
+            raise TryOnUnavailable("the product's picture is not a readable image") from exc
+    if image.startswith(("http://", "https://")):
+        try:
+            return _download(image)
+        except (urllib.error.URLError, OSError) as exc:
+            raise TryOnUnavailable("the product's picture could not be fetched") from exc
+    return _served_file(image)
+
+
+def _served_file(image: str) -> bytes:
+    """A catalog image this machine serves itself, read off disk."""
     # Served from frontend/public in dev and frontend/dist once built; the built
     # copy wins because that is what the running kiosk is serving.
     roots = [
@@ -166,7 +187,7 @@ def garment_source(image: str) -> str:
         if not candidate.is_relative_to(root.resolve()):
             continue
         if candidate.is_file():
-            return _data_uri(candidate.read_bytes())
+            return candidate.read_bytes()
 
     raise TryOnUnavailable(
         f"the image for this product ({image}) is not a public URL and was not "
@@ -174,14 +195,14 @@ def garment_source(image: str) -> str:
     )
 
 
-def _post(url: str, payload: dict, headers: dict) -> dict:
+def _post(url: str, payload: dict, headers: dict, timeout: float = TIMEOUT) -> dict:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", **headers},
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read())
 
 
@@ -303,6 +324,101 @@ class FalProvider:
         return Result(_download(image_url), "image/png", self.name, time.monotonic() - started)
 
 
+class GoogleProvider:
+    """Google's Virtual Try-On, on Vertex AI. The release that carries it is
+    v2.2.0; v2.1.0 is the same cabinet with the Anywear extension.
+
+    The first hosted route here a paying showroom can use: the IDM-VTON that
+    Replicate and fal run is licensed for research, and Google's terms let the
+    generated picture be used commercially. It answers in one request, with
+    both pictures inline and the result inline — no `storageUri`, so no bucket
+    ever holds the visitor. Google still sees the photograph, which the consent
+    screen says before the camera opens.
+
+    Signed in with a service account. That needs an RS256 signature, which the
+    standard library cannot make, so this is the one place `google-auth` is
+    used — imported here, so nothing else on any role loads it.
+    """
+
+    name = "google"
+    _credentials = None
+
+    def available(self) -> bool:
+        return bool(config.GOOGLE_CLOUD_PROJECT and config.GOOGLE_APPLICATION_CREDENTIALS)
+
+    def _token(self) -> str:
+        try:
+            from google.auth.exceptions import GoogleAuthError
+            from google.auth.transport.requests import Request
+            from google.oauth2 import service_account
+        except ImportError as exc:
+            raise TryOnUnavailable(
+                "Google try-on needs the google-auth package: "
+                r".venv\Scripts\python.exe -m pip install -r requirements.txt"
+            ) from exc
+        try:
+            # Kept between requests, and refreshed only when it runs out: a
+            # token lasts an hour, and minting one is a round trip of its own.
+            if self._credentials is None:
+                self._credentials = service_account.Credentials.from_service_account_file(
+                    config.GOOGLE_APPLICATION_CREDENTIALS,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                )
+            if not self._credentials.valid:
+                self._credentials.refresh(Request())
+        except (OSError, ValueError) as exc:
+            raise TryOnUnavailable("the Google key file named in GOOGLE_APPLICATION_CREDENTIALS could not be read") from exc
+        except GoogleAuthError as exc:
+            raise TryOnUnavailable("Google would not accept the service-account key") from exc
+        return self._credentials.token
+
+    def swap(self, person: bytes, garment_url: str, description: str) -> Result:
+        if not self.available():
+            raise TryOnUnavailable("set GOOGLE_CLOUD_PROJECT and GOOGLE_APPLICATION_CREDENTIALS to enable Google try-on")
+
+        started = time.monotonic()
+        garment = garment_bytes(garment_url)
+        region, project = config.GOOGLE_CLOUD_REGION, config.GOOGLE_CLOUD_PROJECT
+        url = (
+            f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
+            f"/locations/{region}/publishers/google/models/{config.TRYON_MODEL_GOOGLE}:predict"
+        )
+        inline = lambda image: {"image": {"bytesBase64Encoded": base64.b64encode(image).decode()}}  # noqa: E731
+        try:
+            answer = _post(
+                url,
+                {
+                    "instances": [{"personImage": inline(person), "productImages": [inline(garment)]}],
+                    "parameters": {"sampleCount": 1},
+                },
+                {"Authorization": f"Bearer {self._token()}"},
+                # One request that is the whole render, not a queue to poll.
+                timeout=MAX_WAIT,
+            )
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                raise TryOnUnavailable("Google refused the key - check the project has Vertex AI enabled") from exc
+            if exc.code == 429:
+                raise TryOnUnavailable("Google is busy - try again in a moment") from exc
+            if exc.code == 400:
+                raise TryOnUnavailable("Google could not use that photo") from exc
+            raise TryOnUnavailable(f"Google refused the request ({exc.code})") from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise TryOnUnavailable("could not reach Google") from exc
+
+        # An empty answer is a refusal: the safety filter declines a picture by
+        # leaving it out, not by failing the request.
+        picture = (answer.get("predictions") or [{}])[0]
+        if not picture.get("bytesBase64Encoded"):
+            raise TryOnUnavailable("Google returned no picture - it may have declined this photo")
+        return Result(
+            base64.b64decode(picture["bytesBase64Encoded"]),
+            picture.get("mimeType", "image/png"),
+            self.name,
+            time.monotonic() - started,
+        )
+
+
 class LocalProvider:
     """A garment-swap model on the machine itself.
 
@@ -322,7 +438,8 @@ class LocalProvider:
         raise TryOnUnavailable(
             "local try-on is not wired up. It is the preferred option — the photo "
             "never leaves the cabinet — but the model has not been benchmarked on "
-            "this hardware. Set REPLICATE_API_TOKEN or FAL_KEY meanwhile."
+            "this hardware. Set up Google (GOOGLE_CLOUD_PROJECT and "
+            "GOOGLE_APPLICATION_CREDENTIALS), REPLICATE_API_TOKEN or FAL_KEY meanwhile."
         )
 
 
@@ -348,7 +465,10 @@ class ExtensionProvider:
         )
 
 
+#: In the order they are fallen through to. Google first: of the hosted ones it
+#: is the only one whose pictures may be used commercially.
 _PROVIDERS: dict[str, TryOnProvider] = {
+    "google": GoogleProvider(),
     "local": LocalProvider(),
     "replicate": ReplicateProvider(),
     "fal": FalProvider(),
@@ -361,9 +481,15 @@ def provider() -> TryOnProvider:
 
     Falling through rather than failing means a company that set one key gets
     try-on without also having to name it.
+
+    **Google outranks the extension it would otherwise be named over.** The
+    cabinet's `.env` says `TRYON_PROVIDER=extension`, for v2.1.0, and carries
+    the Google keys as well; choosing v2.2.0 in the launcher's version menu is
+    then the whole of switching, with nothing in `.env` to edit back and forth.
     """
     named = _PROVIDERS.get(config.TRYON_PROVIDER)
-    if named and named.available():
+    google = _PROVIDERS.get("google")
+    if named and named.available() and not (named.name == "extension" and google and google.available()):
         return named
     for candidate in _PROVIDERS.values():
         if candidate.available():

@@ -4,6 +4,7 @@ import { bus } from '../bus/bus.ts'
 import type { Product } from '../bus/events.ts'
 import { requestConsent, tryOnProduct } from '../provider/http.ts'
 import { useStore } from '../state/store.ts'
+import { cameraTurn, turned } from './selfie.ts'
 
 /**
  * "Would you like to see how this looks on you?"
@@ -28,6 +29,34 @@ import { useStore } from '../state/store.ts'
  */
 type Stage = 'consent' | 'camera' | 'working' | 'result' | 'refused' | 'extension'
 
+/** How the camera is mounted — on its side on this cabinet. See `cameraTurn`. */
+const TURN = cameraTurn()
+
+/**
+ * The camera's picture stood upright, no larger than `longest` on its long
+ * side, and mirrored if asked. The preview is mirrored, because an unmirrored
+ * self-view reads as someone else; the photograph is not, so that lettering
+ * on a garment reads the right way round.
+ *
+ * Try-on drew the raw frame. With the camera mounted sideways for the selfie
+ * that was a visitor lying on their side — in the preview, and in the
+ * photograph handed to the model.
+ */
+function upright(camera: HTMLVideoElement, into: HTMLCanvasElement, longest: number, mirror = false) {
+  const whole = turned({ width: camera.videoWidth, height: camera.videoHeight }, TURN)
+  const by = Math.min(1, longest / Math.max(whole.width, whole.height))
+  const width = Math.round(whole.width * by)
+  const height = Math.round(whole.height * by)
+  if (into.width !== width || into.height !== height) Object.assign(into, { width, height })
+  const ctx = into.getContext('2d')!
+  ctx.setTransform(1, 0, 0, 1, width / 2, height / 2)
+  if (mirror) ctx.scale(-1, 1)
+  ctx.rotate((TURN * Math.PI) / 180)
+  ctx.scale(by, by)
+  ctx.drawImage(camera, -camera.videoWidth / 2, -camera.videoHeight / 2)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+}
+
 export function TryOn({ product }: { product: Product }) {
   const capability = useStore((s) => s.tryon)
   // Set up on this cabinet as `TRYON_PROVIDER=extension`: the Anywear browser
@@ -40,6 +69,7 @@ export function TryOn({ product }: { product: Product }) {
   const [problem, setProblem] = useState('')
 
   const video = useRef<HTMLVideoElement>(null)
+  const view = useRef<HTMLCanvasElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const objectUrl = useRef('')
   // Issued by the server the moment the visitor agrees, spent on one photograph.
@@ -119,6 +149,19 @@ export function TryOn({ product }: { product: Product }) {
     }
   }, [open])
 
+  // The preview, drawn upright a frame at a time while the camera is open.
+  useEffect(() => {
+    if (stage !== 'camera') return
+    let next = 0
+    const draw = () => {
+      const camera = video.current
+      if (camera?.videoWidth && view.current) upright(camera, view.current, 960, true)
+      next = requestAnimationFrame(draw)
+    }
+    next = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(next)
+  }, [stage])
+
   function begin() {
     setStage(viaExtension ? 'extension' : 'consent')
     setOpen(true)
@@ -141,9 +184,10 @@ export function TryOn({ product }: { product: Product }) {
       consent.current = await requestConsent()
 
       const media = await navigator.mediaDevices.getUserMedia({
-        // Front-facing and portrait: a garment swap needs the person standing,
-        // and the cabinet is a vertical panel.
-        video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1440 } },
+        // Front-facing, and all the camera has: on this cabinet it is mounted
+        // on its side, and turning it upright is what makes the picture tall.
+        // Asking for a tall shape instead got a wide camera's smallest mode.
+        video: { facingMode: 'user', width: { ideal: 3840 }, height: { ideal: 2160 } },
         audio: false,
       })
       stream.current = media
@@ -162,10 +206,10 @@ export function TryOn({ product }: { product: Product }) {
     const element = video.current
     if (!element) return
 
+    // Upright, and 2048 on the long side at most: the model gives back a
+    // picture the size it is given, and Google refuses one over 10 MB.
     const canvas = document.createElement('canvas')
-    canvas.width = element.videoWidth
-    canvas.height = element.videoHeight
-    canvas.getContext('2d')?.drawImage(element, 0, 0)
+    upright(element, canvas, 2048)
 
     const photo = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', 0.92),
@@ -178,7 +222,9 @@ export function TryOn({ product }: { product: Product }) {
     setStage('working')
     try {
       const swapped = await tryOnProduct(product.id, photo, consent.current)
-      consent.current = 
+      // Spent. This line had no value, and so took the next one's: the
+      // result's address was being kept as the visitor's agreement.
+      consent.current = ''
       objectUrl.current = URL.createObjectURL(swapped)
       setResult(objectUrl.current)
       setStage('result')
@@ -262,13 +308,12 @@ export function TryOn({ product }: { product: Product }) {
 
       {stage === 'camera' && (
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <video
-            ref={video}
-            autoPlay
-            playsInline
-            muted
-            // Mirrored, because an unmirrored self-view reads as someone else.
-            className="min-h-0 flex-1 -scale-x-100 rounded-lg bg-line/30 object-cover"
+          {/* The camera itself, unseen: what is seen is `view`, stood upright. */}
+          <video ref={video} autoPlay playsInline muted aria-hidden className="absolute size-px opacity-0" />
+          <canvas
+            ref={view}
+            aria-label="You, as the camera sees you"
+            className="min-h-0 w-full flex-1 rounded-lg bg-line/30 object-contain"
           />
           <div className="flex flex-wrap gap-3">
             <button

@@ -25,7 +25,7 @@ Full scope: `Docs/`, and the plan at
 ```bash
 (cd frontend && npm test)                   # 139 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
-./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
+./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-865 checks total. **Never run the Python suites through `unittest`** — they are
+878 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -78,7 +78,7 @@ event, not a dependency.
 | `backend/tts.py` | browser voice → Chatterbox clone; Indian languages → Sarvam |
 | `backend/avatar_provider.py` | mp4 today; Simli/HeyGen/Anam declared |
 | `backend/store.py` | files today; Supabase replaces this module alone |
-| `backend/tryon.py` | Replicate and fal wired; local declared and refusing |
+| `backend/tryon.py` | Google (v2.2.0), Replicate and fal wired; the Anywear extension by name; local declared and refusing |
 
 **Two roles, one codebase.** `LUXORA_ROLE=edge|cloud|all` (default `all`).
 Everything needing a model is edge-only, because a cloud container running
@@ -190,6 +190,20 @@ company's prices out loud.
   a change; a reload that did not take is not tried again for the same commit.
   The first fourteen lines of `Luxora.bat` are kept byte for byte: cmd resumes
   a batch file by offset, and the update that file starts replaces it mid-run.
+- **Two releases, two try-ons: v2.1.0 is Anywear, v2.2.0 is Google.** Asked
+  for as separate versions so the cabinet can be switched between them from
+  Luxora.bat's version menu. v2.2.0 adds `tryon.GoogleProvider` (Vertex AI
+  `virtual-try-on-001`): both pictures inline, the result inline, no
+  `storageUri`, so no bucket ever holds the visitor. Google is the first hosted
+  try-on here whose pictures may be used commercially - the IDM-VTON on
+  Replicate and fal is research-licensed. **A configured Google outranks
+  `TRYON_PROVIDER=extension`**, so one `.env` serves both releases and choosing
+  the version is the whole switch; v2.1.0 has never heard of Google. Signing
+  in to Google is an RS256 signature, which is why `google-auth` is the one
+  auth package here, imported inside the provider only. Google retires this
+  model version on 2027-01-20; `TRYON_MODEL_GOOGLE` names its successor. The
+  try-on camera now shares `selfie.cameraTurn()` - it had been showing, and
+  sending, a visitor lying on their side since the webcam was turned.
 - **Consent is a nonce, not a flag.** `?consent=1` was a constant the browser
   typed into every request: the check was real and the value proved nothing,
   and there was no record tying an agreement to a photograph. The token is
