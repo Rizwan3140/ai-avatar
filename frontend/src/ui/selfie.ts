@@ -568,6 +568,51 @@ export function clarify(
   }
 }
 
+/**
+ * A phone's portrait mode: the room behind the visitor softened, the visitor
+ * kept sharp. `sharp` is changed in place; `soft` is the same picture blurred.
+ *
+ * `mask` is where the person is, 0 to 1, at the segmenter's own smaller size,
+ * and read here at the picture's — sampled between its pixels, so its edge
+ * does not come out in steps. And eased between 0.3 and 0.7 rather than cut
+ * at a half, so hair and the edge of a shoulder pass from sharp to soft over
+ * a few pixels. `mirror` reads the mask the other way round, because the
+ * photograph is mirrored and the camera's picture the mask came from is not.
+ *
+ * Why it is the photograph's default look: a selfie on a real phone looks like
+ * this, and the room going soft hides most of what gave the picture away — a
+ * webcam's grain, a busy office, and a cut-out's edge against a sharp wall.
+ */
+export function portrait(
+  sharp: Uint8ClampedArray,
+  soft: Uint8ClampedArray,
+  person: { mask: Float32Array; width: number; height: number },
+  width: number,
+  height: number,
+  mirror = false,
+): void {
+  const { mask, width: mw, height: mh } = person
+  const at = (x: number, y: number) => mask[Math.min(mh - 1, y) * mw + Math.min(mw - 1, x)]
+  for (let y = 0; y < height; y++) {
+    const fy = Math.max(0, ((y + 0.5) * mh) / height - 0.5)
+    const y0 = Math.floor(fy)
+    const ty = fy - y0
+    for (let x = 0; x < width; x++) {
+      const fx = Math.max(0, (((mirror ? width - 1 - x : x) + 0.5) * mw) / width - 0.5)
+      const x0 = Math.floor(fx)
+      const tx = fx - x0
+      const m =
+        (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) +
+        (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty
+      const t = Math.min(1, Math.max(0, (m - 0.3) / 0.4))
+      const keep = t * t * (3 - 2 * t)
+      if (keep === 1) continue
+      const i = (y * width + x) * 4
+      for (let j = i; j < i + 3; j++) sharp[j] = sharp[j] * keep + soft[j] * (1 - keep)
+    }
+  }
+}
+
 export type Look = {
   id: string
   label: string
@@ -579,6 +624,8 @@ export type Look = {
 
 /** The looks the visitor chooses between, in the order they are offered. */
 export const LOOKS: Look[] = [
+  // First, so it is the one a photograph opens on — see `portrait`.
+  { id: 'portrait', label: 'Portrait' },
   { id: 'realistic', label: 'Realistic' },
   { id: 'original', label: 'Original' },
   { id: 'bw', label: 'B&W', filter: 'grayscale(1) contrast(1.08)' },
