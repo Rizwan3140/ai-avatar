@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { findFace, findPerson, warmFaces } from './faces.ts'
+import { findBody, findFace, warmFaces } from './faces.ts'
 import {
   arrange,
   bounds,
@@ -11,7 +11,6 @@ import {
   crispness,
   cutOut,
   frameFor,
-  groundOf,
   grade,
   tone,
   turned,
@@ -19,6 +18,7 @@ import {
   isCutOut,
   meanColour,
   toneGains,
+  type Body,
   type Box,
   type Turn,
 } from './selfie.ts'
@@ -58,7 +58,7 @@ type Stage = 'closed' | 'countdown' | 'result' | 'refused'
 const COUNT = 8
 
 /** The avatar, cut out and ready to place, and where their face is in it. */
-type Figure = { image: HTMLCanvasElement; face: Box | null }
+type Figure = { image: HTMLCanvasElement; face: Box | null; body: Body | null }
 
 /** How long a picture of somebody stays up with nobody touching it. */
 const UNATTENDED = 120_000
@@ -244,8 +244,8 @@ export function Selfie({ who }: { who: Character }) {
     let face: Awaited<ReturnType<typeof findFace>> = null
     let looking = false
     let looked = 0
-    // Where the visitor's feet are, looked for less often than their face.
-    let ground: number | null = null
+    // Where the visitor's body is, looked for less often than their face.
+    let body: Body | null = null
     let cutting = false
     let cut = 0
     // When a thorough look last ran, and when a face was last seen.
@@ -275,7 +275,8 @@ export function Selfie({ who }: { who: Character }) {
         ctx.setTransform(1, 0, 0, 1, 0, 0)
         const who = ready.current
         if (who) {
-          const place = arrange(onto, small, face, who.image, who.face, side, ground)
+          const fitted = body && who.body ? { visitor: body, figure: who.body } : null
+          const place = arrange(onto, small, face, who.image, who.face, side, fitted)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -291,8 +292,8 @@ export function Selfie({ who }: { who: Character }) {
           cutting = true
           cut = now
           const seenFace = face
-          void findPerson(small).then((person) => {
-            ground = person ? groundOf(person, seenFace, small) : null
+          void findBody(small, seenFace).then((found) => {
+            body = found
             cutting = false
           })
         }
@@ -457,8 +458,9 @@ export function Selfie({ who }: { who: Character }) {
       .drawImage(work, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height)
 
     // No face found is left to `arrange`, which knows where one is in a
-    // picture taken from the phone. Waited for in full - see `findFace`.
-    return { image, face: await findFace(image, false, true) }
+    // picture taken from the phone. Both waited for in full - see `findFace`.
+    const face = await findFace(image, false, true)
+    return { image, face, body: await findBody(image, face, true) }
   }
 
   async function shoot() {
@@ -494,7 +496,9 @@ export function Selfie({ who }: { who: Character }) {
     setShared('')
     setStage('result')
 
-    const [who, visitor, person] = await Promise.all([figure.current, findFace(shot), findPerson(shot)])
+    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
+    // Their body, the one under their face: the character is fitted to it.
+    const body = await findBody(shot, visitor)
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
@@ -523,8 +527,8 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      const ground = person && visitor ? groundOf(person, visitor, shot) : null
-      const place = arrange(frame, shot, visitor, who.image, who.face, side, ground)
+      const fitted = body && who.body ? { visitor: body, figure: who.body } : null
+      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted)
       drawFigure(onto, who.image, place)
 
       // Their colour leaned toward the room's cast, then their whole tonal

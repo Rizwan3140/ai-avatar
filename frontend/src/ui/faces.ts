@@ -1,4 +1,4 @@
-import type { Box } from './selfie.ts'
+import { bodyOf, type Body, type Box } from './selfie.ts'
 
 /**
  * Where the face is in a picture.
@@ -33,8 +33,7 @@ const PATIENCE = 6000
 let loading: Promise<Detector | null> | null = null
 let runtime: Promise<{ vision: typeof import('@mediapipe/tasks-vision'); files: unknown }> | null = null
 
-/** MediaPipe and its WASM, loaded once for the face detector and the
- *  segmenter both. */
+/** MediaPipe and its WASM, loaded once for the face and pose finders both. */
 function mediapipe() {
   runtime ??= (async () => {
     const vision = await import('@mediapipe/tasks-vision')
@@ -62,64 +61,61 @@ function detector(): Promise<Detector | null> {
 /** Start loading both, so the wait is spent during the count and not after it. */
 export function warmFaces(): void {
   void detector()
-  void segmenter()
+  void poser()
 }
-/** Where the person is, pixel by pixel: 0 for the room, 1 for them. At the
- *  model's own size, which is smaller than the picture. */
-export type Person = { mask: Float32Array; width: number; height: number }
-
-type Segmenter = {
-  segment(image: CanvasImageSource): {
-    confidenceMasks?: { width: number; height: number; getAsFloat32Array(): Float32Array }[]
-    close(): void
-  }
+type Poser = {
+  detect(image: CanvasImageSource): { landmarks: { x: number; y: number; visibility?: number }[][] }
 }
 
-let cutting: Promise<Segmenter | null> | null = null
+let posing: Promise<Poser | null> | null = null
 
 /**
- * Google's selfie segmenter, the same MediaPipe as the face detector and a
- * quarter of a megabyte more. Used for one thing: where the visitor's feet
- * are, so a character can stand on the same floor (`selfie.groundOf`). It
- * once also blurred the room behind them; that look was taken off.
+ * Google's pose landmarker (lite), the same MediaPipe as the face detector:
+ * where a body's nose, shoulders, hips, knees and ankles are. The selfie fits
+ * the character to the visitor by them (`selfie.fitBodies`), so whatever of
+ * the visitor the photograph holds - to the knees, to the shoes - the
+ * character is cut at the same place on their own body.
  */
-function segmenter(): Promise<Segmenter | null> {
-  cutting ??= (async () => {
+function poser(): Promise<Poser | null> {
+  posing ??= (async () => {
     try {
       const { vision, files } = await mediapipe()
-      return (await vision.ImageSegmenter.createFromOptions(files as never, {
-        baseOptions: { modelAssetPath: `${HOME}/selfie_segmenter.tflite` },
+      return (await vision.PoseLandmarker.createFromOptions(files as never, {
+        baseOptions: { modelAssetPath: `${HOME}/pose_landmarker_lite.task` },
         runningMode: 'IMAGE',
-        outputConfidenceMasks: true,
-        outputCategoryMask: false,
-      })) as unknown as Segmenter
+        numPoses: 3,
+      })) as unknown as Poser
     } catch (failure) {
-      console.warn('person segmentation is unavailable; the selfie sizes by the face alone:', failure)
+      console.warn('pose finding is unavailable; the selfie sizes by the face alone:', failure)
       return null
     }
   })()
-  return cutting
+  return posing
 }
 
-/** The person in a picture, or null — never thrown, and not waited for past
- *  `PATIENCE`, for the reasons `findFace` gives. */
-export async function findPerson(image: HTMLCanvasElement): Promise<Person | null> {
-  const found = await Promise.race([
-    segmenter(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PATIENCE)),
-  ])
+/**
+ * The body in a picture nearest `near` (the visitor's face; else the middle),
+ * or null. Never thrown. Not waited for past `PATIENCE` unless `patient` - as
+ * `findFace`, and for the same reason: the character's own body is known in
+ * advance and worth waiting for, a visitor's is not worth a stalled shutter.
+ */
+export async function findBody(image: HTMLCanvasElement, near: Box | null, patient = false): Promise<Body | null> {
+  const found = patient
+    ? await poser()
+    : await Promise.race([poser(), new Promise<null>((resolve) => setTimeout(() => resolve(null), PATIENCE))])
   if (!found) return null
   try {
-    const result = found.segment(image)
-    const [first] = result.confidenceMasks ?? []
-    const person = first && { mask: first.getAsFloat32Array().slice(), width: first.width, height: first.height }
-    result.close()
-    return person ?? null
+    const { width, height } = image
+    const middle = near ? near.x + near.width / 2 : width / 2
+    let best: { x: number; y: number; visibility?: number }[] | null = null
+    for (const pose of found.detect(image).landmarks) {
+      if (!best || Math.abs(pose[0].x * width - middle) < Math.abs(best[0].x * width - middle)) best = pose
+    }
+    return best ? bodyOf(best, height) : null
   } catch {
     return null
   }
 }
-
 
 /**
  * The visitor's face — large, and near the middle — or null.

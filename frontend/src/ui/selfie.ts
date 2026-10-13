@@ -228,7 +228,7 @@ export function arrange(
   figure: Size,
   figureFace: Box | null,
   side: Side = 'left',
-  ground: number | null = null,
+  bodies: { visitor: Body; figure: Body } | null = null,
 ): { figure: Box } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -257,29 +257,16 @@ export function arrange(
   // to and shrinking them into what is left would make them a doll after all.
   const fits = room < 0.18 * W ? Infinity : room / face.width
   let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
-  // They are never made larger than the visitor to fill the frame. They were,
-  // by up to 60%, so that a picture ending at the waist still reached the
-  // bottom of a tall photograph; beside a visitor standing back that made
-  // their face twice the visitor's, and it was asked for straight back out:
-  // "dont make the image larger ... I want the height to match head to head".
-  // A picture that would end in mid-air is lowered instead, further down. A
-  // full-length picture of them - head to shoes - never needs to be.
-  // Standing on the visitor's floor. A picture of them head to shoes, beside
-  // a visitor whose feet are in the photograph (`ground`, where they meet the
-  // floor - see `groundOf`): eyes level, and their shoes on that line. The
-  // face alone sized a full-length character from one measurement of eight,
-  // so a picture taken from a little above, with the head large and the legs
-  // short, stood with its feet in the air or ran off the bottom while the
-  // visitor's feet were plainly on the floor - "it has to be like they're
-  // standing beside each other". Kept within a fifth of the face's own size:
-  // a floor misread does not make a giant.
-  const fullLength = figure.height >= 5.5 * face.height
-  const standing = ground !== null && fullLength
-  if (standing) {
-    const toFloor = ground * scale - headY
-    const theirs = figure.height - (face.y + face.height / 2)
-    if (toFloor > 0) k = clamp(toFloor / theirs, 0.8 * k, 1.25 * k)
-  }
+  // Then fitted to the visitor's body, when both bodies are found: the
+  // nose level, and the lowest mark both show at the same height - see
+  // `fitBodies`. "If the user's picture captures only till knee level, the
+  // avatar's also has to be till knee level." The face alone could not do
+  // that: a picture taken from a little above has a large head and short
+  // legs, and matched by the face it ran off the bottom while the visitor
+  // stood on the floor in plain view. Kept within 40% of the face's own
+  // size either way, so a misread body does not make a giant or a doll.
+  const fit = bodies ? fitBodies(bodies.visitor, bodies.figure) : null
+  if (fit) k = clamp(fit.k * scale, 0.6 * k, 1.6 * k)
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // A quarter of the way in from their side, or nearer the edge if their face
@@ -291,44 +278,64 @@ export function arrange(
   // ruled line down the photograph.
   const placed = centre - (face.x + face.width / 2) * k
   const x = onLeft ? Math.min(placed, 0) : Math.max(placed, W - drawn.width)
-  // Level: eyes beside eyes.
-  let y = headY - (face.y + face.height / 2) * k
-  // They do not float. The picture of them ends at the chest, and that edge
-  // has to be the frame's edge, or they are a bust hanging in the room. Not
-  // when they are standing on the floor: their feet are where the visitor's are.
-  if (!standing && y + drawn.height < H) y = H - drawn.height
+  // Level: noses beside each other when the bodies were fitted, else eyes.
+  let y = fit ? fit.at * scale - fit.from * k : headY - (face.y + face.height / 2) * k
+  // They do not float. A picture of them that ends at the chest has that edge
+  // at the frame's edge, or they are a bust hanging in the room. Not one that
+  // reaches their shoes and was fitted: their feet are where the visitor's are.
+  const shod = fit !== null && bodies!.figure.ankles !== null
+  if (!shod && y + drawn.height < H) y = H - drawn.height
 
   return { figure: { x, y, ...drawn } }
 }
 
 /**
- * Where the visitor stands: the lowest point of them in the picture, under
- * their own face, in `view`'s pixels — or null when their feet are not in it.
- *
- * `person` is the segmenter's mask of the picture, `face` the visitor's face
- * in the same picture. Only the columns under the face are looked at, so a
- * chair or somebody else to one side is not taken for their feet; and a
- * lowest point at the bottom edge is the frame cutting them off, not the
- * floor, so it says nothing.
+ * A body's marks, top to bottom: how far down a picture its nose, shoulders,
+ * hips, knees and ankles are, in its pixels. Null for any the picture does not
+ * hold - not seen, or past its bottom edge.
  */
-export function groundOf(
-  person: { mask: Float32Array; width: number; height: number },
-  face: Box,
-  view: Size,
-): number | null {
-  const { mask, width: mw, height: mh } = person
-  const sx = mw / view.width
-  const sy = mh / view.height
-  const from = Math.max(0, Math.floor((face.x - face.width) * sx))
-  const to = Math.min(mw - 1, Math.ceil((face.x + 2 * face.width) * sx))
-  for (let y = mh - 1; y >= 0; y--) {
-    for (let x = from; x <= to; x++) {
-      if (mask[y * mw + x] <= 0.5) continue
-      const floor = (y + 1) / sy
-      // Their feet, or the frame's edge; and well below the face, or it is
-      // somebody who is only a head and shoulders in this picture.
-      return floor >= view.height * 0.99 || floor < face.y + 4 * face.height ? null : floor
-    }
+export type Body = {
+  nose: number | null
+  shoulders: number | null
+  hips: number | null
+  knees: number | null
+  ankles: number | null
+}
+
+/** A body from MediaPipe's 33 pose points (0 to 1 down the picture). A mark
+ *  counts when the model is sure of it and it is inside the picture: one at
+ *  the very bottom edge is the frame cutting the person off. Of a pair,
+ *  whichever is seen; both, their middle. */
+export function bodyOf(points: { x: number; y: number; visibility?: number }[], height: number): Body {
+  const at = (...ids: number[]) => {
+    const seen = ids
+      .map((id) => points[id])
+      .filter((p) => p && (p.visibility ?? 1) >= 0.5 && p.y >= 0 && p.y <= 0.98 && p.x >= 0 && p.x <= 1)
+    return seen.length ? (seen.reduce((sum, p) => sum + p.y, 0) / seen.length) * height : null
+  }
+  return { nose: at(0), shoulders: at(11, 12), hips: at(23, 24), knees: at(25, 26), ankles: at(27, 28) }
+}
+
+/**
+ * How to stand the character's body against the visitor's: the scale between
+ * them (visitor pixels to character pixels) and the marks to put level.
+ *
+ * From the nose to the lowest mark both bodies show - ankles, else knees,
+ * else hips, else shoulders. So a visitor in the photograph to the knees has
+ * the character's knees put at the visitor's knees, and the bottom of the
+ * photograph cuts both of them at the same place; a visitor seen to the shoes
+ * has the character's shoes on the same floor. Null when there is no such
+ * pair: the face then decides alone.
+ */
+export function fitBodies(visitor: Body, figure: Body): { k: number; at: number; from: number } | null {
+  if (visitor.nose === null || figure.nose === null) return null
+  for (const mark of ['ankles', 'knees', 'hips', 'shoulders'] as const) {
+    const theirs = visitor[mark]
+    const ours = figure[mark]
+    if (theirs === null || ours === null) continue
+    const span = ours - figure.nose
+    const k = (theirs - visitor.nose) / span
+    if (span > 0 && k > 0) return { k, at: visitor.nose, from: figure.nose }
   }
   return null
 }

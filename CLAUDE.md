@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 141 checks
+(cd frontend && npm test)                   # 142 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-867 checks total. **Never run the Python suites through `unittest`** — they are
+868 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -320,16 +320,22 @@ company's prices out loud.
   visitor standing on the character which way to step, and looks closer for
   a face when the quick look finds nobody: a visitor standing back was
   invisible to it, so the live sizing never saw them.
-- **A full-length character stands on the visitor's floor.** Sized by the
-  face alone, a picture taken from a little above - head large, legs short -
-  ran off the bottom while the visitor's shoes were on the floor in plain
-  view: "it has to be like they're standing beside each other". When the
-  visitor's feet are in the photograph (`selfie.groundOf`, the lowest point of
-  MediaPipe's person mask under their face, and not within 1% of the bottom
-  edge) and the character's picture is head to shoes (at least 5.5 faces
-  tall), the character is sized so eyes are level and shoes meet that line,
-  kept within a fifth of the face's own size. Otherwise sizing is by the face,
-  as before. The segmenter is back for this alone; it does not touch the look.
+- **The character is fitted to the visitor's body after the photograph is
+  taken.** "If the user's picture captures only till knee level, the
+  avatar's also has to be till knee level." MediaPipe's pose landmarker
+  (`pose_landmarker_lite.task`, 5.8 MB, in `public/facefinder`) finds nose,
+  shoulders, hips, knees and ankles in the photograph and in the character's
+  picture; `selfie.fitBodies` puts the noses level and the lowest mark both
+  show - ankles, else knees, else hips - at the same height, so the bottom of
+  the photograph cuts both at the same place, and seen to the shoes they stand
+  on one floor. Within 40% of the face's own size either way; with no bodies,
+  the face decides alone, as before. The live preview does the same about
+  once a second. Sized by the face alone, a picture taken from a little above
+  (large head, short legs) ran off the bottom while the visitor stood on the
+  floor in plain view. The character's own face and body are waited for in
+  full: on the panel the detector's first download outran a six-second wait,
+  and a full-length character was assumed to be head-and-shoulders and drawn
+  a doll. A segmentation-based floor finder came first and was replaced.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the
