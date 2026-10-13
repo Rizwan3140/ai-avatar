@@ -228,6 +228,7 @@ export function arrange(
   figure: Size,
   figureFace: Box | null,
   side: Side = 'left',
+  ground: number | null = null,
 ): { figure: Box } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -263,6 +264,22 @@ export function arrange(
   // "dont make the image larger ... I want the height to match head to head".
   // A picture that would end in mid-air is lowered instead, further down. A
   // full-length picture of them - head to shoes - never needs to be.
+  // Standing on the visitor's floor. A picture of them head to shoes, beside
+  // a visitor whose feet are in the photograph (`ground`, where they meet the
+  // floor - see `groundOf`): eyes level, and their shoes on that line. The
+  // face alone sized a full-length character from one measurement of eight,
+  // so a picture taken from a little above, with the head large and the legs
+  // short, stood with its feet in the air or ran off the bottom while the
+  // visitor's feet were plainly on the floor - "it has to be like they're
+  // standing beside each other". Kept within a fifth of the face's own size:
+  // a floor misread does not make a giant.
+  const fullLength = figure.height >= 5.5 * face.height
+  const standing = ground !== null && fullLength
+  if (standing) {
+    const toFloor = ground * scale - headY
+    const theirs = figure.height - (face.y + face.height / 2)
+    if (toFloor > 0) k = clamp(toFloor / theirs, 0.8 * k, 1.25 * k)
+  }
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // A quarter of the way in from their side, or nearer the edge if their face
@@ -277,10 +294,43 @@ export function arrange(
   // Level: eyes beside eyes.
   let y = headY - (face.y + face.height / 2) * k
   // They do not float. The picture of them ends at the chest, and that edge
-  // has to be the frame's edge, or they are a bust hanging in the room.
-  if (y + drawn.height < H) y = H - drawn.height
+  // has to be the frame's edge, or they are a bust hanging in the room. Not
+  // when they are standing on the floor: their feet are where the visitor's are.
+  if (!standing && y + drawn.height < H) y = H - drawn.height
 
   return { figure: { x, y, ...drawn } }
+}
+
+/**
+ * Where the visitor stands: the lowest point of them in the picture, under
+ * their own face, in `view`'s pixels — or null when their feet are not in it.
+ *
+ * `person` is the segmenter's mask of the picture, `face` the visitor's face
+ * in the same picture. Only the columns under the face are looked at, so a
+ * chair or somebody else to one side is not taken for their feet; and a
+ * lowest point at the bottom edge is the frame cutting them off, not the
+ * floor, so it says nothing.
+ */
+export function groundOf(
+  person: { mask: Float32Array; width: number; height: number },
+  face: Box,
+  view: Size,
+): number | null {
+  const { mask, width: mw, height: mh } = person
+  const sx = mw / view.width
+  const sy = mh / view.height
+  const from = Math.max(0, Math.floor((face.x - face.width) * sx))
+  const to = Math.min(mw - 1, Math.ceil((face.x + 2 * face.width) * sx))
+  for (let y = mh - 1; y >= 0; y--) {
+    for (let x = from; x <= to; x++) {
+      if (mask[y * mw + x] <= 0.5) continue
+      const floor = (y + 1) / sy
+      // Their feet, or the frame's edge; and well below the face, or it is
+      // somebody who is only a head and shoulders in this picture.
+      return floor >= view.height * 0.99 || floor < face.y + 4 * face.height ? null : floor
+    }
+  }
+  return null
 }
 
 /**

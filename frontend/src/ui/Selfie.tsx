@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { findFace, warmFaces } from './faces.ts'
+import { findFace, findPerson, warmFaces } from './faces.ts'
 import {
   arrange,
   bounds,
@@ -11,6 +11,7 @@ import {
   crispness,
   cutOut,
   frameFor,
+  groundOf,
   grade,
   tone,
   cameraTurn,
@@ -223,6 +224,10 @@ export function Selfie({ who }: { who: Character }) {
     let face: Awaited<ReturnType<typeof findFace>> = null
     let looking = false
     let looked = 0
+    // Where the visitor's feet are, looked for less often than their face.
+    let ground: number | null = null
+    let cutting = false
+    let cut = 0
     // When a thorough look last ran, and when a face was last seen.
     let searched = 0
     let seen = 0
@@ -250,7 +255,7 @@ export function Selfie({ who }: { who: Character }) {
         ctx.setTransform(1, 0, 0, 1, 0, 0)
         const who = ready.current
         if (who) {
-          const place = arrange(onto, small, face, who.image, who.face, side)
+          const place = arrange(onto, small, face, who.image, who.face, side, ground)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -261,6 +266,15 @@ export function Selfie({ who }: { who: Character }) {
             behind.current = hidden
             setBlocked(hidden)
           }
+        }
+        if (!cutting && face && now - cut > 1000) {
+          cutting = true
+          cut = now
+          const seenFace = face
+          void findPerson(small).then((person) => {
+            ground = person ? groundOf(person, seenFace, small) : null
+            cutting = false
+          })
         }
         if (!looking && now - looked > 350) {
           looking = true
@@ -460,7 +474,7 @@ export function Selfie({ who }: { who: Character }) {
     setShared('')
     setStage('result')
 
-    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
+    const [who, visitor, person] = await Promise.all([figure.current, findFace(shot), findPerson(shot)])
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
@@ -489,7 +503,8 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      const place = arrange(frame, shot, visitor, who.image, who.face, side)
+      const ground = person && visitor ? groundOf(person, visitor, shot) : null
+      const place = arrange(frame, shot, visitor, who.image, who.face, side, ground)
       drawFigure(onto, who.image, place)
 
       // Their colour leaned toward the room's cast, then their whole tonal
