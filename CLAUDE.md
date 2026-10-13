@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 142 checks
+(cd frontend && npm test)                   # 144 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-868 checks total. **Never run the Python suites through `unittest`** — they are
+870 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -336,6 +336,19 @@ company's prices out loud.
   full: on the panel the detector's first download outran a six-second wait,
   and a full-length character was assumed to be head-and-shoulders and drawn
   a doll. A segmentation-based floor finder came first and was replaced.
+- **The character stands a step nearer the camera, in the visitor's light.**
+  Set beside two reference selfies the owner liked, ours read as two cut-outs
+  laid side by side: the same size, the character studio-bright in a dim
+  office, one shoulder over the other's. Now, chosen from those differences:
+  after the body fit the character is grown by `NEARER` (1.2) about the
+  visitor's chest - the one holding the phone is nearer, so their head rises
+  and their legs run lower - and moved toward their own edge until their
+  shoulder is no further across than the visitor's. Their whites are brought
+  down to the visitor's (`lightGain`, darken only, never past 0.7), their
+  colour and range matched to the visitor rather than the ceiling of lamps,
+  their cut-out's rim pulled in. Then one grade over the whole photograph -
+  darker, cooler, firmer, darker at the edges - so both are in one light.
+  This undoes "never larger than the visitor" by the owner's choice.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the

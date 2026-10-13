@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrange, bodyOf, bounds, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom,
+  NEARER, arrange, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -46,26 +46,27 @@ test('the preview and the photograph are the same cut of the camera', () => {
   assert.deepEqual(centreCut({ width: 1080, height: 1920 }, FRAME), { x: 0, y: 150, width: 1080, height: 1620 })
 })
 
-test("their face is the size of the visitor's, and level with it", () => {
+test("their face is the visitor's, a step nearer the camera, their eyes a little higher", () => {
   for (const tall of [180, 260]) {
     const placed = arrange(FRAME, VIEW, visitor(tall), PORTRAIT, THEIR_FACE)
     const ratio = theirFaceTall(placed) / (tall * DRAWN)
-    assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
+    assert.ok(Math.abs(ratio - NEARER) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
     const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
-    assert.ok(Math.abs(theirs - 400 * DRAWN) < 2, `level at ${tall}: ${theirs.toFixed(0)}`)
+    const lift = 400 * DRAWN - theirs
+    assert.ok(lift > 0 && lift < tall * DRAWN, `a little higher at ${tall}: ${lift.toFixed(0)}`)
   }
   const near = arrange(FRAME, VIEW, visitor(260), PORTRAIT, THEIR_FACE)
   const far = arrange(FRAME, VIEW, visitor(110), PORTRAIT, THEIR_FACE)
   assert.ok(near.figure.height > far.figure.height * 1.5, 'closer visitor, larger avatar')
 })
 
-test('a picture of them that would end in mid-air is lowered, never enlarged', () => {
-  // Head and shoulders only. Level with the visitor at the same size, its cut
-  // edge would hang above the bottom: it is moved down, and kept their size.
+test('a picture of them that would end in mid-air is lowered, not enlarged further', () => {
+  // Head and shoulders only. Its cut edge would hang above the bottom: it is
+  // moved down, and kept at the size it was given.
   const bust = { width: 900, height: 1200 }
   const placed = arrange(FRAME, VIEW, visitor(180), bust, THEIR_FACE)
   const ratio = theirFaceTall(placed, bust) / (180 * DRAWN)
-  assert.ok(Math.abs(ratio - 1) < 0.02, `the visitor's size: ${ratio.toFixed(2)}`)
+  assert.ok(Math.abs(ratio - NEARER) < 0.02, `their size: ${ratio.toFixed(2)}`)
   assert.ok(placed.figure.y + placed.figure.height >= FRAME.height - 1, 'and their edge is the frame edge')
 })
 
@@ -75,7 +76,7 @@ test('a wide picture of them is not shrunk to fit: they run off the edge', () =>
   const wide = { width: 1400, height: 1500 }
   const face = { x: 620, y: 200, width: 260, height: 300 }
   const placed = arrange(FRAME, VIEW, visitor(260), wide, face)
-  assert.ok(Math.abs((face.height * placed.figure.width) / wide.width / (260 * DRAWN) - 1) < 0.02)
+  assert.ok(Math.abs((face.height * placed.figure.width) / wide.width / (260 * DRAWN) - NEARER) < 0.02)
   assert.ok(placed.figure.x < 0, 'their arm is off the left of the picture')
 })
 
@@ -122,7 +123,7 @@ test('a visitor standing in their place does not shrink them to fit beside', () 
   // stand in front; the preview shows it, and the visitor steps aside.
   const inTheWay = arrange(FRAME, VIEW, visitor(180, 600), PORTRAIT, THEIR_FACE)
   const ratio = theirFaceTall(inTheWay) / (180 * DRAWN)
-  assert.ok(Math.abs(ratio - 1) < 0.02, `face ratio ${ratio.toFixed(2)}`)
+  assert.ok(Math.abs(ratio - NEARER) < 0.02, `face ratio ${ratio.toFixed(2)}`)
 })
 
 test('with no face found anywhere, it is still a picture of two people', () => {
@@ -289,27 +290,52 @@ test('the camera picture gets its edges back, and its grain is left alone', () =
   assert.ok(flat[4] - flat[0] > 50 && flat[4] - flat[0] <= 50 * 4 / 3 + 1 && flat[4] <= 255, `${flat[0]}, ${flat[4]}`)
 })
 
-test('the character is cut where the visitor is: knees at the visitor\'s knees, noses level', () => {
+test('the character is fitted to the visitor\'s body, then stands a step nearer', () => {
   // Their picture, 1700 tall, head to shoes. The visitor is seen to the knees.
   const figure = { nose: 290, shoulders: 500, hips: 900, knees: 1250, ankles: 1600 }
   const visitorBody = { nose: 400, shoulders: 520, hips: 760, knees: 1000, ankles: null }
   const placed = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: visitorBody, figure })
   const k = placed.figure.height / PORTRAIT.height
+  // Sized nose to knees on the visitor, then nearer.
+  assert.ok(Math.abs(k - ((1000 - 400) / (1250 - 290)) * DRAWN * NEARER) < 0.001, `scale ${k.toFixed(3)}`)
+  // Nearer the camera, so the frame cuts them higher up the leg than the visitor.
   const at = (mark: number) => placed.figure.y + mark * k
-  assert.ok(Math.abs(at(figure.knees) - 1000 * DRAWN) < 2, `knees: ${at(figure.knees).toFixed(0)}`)
-  assert.ok(Math.abs(at(figure.nose) - 400 * DRAWN) < 2, `noses: ${at(figure.nose).toFixed(0)}`)
-  // Seen to the shoes, shoes on the same line - and not lifted to the bottom edge.
+  assert.ok(at(figure.knees) > 1000 * DRAWN, 'their knees below the visitor\'s')
+  assert.ok(at(figure.nose) < 400 * DRAWN, 'their head a little higher')
+  // Seen to the shoes: nearer, their shoes are lower than the visitor's, never lifted.
   const whole = { ...visitorBody, knees: 900, ankles: 1020 }
   const standing = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: whole, figure })
   const k2 = standing.figure.height / PORTRAIT.height
-  assert.ok(Math.abs(standing.figure.y + figure.ankles * k2 - 1020 * DRAWN) < 2, 'shoes on the floor')
+  assert.ok(standing.figure.y + figure.ankles * k2 >= 1020 * DRAWN, 'shoes at or below the visitor\'s')
+})
+
+test('the character keeps clear of the visitor\'s shoulder', () => {
+  // A visitor just right of the middle of the photograph.
+  for (const cx of [300, 330]) {
+    const placed = arrange(FRAME, VIEW, visitor(180, cx), PORTRAIT, THEIR_FACE)
+    const k = placed.figure.width / PORTRAIT.width
+    const theirFace = placed.figure.x + (THEIR_FACE.x + THEIR_FACE.width / 2) * k
+    const theirShoulder = theirFace + 1.3 * THEIR_FACE.width * k
+    const headX = FRAME.width - cx * DRAWN
+    const visitorShoulder = headX - 1.2 * 180 * 0.8 * DRAWN
+    assert.ok(theirShoulder <= visitorShoulder + 1 || theirFace <= 0.1 * FRAME.width + 1, `${cx}: ${theirShoulder.toFixed(0)} vs ${visitorShoulder.toFixed(0)}`)
+  }
+})
+
+test('the character is brought down to the visitor\'s light, never up', () => {
+  assert.equal(lightGain(200, 250), 0.8)
+  assert.equal(lightGain(250, 200), 1)
+  assert.equal(lightGain(100, 250), 0.7)
+  // A region of a 4x2 picture, the right half.
+  const rgba = new Uint8ClampedArray(4 * 2 * 4).map((_, i) => i)
+  assert.deepEqual([...regionOf(rgba, 4, { x: 2, y: 0, width: 2, height: 2 })], [8, 9, 10, 11, 12, 13, 14, 15, 24, 25, 26, 27, 28, 29, 30, 31])
 })
 
 test('a misread body does not make a giant, and no body leaves the face to decide', () => {
   const figure = { nose: 290, shoulders: 500, hips: 900, knees: 1250, ankles: 1600 }
   const wild = { nose: 400, shoulders: null, hips: null, knees: null, ankles: 5000 }
   const placed = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: wild, figure })
-  assert.ok(theirFaceTall(placed) / (180 * DRAWN) <= 1.601, 'within 40% of the face')
+  assert.ok(theirFaceTall(placed) / (180 * DRAWN) <= 1.601 * NEARER, 'within 40% of the face, then nearer')
   const byFace = arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE)
   const noBody = { nose: null, shoulders: null, hips: null, knees: null, ankles: null }
   assert.deepEqual(arrange(FRAME, VIEW, visitor(180), PORTRAIT, THEIR_FACE, 'left', { visitor: noBody, figure }), byFace)

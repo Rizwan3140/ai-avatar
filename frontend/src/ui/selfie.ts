@@ -221,6 +221,14 @@ type Size = { width: number; height: number }
  */
 export type Side = 'left' | 'right'
 
+/**
+ * How much nearer the camera the character stands than the visitor: the one
+ * holding the phone. Matched size for size they read as two cut-outs laid
+ * side by side; in a real selfie the person with the phone is nearer, larger,
+ * and in front. Asked for after seeing exactly that in two reference selfies.
+ */
+export const NEARER = 1.2
+
 export function arrange(
   frame: Size,
   view: Size,
@@ -267,19 +275,38 @@ export function arrange(
   // size either way, so a misread body does not make a giant or a doll.
   const fit = bodies ? fitBodies(bodies.visitor, bodies.figure) : null
   if (fit) k = clamp(fit.k * scale, 0.6 * k, 1.6 * k)
+  // Level: noses beside each other when the bodies were fitted, else eyes.
+  let y = fit ? fit.at * scale - fit.from * k : headY - (face.y + face.height / 2) * k
+  // Then a step nearer the camera (`NEARER`), as the one holding the phone.
+  // Grown about the visitor's chest, which is about the camera's height: a
+  // nearer person's head rises in the picture and their legs run lower.
+  const chest =
+    fit && bodies!.visitor.shoulders !== null ? bodies!.visitor.shoulders * scale : headY + 1.6 * headTall
+  y = chest - (chest - y) * NEARER
+  k *= NEARER
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // A quarter of the way in from their side, or nearer the edge if their face
   // would otherwise reach the visitor's.
   const fromEdge = clamp(0.27 * W, 0.03 * W + faceWide / 2, Math.max(0.03 * W + faceWide / 2, room + 0.03 * W - faceWide / 2))
-  const centre = onLeft ? fromEdge : W - fromEdge
+  let centre = onLeft ? fromEdge : W - fromEdge
+  // Clear of the visitor: their shoulder no further across than the
+  // visitor's. Laid over the visitor's shoulder and arm, the two read as one
+  // cut-out on another. Moved toward their own edge for it, never past a
+  // tenth of the way in - and not at all for a visitor standing in their
+  // place, where there is no beside to keep to.
+  if (fits !== Infinity) {
+    const theirShoulder = centre + (onLeft ? 1 : -1) * 1.3 * faceWide
+    const visitorShoulder = headX + (onLeft ? -1 : 1) * 1.2 * headWide
+    const over = onLeft ? theirShoulder - visitorShoulder : visitorShoulder - theirShoulder
+    const spare = onLeft ? centre - 0.1 * W : 0.9 * W - centre
+    if (over > 0) centre += (onLeft ? -1 : 1) * Math.min(over, Math.max(0, spare))
+  }
   // And out to the edge on their own side, at least. Their picture is cut
   // where their arm leaves it; a little way inside the frame, that cut is a
   // ruled line down the photograph.
   const placed = centre - (face.x + face.width / 2) * k
   const x = onLeft ? Math.min(placed, 0) : Math.max(placed, W - drawn.width)
-  // Level: noses beside each other when the bodies were fitted, else eyes.
-  let y = fit ? fit.at * scale - fit.from * k : headY - (face.y + face.height / 2) * k
   // They do not float. A picture of them that ends at the chest has that edge
   // at the frame's edge, or they are a bust hanging in the room. Not one that
   // reaches their shoes and was fitted: their feet are where the visitor's are.
@@ -306,6 +333,30 @@ export type Body = {
  *  counts when the model is sure of it and it is inside the picture: one at
  *  the very bottom edge is the frame cutting the person off. Of a pair,
  *  whichever is seen; both, their middle. */
+/** The pixels of one box of a picture, for measuring that part of it alone. */
+export function regionOf(rgba: Uint8ClampedArray, width: number, box: Box): Uint8ClampedArray {
+  const height = rgba.length / 4 / width
+  const x0 = Math.max(0, Math.floor(box.x))
+  const x1 = Math.min(width, Math.ceil(box.x + box.width))
+  const y0 = Math.max(0, Math.floor(box.y))
+  const y1 = Math.min(height, Math.ceil(box.y + box.height))
+  if (x1 <= x0 || y1 <= y0) return new Uint8ClampedArray(0)
+  const out = new Uint8ClampedArray((x1 - x0) * (y1 - y0) * 4)
+  for (let y = y0; y < y1; y++) out.set(rgba.subarray((y * width + x0) * 4, (y * width + x1) * 4), (y - y0) * (x1 - x0) * 4)
+  return out
+}
+
+/**
+ * How much to darken the character to the visitor's light: the visitor's
+ * brightest (their whites, as lit in this room) over the character's, never
+ * brighter, and never below 0.7. A character photographed in a studio has
+ * whites at 250; a visitor's white shirt under office light is 200, and the
+ * difference is what made the character glow as if lit from inside.
+ */
+export function lightGain(visitorHigh: number, figureHigh: number): number {
+  return clamp(visitorHigh / Math.max(1, figureHigh), 0.7, 1)
+}
+
 export function bodyOf(points: { x: number; y: number; visibility?: number }[], height: number): Body {
   const at = (...ids: number[]) => {
     const seen = ids

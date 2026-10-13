@@ -16,7 +16,9 @@ import {
   turned,
   turnFrom,
   isCutOut,
+  lightGain,
   meanColour,
+  regionOf,
   toneGains,
   type Body,
   type Box,
@@ -531,17 +533,30 @@ export function Selfie({ who }: { who: Character }) {
       const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted)
       drawFigure(onto, who.image, place)
 
-      // Their colour leaned toward the room's cast, then their whole tonal
-      // range brought most of the way to the room's: blacks as lifted, whites
-      // as dull, colour as thin.
+      // Matched to the visitor's light rather than the room's: the room is
+      // mostly a ceiling of lamps, and what the eye compares is one person
+      // beside the other. Their colour leaned toward the visitor's cast, their
+      // whites brought down to the visitor's (`lightGain`), then their whole
+      // tonal range most of the way to the visitor's.
       const pixels = onto.getImageData(0, 0, WIDTH, HEIGHT)
-      const around = ctx.getImageData(0, 0, WIDTH, HEIGHT).data
+      const whole = ctx.getImageData(0, 0, WIDTH, HEIGHT).data
+      const mirrored = visitor && { ...visitor, x: WIDTH - visitor.x - visitor.width }
+      // The visitor: from their face down, a face either side of it.
+      const theirsAround = mirrored
+        ? regionOf(whole, WIDTH, { x: mirrored.x - mirrored.width, y: mirrored.y, width: mirrored.width * 3, height: HEIGHT - mirrored.y })
+        : new Uint8ClampedArray(0)
+      const around = theirsAround.length > 4000 ? theirsAround : whole
       const gains = toneGains(meanColour(around), meanColour(pixels.data))
+      const light = lightGain(tone(around).high, tone(pixels.data).high)
       for (let i = 0; i < pixels.data.length; i += 4) {
-        if (!pixels.data[i + 3]) continue
-        pixels.data[i] *= gains[0]
-        pixels.data[i + 1] *= gains[1]
-        pixels.data[i + 2] *= gains[2]
+        const alpha = pixels.data[i + 3]
+        if (!alpha) continue
+        pixels.data[i] *= gains[0] * light
+        pixels.data[i + 1] *= gains[1] * light
+        pixels.data[i + 2] *= gains[2] * light
+        // Their edge pulled in a little: a cut-out's soft rim keeps the studio
+        // white behind it, and against a dim room that rim glows.
+        if (alpha < 255) pixels.data[i + 3] = (alpha * alpha) / 255
       }
       // Less than half the way. At 0.65 their blacks were lifted far enough
       // to look like haze over them, which is its own kind of blur.
@@ -594,10 +609,30 @@ export function Selfie({ who }: { who: Character }) {
     const held = layers.current
     if (!held) return
     const { width: WIDTH, height: HEIGHT } = held.room
+    const both = canvas(WIDTH, HEIGHT)
+    const together = both.getContext('2d')!
+    together.drawImage(held.room, 0, 0)
+    if (held.figure) together.drawImage(held.toned ?? held.figure, 0, 0)
+    // One grade over the two of them together, so they are in one light: a
+    // little darker, cooler and firmer, as a phone's camera renders an office.
+    // Graded apart, each kept its own light and the picture read as a paste.
     const out = canvas(WIDTH, HEIGHT)
     const ctx = out.getContext('2d')!
-    ctx.drawImage(held.room, 0, 0)
-    if (held.figure) ctx.drawImage(held.toned ?? held.figure, 0, 0)
+    ctx.filter = 'brightness(0.9) contrast(1.18) saturate(0.86)'
+    ctx.drawImage(both, 0, 0)
+    ctx.filter = 'none'
+    ctx.globalCompositeOperation = 'soft-light'
+    ctx.fillStyle = 'rgba(40, 70, 110, 0.24)'
+    ctx.fillRect(0, 0, WIDTH, HEIGHT)
+    // And darker toward the edges, the ceiling most: the eye goes to the two
+    // faces, and the lamps overhead stop competing with them.
+    ctx.globalCompositeOperation = 'multiply'
+    const edges = ctx.createRadialGradient(WIDTH / 2, HEIGHT * 0.55, HEIGHT * 0.25, WIDTH / 2, HEIGHT * 0.55, HEIGHT * 0.8)
+    edges.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    edges.addColorStop(1, 'rgba(150, 155, 165, 1)')
+    ctx.fillStyle = edges
+    ctx.fillRect(0, 0, WIDTH, HEIGHT)
+    ctx.globalCompositeOperation = 'source-over'
 
     const turn = ++painting.current
     out.toBlob(
