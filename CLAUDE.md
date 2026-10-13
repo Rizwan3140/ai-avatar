@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 140 checks
+(cd frontend && npm test)                   # 139 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 288 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-866 checks total. **Never run the Python suites through `unittest`** — they are
+865 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -309,18 +309,17 @@ company's prices out loud.
   facing the other way from one photograph to the next is not the same person.
   A visitor standing in their place is not made room for and does not shrink
   them — they stand in front, the live preview shows it, and the visitor moves.
-- **Portrait is the selfie's default look, and MediaPipe is the one thing taken
-  from four open-source photo booths.** Looked at when asked to make the output
-  better: one kept galleries of visitors' photos, one did what this booth does
-  in Python, one replaced the room with `rembg` on a server the photo would
-  have to reach. MediaPipe's `selfie_segmenter` (250 KB, beside the face
-  model in `public/facefinder`) finds the person in the browser, and
-  `selfie.portrait` softens the room behind them as a phone's portrait mode
-  does - which also hides the grain and busy office that gave a composite
-  away. No mask, and Portrait is the room as it was. The live preview now
-  also tells a visitor standing on the character which way to step, and
-  looks closer for a face when the quick look finds nobody: a visitor
-  standing back was invisible to it, so the live sizing never saw them.
+- **One selfie picture, no looks to choose.** There were six (Portrait, Original,
+  B&W, Vivid, Warm, Cool) and they were asked to be taken off: the photograph
+  is the realistic one - the character leaned toward the room's light and
+  softened to the visitor's sharpness. Portrait, a background blur from
+  MediaPipe's `selfie_segmenter`, went with them; it is in the history if it
+  is wanted back. It was the one thing taken from four open-source photo
+  booths suggested as ways to a better picture; the others kept galleries of
+  visitors' photos or replaced the room on a server. The live preview tells a
+  visitor standing on the character which way to step, and looks closer for
+  a face when the quick look finds nobody: a visitor standing back was
+  invisible to it, so the live sizing never saw them.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the
