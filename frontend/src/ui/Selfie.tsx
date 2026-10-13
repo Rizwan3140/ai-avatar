@@ -437,8 +437,8 @@ export function Selfie({ who }: { who: Character }) {
       .drawImage(work, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height)
 
     // No face found is left to `arrange`, which knows where one is in a
-    // picture taken from the phone.
-    return { image, face: await findFace(image) }
+    // picture taken from the phone. Waited for in full - see `findFace`.
+    return { image, face: await findFace(image, false, true) }
   }
 
   async function shoot() {

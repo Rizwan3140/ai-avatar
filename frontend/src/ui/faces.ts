@@ -141,15 +141,24 @@ export async function findPerson(image: HTMLCanvasElement): Promise<Person | nul
  * frame it is shown the frame in squares, and then in squares half that size,
  * where the same face is twenty pixels and plain.
  */
-export async function findFace(image: HTMLCanvasElement, quick = false): Promise<Box | null> {
+export async function findFace(image: HTMLCanvasElement, quick = false, patient = false): Promise<Box | null> {
   // Waited for, but not for ever. The detector is thirteen megabytes, and a
   // panel that reaches this server down a tunnel may still be fetching it
   // when the shutter goes. A picture arranged without it is better than a
   // visitor watching three dots; the next one has it.
-  const found = await Promise.race([
-    detector(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), quick ? 0 : PATIENCE)),
-  ])
+  //
+  // Except the character's own face (`patient`). Not found, it is assumed
+  // where a head-and-shoulders picture has it - a quarter of the height - and
+  // a full-length character is then drawn a doll: on the panel, whose first
+  // download of the detector outran this wait, a head-to-shoes picture came
+  // out half the visitor's size with its head at their chest. It is waited
+  // for in full; `detector()` gives null rather than hang if it cannot load.
+  const found = patient
+    ? await detector()
+    : await Promise.race([
+        detector(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), quick ? 0 : PATIENCE)),
+      ])
   if (!found) return null
   const { width, height } = image
   const short = Math.min(width, height)
