@@ -254,10 +254,12 @@ company's prices out loud.
   bottom slid her down until her head was below his. And a soft shadow round
   her outline, added to stop her looking like a sticker, is what a sticker
   has. Now: the same size, level, off the edge of the frame on her own side,
-  enlarged before she is ever lowered, and no outline shadow. That enlarging
-  was capped at 15%, which suited a wide photograph; in the tall 9:16 one it
-  left her small at the bottom with her head at a standing visitor's waist,
-  so it is 60% now (`NEARER`) - whoever holds the phone is the nearer one.
+  and no outline shadow. **Never enlarged past the visitor's size.** She was,
+  first by 15% then by 60%, so a picture ending at the waist would reach the
+  bottom of the frame; beside a visitor standing back her face came out twice
+  his, and it was asked for back out ("dont make the image larger ... match
+  head to head"). A short picture is lowered instead. The fix for that is the
+  picture: a full-length one, head to shoes, never needs lowering.
   Test with the customer's file the day it exists.
 - **The selfie's preview is the photograph.** It was the camera in a corner,
   while the photograph was cut to another shape, slid sideways to make room and
