@@ -240,22 +240,28 @@ export const NEARER = 1.3
 export const HERO = 1.05
 
 /**
- * How tall a face is, in centimetres, as MediaPipe's detector boxes it - the
- * ruler a visitor's height is measured with. One webcam has no other: a
- * person's height in the picture says nothing until something in it has a
- * known size, and adult faces vary least. Roughly 10 cm either way, which was
- * asked for as enough. 15, from a textbook face, read a grown man as 123 cm:
- * the detector's box is about an eighth of a person's height, not an
- * eleventh. 21 is that same photograph taken as a man of about 175 cm.
- * ponytail: one figure for every face, set from one photograph; calibrate it
- * against people of known height (the selfie's hover text shows the
- * estimate) and change it here.
+ * How tall a face is, in centimetres, as MediaPipe's detector boxes it when
+ * shown it at one size (`faces.faceTall`) - the ruler a visitor's height is
+ * measured with. One webcam has no other: a person's height in the picture
+ * says nothing until something in it has a known size, and adult faces vary
+ * least. Fitted, with the hips and knees below, to sixteen photographs from
+ * this cabinet of one man of 175 cm, about a metre from the camera: he reads
+ * 159-194 cm, 175 on average, 8.5 either way - to his shoes or cut at the
+ * knees alike. v2.3.0 (21, the box as found, a textbook's hips and knees) read
+ * him 169-221 and 194 on average: the detector draws a small face's box
+ * relatively larger, so it depended on which look found him.
+ * ponytail: one man's photographs; calibrate against more people of known
+ * height (the selfie's hover text shows the estimate).
  */
-export const FACE_CM = 21
+export const FACE_CM = 17
 
 /** How far above the floor each mark is, as a share of a standing person's
- *  height: the usual proportions of an adult body. */
-const ABOVE = { nose: 0.91, shoulders: 0.818, hips: 0.53, knees: 0.285, ankles: 0.039 } as const
+ *  height. Nose and ankles are the usual proportions of an adult body; hips
+ *  and knees were fitted with `FACE_CM`, on the photographs cut above the
+ *  shoes - the only ones they are used for. Lower than a textbook's 0.53 and
+ *  0.285: a visitor close enough to be cut at the knees is looked down on by
+ *  a camera a metre up, and their knees fall lower in the picture. */
+const ABOVE = { nose: 0.91, shoulders: 0.818, hips: 0.43, knees: 0.2, ankles: 0.039 } as const
 
 /**
  * A body's height in its picture's pixels, and where its floor is - from the
@@ -274,11 +280,12 @@ export function statureOf(body: Body): { tall: number; floor: number } | null {
   return null
 }
 
-/** Roughly how tall a visitor is, in centimetres, from their body and face in
- *  the same picture - see `FACE_CM`. Null when their body says too little. */
-export function heightOf(body: Body, face: Box): number | null {
+/** Roughly how tall a visitor is, in centimetres, from their body and their
+ *  face's height (`faces.faceTall`) in the same picture - see `FACE_CM`.
+ *  Null when their body says too little. */
+export function heightOf(body: Body, faceTall: number | null): number | null {
   const stature = statureOf(body)
-  return stature && face.height > 0 ? (stature.tall / face.height) * FACE_CM : null
+  return stature && faceTall && faceTall > 0 ? (stature.tall / faceTall) * FACE_CM : null
 }
 
 export function arrange(
@@ -290,6 +297,7 @@ export function arrange(
   side: Side = 'left',
   bodies: { visitor: Body; figure: Body } | null = null,
   tall: number | null = null,
+  visitorCm: number | null = null,
 ): { figure: Box; apart: boolean } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -332,13 +340,13 @@ export function arrange(
   // Level: noses beside each other when the bodies were fitted, else eyes.
   let y = fit ? fit.at * scale - fit.from * k : headY - (face.y + face.height / 2) * k
   // By their real heights, when the studio gave the character's (`tall`, in
-  // centimetres) and the visitor's can be estimated (`heightOf`): the two on
-  // one floor, the character as much taller or shorter than the visitor as
-  // they really are, and `HERO` more. Kept within 40% of the face's own size.
-  const theirs = fit && tall && visitor ? statureOf(bodies!.figure) : null
+  // centimetres) and the visitor's was estimated (`visitorCm`, from
+  // `heightOf`): the two on one floor, the character as much taller or
+  // shorter than the visitor as they really are, and `HERO` more. Kept
+  // within 40% of the face's own size.
+  const theirs = fit && tall && visitorCm ? statureOf(bodies!.figure) : null
   const visitors = theirs ? statureOf(bodies!.visitor) : null
-  const visitorCm = visitors ? heightOf(bodies!.visitor, visitor!) : null
-  const byHeight = theirs && visitors && visitorCm ? { theirs, visitors, visitorCm } : null
+  const byHeight = theirs && visitors ? { theirs, visitors, visitorCm: visitorCm! } : null
   if (byHeight) {
     // Within a fifth either way: an estimate off by its usual 10 cm should
     // not make a giant, and a star is not a third taller than anyone.

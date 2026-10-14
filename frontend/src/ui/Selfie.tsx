@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { findBody, findFace, warmFaces } from './faces.ts'
+import { faceTall, findBody, findFace, warmFaces } from './faces.ts'
 import {
   arrange,
   bounds,
@@ -230,6 +230,8 @@ export function Selfie({ who }: { who: Character }) {
     let looked = 0
     // Where the visitor's body is, looked for less often than their face.
     let body: Body | null = null
+    // And how tall they are, from it (`heightOf`), when the character's is known.
+    let visitorCm: number | null = null
     let cutting = false
     let cut = 0
     // When a thorough look last ran, and when a face was last seen.
@@ -245,10 +247,12 @@ export function Selfie({ who }: { who: Character }) {
         const frame = frameOf(camera)
         const wide = frame.width >= frame.height
         const across = wide ? 640 : 480
-        const tall = Math.round((across * frame.height) / frame.width)
-        if (onto.width !== across || onto.height !== tall) {
-          Object.assign(onto, { width: across, height: tall })
-          onto.style.aspectRatio = `${across} / ${tall}`
+        // Not `tall`: that name is the character's height, and this one hid
+        // it, so the preview stood them by a "height" of 853 cm.
+        const down = Math.round((across * frame.height) / frame.width)
+        if (onto.width !== across || onto.height !== down) {
+          Object.assign(onto, { width: across, height: down })
+          onto.style.aspectRatio = `${across} / ${down}`
           onto.style.width = wide ? '46%' : '30%'
         }
         framed(camera, onto.width, small)
@@ -260,7 +264,7 @@ export function Selfie({ who }: { who: Character }) {
         const who = ready.current
         if (who) {
           const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall)
+          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall, visitorCm)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -279,8 +283,9 @@ export function Selfie({ who }: { who: Character }) {
           cutting = true
           cut = now
           const seenFace = face
-          void findBody(small, seenFace).then((found) => {
+          void Promise.all([findBody(small, seenFace), tall ? faceTall(small, seenFace) : null]).then(([found, ruler]) => {
             body = found
+            visitorCm = found ? heightOf(found, ruler) : null
             cutting = false
           })
         }
@@ -486,6 +491,8 @@ export function Selfie({ who }: { who: Character }) {
     const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
     // Their body, the one under their face: the character is fitted to it.
     const body = await findBody(shot, visitor)
+    // How tall they are, by their face measured at one size (`faceTall`).
+    const visitorCm = body && visitor ? heightOf(body, await faceTall(shot, visitor)) : null
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.
@@ -515,11 +522,10 @@ export function Selfie({ who }: { who: Character }) {
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
       const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted, tall)
+      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted, tall, visitorCm)
       // For whoever is setting the cabinet up: how tall the visitor was
       // estimated to be, beside how tall they are - see `FACE_CM`.
-      const estimate = body && visitor ? heightOf(body, visitor) : null
-      if (estimate) setTaken((was) => `${was} Visitor about ${Math.round(estimate)} cm${tall ? `, ${name} ${tall} cm` : ''}.`)
+      if (visitorCm) setTaken((was) => `${was} Visitor about ${Math.round(visitorCm)} cm${tall ? `, ${name} ${tall} cm` : ''}.`)
       drawFigure(onto, who.image, place)
 
       // Matched to the visitor's light rather than the room's: the room is

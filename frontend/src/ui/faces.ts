@@ -181,6 +181,36 @@ export async function findFace(image: HTMLCanvasElement, quick = false, patient 
   }
 }
 
+/**
+ * How tall `face` is, measured again from a square four times its height
+ * around it - so every face is the same share of what the detector sees, near
+ * or far - or null. The ruler a visitor's height is read with (`FACE_CM`).
+ * The box `findFace` returns is not one: the detector draws a small face's
+ * box relatively larger, so it came from whichever look found them, and a
+ * visitor near the lens read 20 cm taller than the same visitor further back.
+ */
+export async function faceTall(image: HTMLCanvasElement, face: Box): Promise<number | null> {
+  const found = await detector()
+  if (!found) return null
+  try {
+    const side = Math.round(face.height * 4)
+    const cx = face.x + face.width / 2
+    const cy = face.y + face.height / 2
+    const view = document.createElement('canvas')
+    view.width = view.height = side
+    view.getContext('2d')!.drawImage(image, cx - side / 2, cy - side / 2, side, side, 0, 0, side, side)
+    let best: { off: number; height: number } | null = null
+    for (const { boundingBox: box } of found.detect(view).detections) {
+      if (!box) continue
+      const off = Math.hypot(box.originX + box.width / 2 - side / 2, box.originY + box.height / 2 - side / 2)
+      if (!best || off < best.off) best = { off, height: box.height }
+    }
+    return best?.height ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Squares of one size covering the picture, each overlapping the next by
  *  half, so a face on a seam is whole in the square beside it. */
 function tiles(width: number, height: number, side: number): [number, number, number][] {
