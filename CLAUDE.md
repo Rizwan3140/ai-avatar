@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 146 checks
+(cd frontend && npm test)                   # 147 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-888 checks total. **Never run the Python suites through `unittest`** — they are
+889 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -378,7 +378,9 @@ company's prices out loud.
   estimate makes no giant. `FACE_CM` was 15 from a textbook face and read a
   grown man as 123 cm; 21 is one photograph taken as a man of about 175 cm.
   It is a guess to be calibrated - the photograph's hover text shows the
-  estimate beside the character's height. No height given, and they are
+  estimate beside the character's height. Still never over the visitor's
+  face (the same `fits` as below), and a picture cut above the shoes still
+  has its edge at the frame's, not hanging in the room. No height given, and they are
   drawn `NEARER` (1.3) as before.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a

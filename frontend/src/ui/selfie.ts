@@ -344,6 +344,9 @@ export function arrange(
     // not make a giant, and a star is not a third taller than anyone.
     const ratio = clamp(tall! / byHeight.visitorCm, 0.85, 1.2) * HERO
     k = clamp((byHeight.visitors.tall * scale * ratio) / byHeight.theirs.tall, 0.6 * byFace, 1.6 * byFace)
+    // Never over the visitor's face, as on the other path: shorter than their
+    // real difference beats one face drawn across another.
+    k = Math.min(k, fits)
     y = byHeight.visitors.floor * scale - byHeight.theirs.floor * k
   } else {
     // Otherwise a step nearer the camera (`NEARER`), as the one holding the
@@ -393,7 +396,9 @@ export function arrange(
   // They do not float. A picture of them that ends at the chest has that edge
   // at the frame's edge, or they are a bust hanging in the room. Not one that
   // reaches their shoes and was fitted: their feet are where the visitor's are.
-  const shod = (fit !== null && bodies!.figure.ankles !== null) || byHeight !== null
+  // Stood by height, a picture ending at the knees has its floor somewhere
+  // below its edge - and that edge still floats if the visitor's floor shows.
+  const shod = fit !== null && bodies!.figure.ankles !== null
   if (!shod && y + drawn.height < H) y = H - drawn.height
 
   return { figure: { x, y, ...drawn }, apart }

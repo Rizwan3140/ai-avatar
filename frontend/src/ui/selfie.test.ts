@@ -412,3 +412,25 @@ test('given their real height, the character stands on the visitor\'s floor, tha
   assert.deepEqual(asBefore, after)
   assert.ok(NEARER > HERO)
 })
+
+test('stood by height, they are never drawn over the visitor\'s face, and never float', () => {
+  const face = { x: 375, y: 140, width: 150, height: 150 }
+  // A tall star beside a visitor close to the lens with little room on the
+  // character's side: their real difference would put one face over the other.
+  const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600 }
+  const near = { x: 454.5 - 80, y: 300, width: 160, height: 200 }
+  const nearBody = { nose: 400, shoulders: 520, hips: 400 + 0.38 * 1600, knees: null, ankles: null }
+  const crowded = arrange(FRAME, VIEW, near, PORTRAIT, face, 'left', { visitor: nearBody, figure }, 250)
+  const k = crowded.figure.height / PORTRAIT.height
+  const theirRight = crowded.figure.x + (face.x + face.width) * k
+  const visitorLeft = FRAME.width - (near.x + near.width) * DRAWN
+  assert.ok(theirRight < visitorLeft, `faces apart: ${theirRight.toFixed(0)} < ${visitorLeft.toFixed(0)}`)
+  // A picture of them cut at the knees, beside a visitor whose floor is in the
+  // photograph: its cut edge is at the frame's edge, not hanging in the room.
+  const kneed = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: null }
+  const SHORT = { width: 900, height: 1300 }
+  const whole = { x: 250 - 43, y: 146, width: 86, height: 108 }
+  const wholeBody = { nose: 200, shoulders: 290, hips: 200 + 0.38 * 900, knees: 200 + 0.625 * 900, ankles: 200 + 0.871 * 900 }
+  const stood = arrange(FRAME, VIEW, whole, SHORT, face, 'left', { visitor: wholeBody, figure: kneed }, 188)
+  assert.ok(stood.figure.y + stood.figure.height >= FRAME.height - 1, 'no floating edge')
+})
