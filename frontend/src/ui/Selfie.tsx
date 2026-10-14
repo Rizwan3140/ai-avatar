@@ -913,6 +913,15 @@ function Loader({ label, hint }: { label: string; hint?: string }) {
   return (
     <div role="status" aria-live="polite" className="flex flex-col items-center gap-[0.8em] px-[1em] py-[0.6em] text-center">
       <div className="relative grid size-[clamp(88px,11vh,400px)] place-items-center">
+        {/* Two soft rings spreading out from the camera, half a beat apart. */}
+        {[0, 0.8].map((delay) => (
+          <span
+            key={delay}
+            aria-hidden
+            className="border-ink/60 absolute inset-0 rounded-full border-[clamp(2px,0.22vh,8px)]"
+            style={{ animation: `ripple 1.6s ${delay}s var(--ease-human) infinite backwards` }}
+          />
+        ))}
         <svg viewBox="0 0 100 100" aria-hidden className="text-ink absolute inset-0">
           <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeOpacity="0.1" strokeWidth="3.5" />
         </svg>

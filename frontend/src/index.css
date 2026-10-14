@@ -293,6 +293,17 @@ html:has(.kiosk-root) * {
   }
 }
 
+@keyframes ripple {
+  from {
+    transform: scale(0.66);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
 @keyframes swell {
   0%,
   100% {
