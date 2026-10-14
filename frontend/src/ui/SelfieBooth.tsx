@@ -73,16 +73,18 @@ export function SelfieBooth() {
         )}
       </div>
 
-      {/* A camera, at the right edge, halfway up — where the showroom screen
-          keeps its microphone, so the one thing to press is where a hand
-          already goes. Out of the way for the count; the cards the selfie
-          itself puts up are painted above it. */}
+      {/* A camera, at the right edge, just above halfway — where the showroom
+          screen keeps its microphone, so the one thing to press is where a
+          hand already goes; 3 cm higher on the panel by the owner's choice
+          (1.6vh of an 86" panel stood upright, 190 cm tall). The preview
+          takes this place during the count. Out of the way for the count;
+          the cards the selfie itself puts up are painted above it. */}
       {usable && !posing && (
         <button
           type="button"
           onClick={() => bus.emit('SELFIE_REQUESTED')}
           aria-label={`Take a selfie with ${who.name}`}
-          className="lay-down bg-ink shadow-float absolute top-1/2 right-safe z-20 grid size-[clamp(56px,6.5vh,240px)] -translate-y-1/2 place-items-center rounded-full text-white transition-transform duration-300 ease-(--ease-human) hover:scale-105 active:scale-95"
+          className="lay-down bg-ink shadow-float absolute top-[calc(50%-1.6vh)] right-safe z-20 grid size-[clamp(56px,6.5vh,240px)] -translate-y-1/2 place-items-center rounded-full text-white transition-transform duration-300 ease-(--ease-human) hover:scale-105 active:scale-95"
         >
           <svg
             viewBox="0 0 24 24"

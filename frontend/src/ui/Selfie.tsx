@@ -258,7 +258,7 @@ export function Selfie({ who }: { who: Character }) {
         if (onto.width !== across || onto.height !== down) {
           Object.assign(onto, { width: across, height: down })
           onto.style.aspectRatio = `${across} / ${down}`
-          onto.style.width = wide ? '46%' : '30%'
+          onto.style.width = wide ? '30%' : '20%'
         }
         framed(camera, onto.width, small)
         const ctx = onto.getContext('2d')!
@@ -785,7 +785,9 @@ export function Selfie({ who }: { who: Character }) {
             width={640}
             height={480}
             aria-label="A preview of your selfie"
-            className="border-line/60 shadow-float absolute right-safe bottom-safe aspect-[4/3] w-[46%] rounded-[clamp(10px,1.1vh,36px)] border"
+            // Where the camera button was pressed (see `SelfieBooth`), centred
+            // on it and smaller: asked to move there from the corner.
+            className="border-line/60 shadow-float absolute top-[calc(50%-1.6vh)] right-safe aspect-[4/3] w-[30%] -translate-y-1/2 rounded-[clamp(10px,1.1vh,36px)] border"
           />
           <button
             type="button"
