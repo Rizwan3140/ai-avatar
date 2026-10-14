@@ -284,6 +284,25 @@ html:has(.kiosk-root) * {
   }
 }
 
+/* The selfie's wait: a lens ring sweeping round a camera that breathes. The
+   sweep eases in and out of each turn so it reads as a lens hunting focus,
+   not a spinner. */
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes swell {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
 /* Motion before decoration. Every transition eases; nothing snaps. */
 @media (prefers-reduced-motion: reduce) {
   *,

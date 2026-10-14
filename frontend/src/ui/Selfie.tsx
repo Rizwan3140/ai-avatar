@@ -58,7 +58,7 @@ import {
  * - It leaves the screen only if they press "share to my phone", which says
  *   what that means before they press it.
  */
-type Stage = 'closed' | 'countdown' | 'result' | 'refused'
+type Stage = 'closed' | 'starting' | 'countdown' | 'result' | 'refused'
 
 /** Seconds of count: five, asked down from eight. The clip of them getting
  *  ready should be no longer, or the shutter goes before it finishes. */
@@ -378,6 +378,8 @@ export function Selfie({ who }: { who: Character }) {
 
   async function start() {
     setProblem('')
+    // The camera takes a second or two to open: shown, not left blank.
+    setStage('starting')
     attempt.current++
     try {
       const media = await navigator.mediaDevices.getUserMedia({
@@ -721,7 +723,7 @@ export function Selfie({ who }: { who: Character }) {
   }
 
   /** Another, as the first was taken: the result put away at once, the
-   *  booth while the camera opens, then the count. The result was left up
+   *  camera opening (`Loader`), then the count. The result was left up
    *  emptied - three dots under a card - for the second the camera took. */
   function again() {
     layers.current = null
@@ -731,7 +733,6 @@ export function Selfie({ who }: { who: Character }) {
     setPicture('')
     setShared('')
     setProblem('')
-    setStage('closed')
     void start()
   }
 
@@ -807,6 +808,14 @@ export function Selfie({ who }: { who: Character }) {
         </div>
       )}
 
+      {stage === 'starting' && (
+        <div className="bg-canvas/50 absolute inset-0 z-30 flex items-center justify-center px-safe py-safe backdrop-blur-sm">
+          <div className={`${PANEL} lay-down`}>
+            <Loader label="Opening the camera" hint={name ? `Get ready for your selfie with ${name}` : 'Get ready for your selfie'} />
+          </div>
+        </div>
+      )}
+
       {stage === 'result' && (
         <div className="bg-canvas/50 absolute inset-0 z-30 flex items-center justify-center px-safe py-safe backdrop-blur-sm">
           <div className={`${PANEL} lay-down flex max-h-full w-full max-w-[62vh] flex-col gap-[0.9em]`}>
@@ -822,14 +831,8 @@ export function Selfie({ who }: { who: Character }) {
                 className="order-last min-h-0 flex-1 rounded-[clamp(10px,1.1vh,36px)] object-contain"
               />
             ) : (
-              <div className="order-last flex min-h-[30vh] flex-1 items-center justify-center gap-[0.4em]" aria-hidden>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="bg-ink size-[0.6em] rounded-full"
-                    style={{ animation: `dot 1.4s ${i * 0.16}s infinite` }}
-                  />
-                ))}
+              <div className="order-last flex min-h-[30vh] flex-1 items-center justify-center">
+                <Loader label="Making your photo" />
               </div>
             )}
             {/* Whoever is in it is told, because whoever is in it was not asked. */}
@@ -898,5 +901,46 @@ export function Selfie({ who }: { who: Character }) {
       )}
     </>,
     document.querySelector('.kiosk-root') ?? document.body,
+  )
+}
+
+/**
+ * The selfie's wait - the camera opening, the photograph being made: a lens
+ * ring sweeping round the camera the visitor pressed, which breathes. It was
+ * three grey dots, which read as a page loading rather than a camera at work.
+ */
+function Loader({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div role="status" aria-live="polite" className="flex flex-col items-center gap-[0.8em] px-[1em] py-[0.6em] text-center">
+      <div className="relative grid size-[clamp(88px,11vh,400px)] place-items-center">
+        <svg viewBox="0 0 100 100" aria-hidden className="text-ink absolute inset-0">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeOpacity="0.1" strokeWidth="3.5" />
+        </svg>
+        <svg
+          viewBox="0 0 100 100"
+          aria-hidden
+          className="text-ink absolute inset-0 animate-[orbit_1.3s_cubic-bezier(0.55,0.1,0.45,0.9)_infinite]"
+        >
+          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="72 217" />
+        </svg>
+        <span className="bg-ink shadow-float grid size-[64%] animate-[swell_1.3s_var(--ease-human)_infinite] place-items-center rounded-full text-white">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="size-[46%]"
+          >
+            <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2.5h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+            <circle cx="12" cy="13" r="3.3" />
+          </svg>
+        </span>
+      </div>
+      <p className="text-body font-semibold">{label}</p>
+      {hint && <p className="text-ink-soft text-label text-balance">{hint}</p>}
+    </div>
   )
 }
