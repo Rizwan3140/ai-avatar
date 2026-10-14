@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 152 checks
+(cd frontend && npm test)                   # 153 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-894 checks total. **Never run the Python suites through `unittest`** — they are
+895 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -374,7 +374,17 @@ company's prices out loud.
   measures how far their cut-out reaches toward the visitor, shoulders to
   hips, once when the picture loads, and `arrange` keeps that edge within
   `OVERLAP` (a quarter of the visitor's face width) of the visitor's
-  shoulder - unless that would put their face off the frame. And when their
+  shoulder - unless that would put their face off the frame. Their shoulder
+  stands *against* the visitor's and not over it ("against my shoulder, not
+  overlap my shoulder"): `bodyOf` keeps where both shoulders are across the
+  picture (`across`), and `arrange` puts the outside of the character's near
+  shoulder at the outside of the visitor's, each 0.3 of its own face-width
+  past the joint the detector marks. Shoulders were asked for in the sizing
+  too, and measured first: across the owner's photographs his shoulder width
+  wobbled 14% against his face from shot to shot - turning, arms, and the
+  character's cut-out covering that shoulder - three times the face's own
+  wobble, so it would have made the character's size jump; the size is still
+  set by faces and heights. And when their
   shoes would show, the finished photograph is cut tighter from the top down
   to mid-shin (`selfie.feetCut`, "zoom in to cut his feet off"), taken from
   the same instant at the camera's own detail - a 4K camera on its side has

@@ -111,7 +111,7 @@ export async function findBody(image: HTMLCanvasElement, near: Box | null, patie
     for (const pose of found.detect(image).landmarks) {
       if (!best || Math.abs(pose[0].x * width - middle) < Math.abs(best[0].x * width - middle)) best = pose
     }
-    return best ? bodyOf(best, height) : null
+    return best ? bodyOf(best, height, width) : null
   } catch {
     return null
   }

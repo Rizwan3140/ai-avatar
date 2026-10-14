@@ -243,6 +243,10 @@ export const HERO = 1.05
  *  visitor's face-widths: a little, as one person half in front of another. */
 export const OVERLAP = 0.25
 
+/** How far the outside of a shoulder is past the shoulder joint the pose
+ *  detector marks, in that person's face-widths: the deltoid and a sleeve. */
+const SHOULDER_PAD = 0.3
+
 /** No limit, in whichever direction is toward the visitor. */
 const centreFar = (onLeft: boolean) => (onLeft ? Infinity : -Infinity)
 
@@ -439,14 +443,27 @@ export function arrange(
   // visitor standing in their place has no beside to stand at, so then they
   // keep to a quarter of the way in, as they always did.
   const toward = onLeft ? 1 : -1
-  const visitorShoulder = headX - toward * 1.2 * headWide
+  // The outside of the visitor's shoulder on the character's side: from the
+  // shoulder the pose detector found (mirrored, as the photograph is), else
+  // guessed from their face. "Till now you were checking head and head - now
+  // add shoulder to shoulder too."
+  const visitorAcross = bodies?.visitor.across
+  const visitorShoulder = visitorAcross
+    ? W - (onLeft ? visitorAcross[1] : visitorAcross[0]) * scale - toward * SHOULDER_PAD * headWide
+    : headX - toward * 1.2 * headWide
   const faceAt = (face.x + face.width / 2) * k
   let centre: number
   if (fits === Infinity) {
     const fromEdge = clamp(0.27 * W, 0.03 * W + faceWide / 2, Math.max(0.03 * W + faceWide / 2, room + 0.03 * W - faceWide / 2))
     centre = onLeft ? fromEdge : W - fromEdge
   } else {
-    const touching = visitorShoulder - toward * 1.1 * faceWide
+    // Their shoulder against the visitor's, and not over it: "against my
+    // shoulder, not overlap my shoulder". From where the detector found their
+    // near shoulder in their picture, else a face and a bit from their face.
+    const ours = bodies?.figure.across
+    const touching = ours
+      ? visitorShoulder - toward * SHOULDER_PAD * faceWide + faceAt - (onLeft ? ours[1] : ours[0]) * k
+      : visitorShoulder - toward * 1.1 * faceWide
     const clearOfFace = headX - toward * (headWide / 2 + faceWide / 2 + 0.02 * W)
     const armOut = onLeft ? faceAt : W - (drawn.width - faceAt)
     // And their body - the shoulder, the arm at their side - over the
@@ -491,6 +508,10 @@ export type Body = {
   hips: number | null
   knees: number | null
   ankles: number | null
+  /** Where the two shoulders are across the picture, left then right, in
+   *  its pixels - when both are seen. What `arrange` stands the character
+   *  shoulder to shoulder by. */
+  across?: [number, number] | null
 }
 
 /** A body from MediaPipe's 33 pose points (0 to 1 down the picture). A mark
@@ -521,14 +542,19 @@ export function lightGain(visitorHigh: number, figureHigh: number): number {
   return clamp(visitorHigh / Math.max(1, figureHigh), 0.7, 1)
 }
 
-export function bodyOf(points: { x: number; y: number; visibility?: number }[], height: number): Body {
+export function bodyOf(points: { x: number; y: number; visibility?: number }[], height: number, width = 0): Body {
   const at = (...ids: number[]) => {
     const seen = ids
       .map((id) => points[id])
       .filter((p) => p && (p.visibility ?? 1) >= 0.5 && p.y >= 0 && p.y <= 0.98 && p.x >= 0 && p.x <= 1)
     return seen.length ? (seen.reduce((sum, p) => sum + p.y, 0) / seen.length) * height : null
   }
-  return { nose: at(0), shoulders: at(11, 12), hips: at(23, 24), knees: at(25, 26), ankles: at(27, 28) }
+  const sure = (p: { x: number; visibility?: number } | undefined) => !!p && (p.visibility ?? 1) >= 0.5 && p.x >= 0 && p.x <= 1
+  const across: [number, number] | null =
+    width && sure(points[11]) && sure(points[12])
+      ? ([Math.min(points[11].x, points[12].x) * width, Math.max(points[11].x, points[12].x) * width] as [number, number])
+      : null
+  return { nose: at(0), shoulders: at(11, 12), hips: at(23, 24), knees: at(25, 26), ankles: at(27, 28), across }
 }
 
 /**

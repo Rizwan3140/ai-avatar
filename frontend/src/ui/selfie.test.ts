@@ -520,3 +520,19 @@ test('their feet are cut off by zooming in, never past the camera\'s own detail'
   assert.ok(Math.abs(small.height - 2160 / 1.78) < 1)
   assert.equal(feetCut(frame, figure, marks, 1700, 600, 1), null)
 })
+
+test("their shoulder stands against the visitor's, not over it", () => {
+  const face = { x: 375, y: 140, width: 150, height: 150 }
+  // Their shoulders found at 250 and 650 across their picture; the visitor's
+  // at 150 and 346 across the camera's (unmirrored), their face 96 wide.
+  const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600, across: [250, 650] as [number, number] }
+  const body = { nose: 400, shoulders: 470, hips: 400 + 0.46 * 960, knees: 400 + 0.68 * 960, ankles: null, across: [150, 346] as [number, number] }
+  const seen = { x: 200, y: 340, width: 96, height: 120 }
+  const placed = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: body, figure }, 188, 175)
+  const k = placed.figure.height / PORTRAIT.height
+  // Outsides of the two shoulders: the joint and 0.3 of each one's face-width.
+  const theirs = placed.figure.x + 650 * k + 0.3 * face.width * k
+  const yours = FRAME.width - 346 * DRAWN - 0.3 * seen.width * DRAWN
+  assert.equal(placed.apart, false)
+  assert.ok(Math.abs(theirs - yours) < 1, `touching: ${theirs.toFixed(0)} against ${yours.toFixed(0)}`)
+})
