@@ -231,6 +231,56 @@ export type Side = 'left' | 'right'
  */
 export const NEARER = 1.3
 
+/**
+ * A little taller than the real difference, when the real heights are known:
+ * the character is the hero of the picture, and a star of average height
+ * beside an average visitor should still stand out. Asked for as "the actual
+ * height difference and a little bit more".
+ */
+export const HERO = 1.05
+
+/**
+ * How tall a face is, in centimetres, as MediaPipe's detector boxes it - the
+ * ruler a visitor's height is measured with. One webcam has no other: a
+ * person's height in the picture says nothing until something in it has a
+ * known size, and adult faces vary least. Roughly 10 cm either way, which was
+ * asked for as enough. 15, from a textbook face, read a grown man as 123 cm:
+ * the detector's box is about an eighth of a person's height, not an
+ * eleventh. 21 is that same photograph taken as a man of about 175 cm.
+ * ponytail: one figure for every face, set from one photograph; calibrate it
+ * against people of known height (the selfie's hover text shows the
+ * estimate) and change it here.
+ */
+export const FACE_CM = 21
+
+/** How far above the floor each mark is, as a share of a standing person's
+ *  height: the usual proportions of an adult body. */
+const ABOVE = { nose: 0.91, shoulders: 0.818, hips: 0.53, knees: 0.285, ankles: 0.039 } as const
+
+/**
+ * A body's height in its picture's pixels, and where its floor is - from the
+ * nose to the lowest of ankles, knees or hips it shows, by the proportions
+ * above. Seen only to the knees, the floor is somewhere below the picture,
+ * and that is where it is put. Null with no nose, or nothing below the waist.
+ */
+export function statureOf(body: Body): { tall: number; floor: number } | null {
+  if (body.nose === null) return null
+  for (const mark of ['ankles', 'knees', 'hips'] as const) {
+    const at = body[mark]
+    if (at === null) continue
+    const tall = (at - body.nose) / (ABOVE.nose - ABOVE[mark])
+    if (tall > 0) return { tall, floor: body.nose + ABOVE.nose * tall }
+  }
+  return null
+}
+
+/** Roughly how tall a visitor is, in centimetres, from their body and face in
+ *  the same picture - see `FACE_CM`. Null when their body says too little. */
+export function heightOf(body: Body, face: Box): number | null {
+  const stature = statureOf(body)
+  return stature && face.height > 0 ? (stature.tall / face.height) * FACE_CM : null
+}
+
 export function arrange(
   frame: Size,
   view: Size,
@@ -239,6 +289,7 @@ export function arrange(
   figureFace: Box | null,
   side: Side = 'left',
   bodies: { visitor: Body; figure: Body } | null = null,
+  tall: number | null = null,
 ): { figure: Box; apart: boolean } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -267,6 +318,7 @@ export function arrange(
   // to and shrinking them into what is left would make them a doll after all.
   const fits = room < 0.18 * W ? Infinity : room / face.width
   let k = Math.min(Math.max(headTall / face.height, (0.45 * H) / figure.height), fits)
+  const byFace = k
   // Then fitted to the visitor's body, when both bodies are found: the
   // nose level, and the lowest mark both show at the same height - see
   // `fitBodies`. "If the user's picture captures only till knee level, the
@@ -279,16 +331,33 @@ export function arrange(
   if (fit) k = clamp(fit.k * scale, 0.6 * k, 1.6 * k)
   // Level: noses beside each other when the bodies were fitted, else eyes.
   let y = fit ? fit.at * scale - fit.from * k : headY - (face.y + face.height / 2) * k
-  // Then a step nearer the camera (`NEARER`), as the one holding the phone.
-  // Grown about the visitor's chest, which is about the camera's height: a
-  // nearer person's head rises in the picture and their legs run lower.
-  const chest =
-    fit && bodies!.visitor.shoulders !== null ? bodies!.visitor.shoulders * scale : headY + 1.6 * headTall
-  // Not past the room beside the visitor's face, though: two faces never one
-  // over the other, the nearer one included.
-  const nearer = Math.max(1, Math.min(NEARER, fits / k))
-  y = chest - (chest - y) * nearer
-  k *= nearer
+  // By their real heights, when the studio gave the character's (`tall`, in
+  // centimetres) and the visitor's can be estimated (`heightOf`): the two on
+  // one floor, the character as much taller or shorter than the visitor as
+  // they really are, and `HERO` more. Kept within 40% of the face's own size.
+  const theirs = fit && tall && visitor ? statureOf(bodies!.figure) : null
+  const visitors = theirs ? statureOf(bodies!.visitor) : null
+  const visitorCm = visitors ? heightOf(bodies!.visitor, visitor!) : null
+  const byHeight = theirs && visitors && visitorCm ? { theirs, visitors, visitorCm } : null
+  if (byHeight) {
+    // Within a fifth either way: an estimate off by its usual 10 cm should
+    // not make a giant, and a star is not a third taller than anyone.
+    const ratio = clamp(tall! / byHeight.visitorCm, 0.85, 1.2) * HERO
+    k = clamp((byHeight.visitors.tall * scale * ratio) / byHeight.theirs.tall, 0.6 * byFace, 1.6 * byFace)
+    y = byHeight.visitors.floor * scale - byHeight.theirs.floor * k
+  } else {
+    // Otherwise a step nearer the camera (`NEARER`), as the one holding the
+    // phone. Grown about the visitor's chest, which is about the camera's
+    // height: a nearer person's head rises in the picture and their legs run
+    // lower.
+    const chest =
+      fit && bodies!.visitor.shoulders !== null ? bodies!.visitor.shoulders * scale : headY + 1.6 * headTall
+    // Not past the room beside the visitor's face, though: two faces never one
+    // over the other, the nearer one included.
+    const nearer = Math.max(1, Math.min(NEARER, fits / k))
+    y = chest - (chest - y) * nearer
+    k *= nearer
+  }
   const drawn = { width: figure.width * k, height: figure.height * k }
   const faceWide = face.width * k
   // Shoulder to shoulder with the visitor, theirs a little in front: "no gap
@@ -324,7 +393,7 @@ export function arrange(
   // They do not float. A picture of them that ends at the chest has that edge
   // at the frame's edge, or they are a bust hanging in the room. Not one that
   // reaches their shoes and was fitted: their feet are where the visitor's are.
-  const shod = fit !== null && bodies!.figure.ankles !== null
+  const shod = (fit !== null && bodies!.figure.ankles !== null) || byHeight !== null
   if (!shod && y + drawn.height < H) y = H - drawn.height
 
   return { figure: { x, y, ...drawn }, apart }

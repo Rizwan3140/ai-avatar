@@ -841,6 +841,16 @@ check("the side is set per character, kept, and told to the screen",
       client.patch(_one, headers=north, json={"side": "right"}).json()["side"] == "right"
       and client.get(f"/api/selfie/character/{WHO}").json()["side"] == "right"
       and client.get("/api/studio/selfies", headers=north).json()[0]["side"] == "right")
+check("no height until the studio gives one",
+      client.get(f"/api/selfie/character/{WHO}").json()["height"] is None)
+check("a height is kept and told to the screen, and a side change leaves it alone",
+      client.patch(_one, headers=north, json={"height": 183}).json()["height"] == 183
+      and client.patch(_one, headers=north, json={"side": "right"}).json()["height"] == 183
+      and client.get(f"/api/selfie/character/{WHO}").json()["height"] == 183)
+check("an impossible height is refused, and null forgets it",
+      client.patch(_one, headers=north, json={"height": 30}).status_code == 400
+      and client.patch(_one, headers=south, json={"height": 170}).status_code == 404
+      and client.patch(_one, headers=north, json={"height": None}).json()["height"] is None)
 check("there are two sides, and another company cannot choose either",
       client.patch(_one, headers=north, json={"side": "middle"}).status_code == 400
       and client.patch(_one, headers=south, json={"side": "left"}).status_code == 404

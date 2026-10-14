@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  NEARER, arrange, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
+  HERO, NEARER, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -370,4 +370,45 @@ test('a body mark counts when it is seen and inside the picture', () => {
   assert.equal(body.nose, 100)
   assert.equal(body.knees, 800)
   assert.equal(body.ankles, null)
+})
+
+test('a body\'s height and floor come from its nose and its lowest mark', () => {
+  const whole = statureOf({ nose: 100, shoulders: 200, hips: 560, knees: 820, ankles: 1000 })!
+  assert.ok(Math.abs(whole.tall - 900 / (0.91 - 0.039)) < 0.01 && Math.abs(whole.floor - (100 + 0.91 * whole.tall)) < 0.01)
+  // Seen to the knees, the floor is below the picture.
+  const kneed = statureOf({ nose: 100, shoulders: 200, hips: 560, knees: 820, ankles: null })!
+  assert.ok(kneed.floor > 820)
+  assert.equal(statureOf({ nose: 100, shoulders: 200, hips: null, knees: null, ankles: null }), null)
+  // A visitor 12 faces tall is 12 face-heights of centimetres tall.
+  const body = { nose: 0, shoulders: null, hips: null, knees: null, ankles: 0.871 * 960 }
+  assert.ok(Math.abs(heightOf(body, { x: 0, y: 0, width: 64, height: 80 })! - 12 * FACE_CM) < 0.01)
+})
+
+test('given their real height, the character stands on the visitor\'s floor, that much taller and a little more', () => {
+  // A character head to shoes, a face 150 tall in a picture 1700 tall.
+  const face = { x: 375, y: 140, width: 150, height: 150 }
+  const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600 }
+  // A visitor seen to the knees, their face 120 tall: 960 high in the view, so
+  // 8 faces.
+  const visitorBody = { nose: 400, shoulders: 470, hips: null, knees: 400 + 0.625 * 960, ankles: null }
+  const seen = { x: 210, y: 340, width: 96, height: 120 }
+  const visitorTall = statureOf(visitorBody)!
+  const figureTall = statureOf(figure)!
+  for (const tall of [180, 200]) {
+    const placed = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, tall)
+    const k = placed.figure.height / PORTRAIT.height
+    const ratio = (figureTall.tall * k) / (visitorTall.tall * DRAWN)
+    assert.ok(Math.abs(ratio - (tall / (8 * FACE_CM)) * HERO) < 0.01, `${tall} cm: ${ratio.toFixed(3)}`)
+    const floor = placed.figure.y + figureTall.floor * k
+    assert.ok(Math.abs(floor - visitorTall.floor * DRAWN) < 2, `${tall} cm: on one floor`)
+  }
+  // A wild estimate is held to a fifth: never a giant.
+  const giant = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, 250)
+  const kg = giant.figure.height / PORTRAIT.height
+  assert.ok((figureTall.tall * kg) / (visitorTall.tall * DRAWN) <= 1.2 * HERO + 0.001)
+  // No height given: a step nearer, as before.
+  const asBefore = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure })
+  const after = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, null)
+  assert.deepEqual(asBefore, after)
+  assert.ok(NEARER > HERO)
 })

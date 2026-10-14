@@ -23,10 +23,10 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 144 checks
+(cd frontend && npm test)                   # 146 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
-./.venv/bin/python -m backend.test_api      # 196 — the same through the real routes
+./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
 ./.venv/bin/python -m backend.tts           # voice: cloning, conversion, refusals
 ./.venv/bin/python -m backend.sarvam        # Indian-language voice/hearing requests, offline
 ./.venv/bin/python -m backend.indic_asr     # IndicConformer numpy port (pass a folder of references to compare)
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-883 checks total. **Never run the Python suites through `unittest`** — they are
+888 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -366,6 +366,20 @@ company's prices out loud.
   their cut-out's rim pulled in. Then one grade over the whole photograph -
   darker, cooler, firmer, darker at the edges - so both are in one light.
   This undoes "never larger than the visitor" by the owner's choice.
+- **Given a character's real height, they stand beside the visitor by it
+  (v2.3.0).** The studio's Selfie tab takes their height in centimetres, in
+  the dropdown card under "Open selfie screen" that now holds the picture,
+  clip and side too. The visitor's height is estimated from the photograph -
+  their height in the picture (`selfie.statureOf`, nose to the lowest body
+  mark by the usual adult proportions) over their face's, times `FACE_CM` -
+  and the character is drawn on the same floor, as much taller or shorter as
+  they really are and `HERO` (5%) more: "the actual height difference and a
+  little bit more". Held within 0.85-1.2 times the visitor, so a misread
+  estimate makes no giant. `FACE_CM` was 15 from a textbook face and read a
+  grown man as 123 cm; 21 is one photograph taken as a man of about 175 cm.
+  It is a guess to be calibrated - the photograph's hover text shows the
+  estimate beside the character's height. No height given, and they are
+  drawn `NEARER` (1.3) as before.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the

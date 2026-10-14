@@ -11,6 +11,7 @@ import {
   crispness,
   cutOut,
   frameFor,
+  heightOf,
   grade,
   tone,
   cameraTurn,
@@ -177,6 +178,7 @@ export function Selfie({ who }: { who: Character }) {
   const name = who.name
   // Which edge of the photograph they stand at. Theirs, and never changed.
   const side = who.side
+  const tall = who.height ?? null
   const [stage, setStage] = useState<Stage>('closed')
   const [count, setCount] = useState(COUNT)
   const [picture, setPicture] = useState('')
@@ -258,7 +260,7 @@ export function Selfie({ who }: { who: Character }) {
         const who = ready.current
         if (who) {
           const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-          const place = arrange(onto, small, face, who.image, who.face, side, fitted)
+          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -513,7 +515,11 @@ export function Selfie({ who }: { who: Character }) {
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
       const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted)
+      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted, tall)
+      // For whoever is setting the cabinet up: how tall the visitor was
+      // estimated to be, beside how tall they are - see `FACE_CM`.
+      const estimate = body && visitor ? heightOf(body, visitor) : null
+      if (estimate) setTaken((was) => `${was} Visitor about ${Math.round(estimate)} cm${tall ? `, ${name} ${tall} cm` : ''}.`)
       drawFigure(onto, who.image, place)
 
       // Matched to the visitor's light rather than the room's: the room is

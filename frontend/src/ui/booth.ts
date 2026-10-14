@@ -19,6 +19,8 @@ export type Character = {
    *  picture is made for one side, so it is set per character and never
    *  changed for a visitor. */
   side: 'left' | 'right'
+  /** How tall they really are, in centimetres, if the studio was told. */
+  height: number | null
   /** Whether selfies are switched on here at all. */
   available: boolean
   /** Whether a finished selfie can be handed to a phone. */

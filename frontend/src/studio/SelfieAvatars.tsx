@@ -10,6 +10,7 @@ type Character = {
   picture: string
   clip: string
   side: 'left' | 'right'
+  height: number | null
 }
 
 type SelfieStatus = { available: boolean; share: boolean }
@@ -86,6 +87,14 @@ export function SelfieAvatars({ who }: { who: Principal }) {
     act(`${one.id}-side`, async () => {
       await api<Character>(base(one), { method: 'PATCH', body: { side } })
       return `${one.name} now stands on the ${side} — on the screen and in every photograph.`
+    })
+
+  const measure = (one: Character, height: number | null) =>
+    act(`${one.id}-height`, async () => {
+      await api<Character>(base(one), { method: 'PATCH', body: { height } })
+      return height
+        ? `${one.name} is ${height} cm. They stand beside each visitor by the real difference, and a little taller.`
+        : `${one.name}'s height was cleared. They are drawn a step larger than each visitor.`
     })
 
   const remove = (one: Character) =>
@@ -181,65 +190,147 @@ export function SelfieAvatars({ who }: { who: Principal }) {
                   </a>
                 </div>
 
-                <Slot
-                  name="The picture"
-                  have={Boolean(one.picture)}
-                  working={busy === `${one.id}-picture`}
-                  present="Installed. Resized to each visitor's face and stood beside them."
-                  absent="Missing — there is no selfie without it. A PNG of them as the phone sees them, background removed."
-                  // PNG only, and said so: it has to arrive cut out, and the
-                  // server refuses anything else with the reason.
-                  accept="image/png"
-                  add="Add the picture"
-                  mayWrite={mayWrite}
-                  disabled={Boolean(busy)}
-                  onPick={(file) => give(one, 'picture', file)}
-                  onRemove={() => drop(one, 'picture')}
-                />
-                {/* Which edge they stand at. Theirs: a picture is made for one
-                    side, an arm out and cut where it leaves, so this is set
-                    once here and never changed by where a visitor stands. */}
-                <div className="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2.5">
-                  <span className="w-28 shrink-0 font-medium">Stands on</span>
-                  <span className="text-ink-soft min-w-0 flex-1 text-xs">
-                    The {one.side} of the screen and of every photograph. Choose the side their
-                    arm reaches out of the picture.
-                  </span>
-                  {(['left', 'right'] as const).map((side) => (
-                    <Button
-                      key={side}
-                      tone={one.side === side ? 'primary' : 'quiet'}
-                      aria-pressed={one.side === side}
-                      disabled={!mayWrite || Boolean(busy) || one.side === side}
-                      // The chosen one is disabled, and must not fade for it.
-                      className={one.side === side ? 'disabled:opacity-100' : ''}
-                      onClick={() => stand(one, side)}
-                    >
-                      {side === 'left' ? 'Left' : 'Right'}
-                    </Button>
-                  ))}
-                </div>
-                <Slot
-                  name="Getting ready"
-                  have={Boolean(one.clip)}
-                  working={busy === `${one.id}-clip`}
-                  present="Installed. Plays once while the count runs."
-                  absent="Missing — their picture stands still for the count. Five or six seconds of them lifting the phone."
-                  // `video/*`, not a list of extensions: a phone records
-                  // .mov, and a list would grey it out in the file dialog.
-                  accept="video/*"
-                  add="Add the clip"
-                  mayWrite={mayWrite}
-                  disabled={Boolean(busy)}
-                  onPick={(file) => give(one, 'clip', file)}
-                  onRemove={() => drop(one, 'clip')}
-                />
+                {/* What the character is made of, folded away under the card
+                    that opens their screen: set once, and not what a person
+                    opening the tab has come to do. Open while something is
+                    still missing. */}
+                <details
+                  open={!one.picture}
+                  className="group border-t border-line"
+                >
+                  <summary className="text-ink-soft hover:bg-line/20 flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-xs font-medium">
+                    <span>
+                      Picture, clip, side and height
+                      {!one.picture || !one.clip || !one.height ? ' — something still to give' : ''}
+                    </span>
+                    <span aria-hidden className="transition-transform group-open:rotate-180">
+                      ▾
+                    </span>
+                  </summary>
+                  <Slot
+                    name="The picture"
+                    have={Boolean(one.picture)}
+                    working={busy === `${one.id}-picture`}
+                    present="Installed. Resized to each visitor's face and stood beside them."
+                    absent="Missing — there is no selfie without it. A PNG of them as the phone sees them, background removed."
+                    // PNG only, and said so: it has to arrive cut out, and the
+                    // server refuses anything else with the reason.
+                    accept="image/png"
+                    add="Add the picture"
+                    mayWrite={mayWrite}
+                    disabled={Boolean(busy)}
+                    onPick={(file) => give(one, 'picture', file)}
+                    onRemove={() => drop(one, 'picture')}
+                  />
+                  {/* Which edge they stand at. Theirs: a picture is made for one
+                      side, an arm out and cut where it leaves, so this is set
+                      once here and never changed by where a visitor stands. */}
+                  <div className="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2.5">
+                    <span className="w-28 shrink-0 font-medium">Stands on</span>
+                    <span className="text-ink-soft min-w-0 flex-1 text-xs">
+                      The {one.side} of the screen and of every photograph. Choose the side their
+                      arm reaches out of the picture.
+                    </span>
+                    {(['left', 'right'] as const).map((side) => (
+                      <Button
+                        key={side}
+                        tone={one.side === side ? 'primary' : 'quiet'}
+                        aria-pressed={one.side === side}
+                        disabled={!mayWrite || Boolean(busy) || one.side === side}
+                        // The chosen one is disabled, and must not fade for it.
+                        className={one.side === side ? 'disabled:opacity-100' : ''}
+                        onClick={() => stand(one, side)}
+                      >
+                        {side === 'left' ? 'Left' : 'Right'}
+                      </Button>
+                    ))}
+                  </div>
+                  <Slot
+                    name="Getting ready"
+                    have={Boolean(one.clip)}
+                    working={busy === `${one.id}-clip`}
+                    present="Installed. Plays once while the count runs."
+                    absent="Missing — their picture stands still for the count. Five or six seconds of them lifting the phone."
+                    // `video/*`, not a list of extensions: a phone records
+                    // .mov, and a list would grey it out in the file dialog.
+                    accept="video/*"
+                    add="Add the clip"
+                    mayWrite={mayWrite}
+                    disabled={Boolean(busy)}
+                    onPick={(file) => give(one, 'clip', file)}
+                    onRemove={() => drop(one, 'clip')}
+                  />
+                  <Height
+                    one={one}
+                    mayWrite={mayWrite}
+                    disabled={Boolean(busy)}
+                    working={busy === `${one.id}-height`}
+                    onSave={(height) => measure(one, height)}
+                  />
+                </details>
               </li>
             ))}
           </ul>
         )}
       </Section>
     </div>
+  )
+}
+
+/** How tall the character really is. The selfie stands them beside each
+ *  visitor by the real difference, a little taller for being the hero. */
+function Height({
+  one,
+  mayWrite,
+  disabled,
+  working,
+  onSave,
+}: {
+  one: Character
+  mayWrite: boolean
+  disabled: boolean
+  working: boolean
+  onSave: (height: number | null) => void
+}) {
+  const [typed, setTyped] = useState(one.height ? String(one.height) : '')
+  const value = Number(typed)
+  const usable = typed === '' || (Number.isInteger(value) && value >= 100 && value <= 250)
+  const changed = (typed === '' ? null : value) !== one.height
+  return (
+    <form
+      className="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2.5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (usable && changed) onSave(typed === '' ? null : value)
+      }}
+    >
+      <span className="w-28 shrink-0 font-medium">Height</span>
+      <span className={`min-w-0 flex-1 text-xs ${one.height ? 'text-ink-soft' : 'text-amber-800'}`}>
+        {working
+          ? 'Saving…'
+          : one.height
+            ? `${one.height} cm. They stand beside each visitor by the real difference, and a little taller.`
+            : 'Not given — they are drawn a step larger than each visitor. Their real height, in centimetres.'}
+      </span>
+      {mayWrite && (
+        <>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={100}
+            max={250}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            placeholder="cm"
+            aria-label={`${one.name}'s height in centimetres`}
+            className={`w-20 rounded-lg border bg-white px-2 py-1.5 text-[13.5px] ${usable ? 'border-line' : 'border-amber-600'}`}
+          />
+          <Button type="submit" tone="quiet" disabled={disabled || !usable || !changed}>
+            Save
+          </Button>
+        </>
+      )}
+    </form>
   )
 }
 

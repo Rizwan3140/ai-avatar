@@ -143,6 +143,15 @@ class Character:
     #: set once, and never changed for a visitor — their picture is made for
     #: one side, an arm out and cut where it leaves.
     side: str = "left"
+    #: How tall they really are, in centimetres, if the studio was told. The
+    #: selfie stands them beside each visitor by the real difference between
+    #: them (and a little more: they are the hero of the picture). None, and
+    #: they are drawn a fixed step larger than the visitor, as before.
+    height: int | None = None
+
+
+#: The heights a person can be, in centimetres. Outside it is a typing mistake.
+HEIGHTS = range(100, 251)
 
 
 def character_dir(character_id: str) -> Path:
@@ -172,6 +181,7 @@ def _read(folder: Path) -> Character:
         picture=served(PICTURE),
         clip=served(CLIP),
         side=meta.get("side") if meta.get("side") in SIDES else "left",
+        height=meta.get("height") if isinstance(meta.get("height"), int) and meta.get("height") in HEIGHTS else None,
     )
 
 
@@ -213,6 +223,21 @@ def stand(character_id: str, side: str) -> Character:
     meta_file = folder / "character.json"
     meta = json.loads(meta_file.read_text(encoding="utf-8"))
     meta["side"] = side
+    meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return _read(folder)
+
+
+def measure(character_id: str, height: int | None) -> Character:
+    """Say how tall they are, in centimetres; None forgets it."""
+    if height is not None and height not in HEIGHTS:
+        raise ValueError("a height is between 100 and 250 centimetres")
+    folder = character_dir(character_id)
+    meta_file = folder / "character.json"
+    meta = json.loads(meta_file.read_text(encoding="utf-8"))
+    if height is None:
+        meta.pop("height", None)
+    else:
+        meta["height"] = height
     meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return _read(folder)
 
