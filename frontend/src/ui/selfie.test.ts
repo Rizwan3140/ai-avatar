@@ -394,7 +394,7 @@ test('a body\'s height and floor come from its nose and its lowest mark', () => 
     { ruler: 177, body: { nose: 85, shoulders: null, hips: 941, knees: null, ankles: null } },
   ]
   for (const { ruler, body } of him) {
-    const cm = heightOf(body, ruler)!
+    const cm = heightOf(body, ruler, 2160)!
     assert.ok(Math.abs(cm - 175) < 10, `${body.ankles ? 'shoes' : body.knees ? 'knees' : 'hips'}: ${cm.toFixed(0)} cm`)
   }
 })
@@ -409,7 +409,7 @@ test('given their real height, the character stands on the visitor\'s floor, tha
   const seen = { x: 210, y: 500, width: 96, height: 120 }
   const visitorTall = statureOf(visitorBody)!
   const figureTall = statureOf(figure)!
-  for (const tall of [180, 200]) {
+  for (const tall of [180, 188]) {
     const placed = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, tall, 170)
     const k = placed.figure.height / PORTRAIT.height
     const ratio = (figureTall.tall * k) / (visitorTall.tall * DRAWN)
@@ -420,7 +420,7 @@ test('given their real height, the character stands on the visitor\'s floor, tha
   // A wild estimate is held to a fifth: never a giant.
   const giant = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, 250, 170)
   const kg = giant.figure.height / PORTRAIT.height
-  assert.ok((figureTall.tall * kg) / (visitorTall.tall * DRAWN) <= 1.2 * HERO + 0.001)
+  assert.ok((figureTall.tall * kg) / (visitorTall.tall * DRAWN) <= 1.12 * HERO + 0.001)
   // No height given, or none estimated: a step nearer, as before.
   const asBefore = arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure })
   assert.deepEqual(arrange(FRAME, VIEW, seen, PORTRAIT, face, 'left', { visitor: visitorBody, figure }, null, 170), asBefore)
@@ -579,4 +579,15 @@ test('a head is measured out from the face through the hair, not to a hand raise
   // The plain furthest pixel would have been the hand.
   assert.equal(reachOf(rgba, 40, 0, 3, 'left'), 0)
   assert.equal(headEdge(rgba, 40, 0, 3, 10, 'left'), null)
+})
+
+test('a visitor standing near the lens is read nearly their height, not short', () => {
+  // The owner, 175 cm, a face 200 tall in a picture 2160 tall, cut at the
+  // knees: 157 cm before the nearness was allowed for.
+  const body = { nose: 788, shoulders: 1040, hips: 1657, knees: 2048, ankles: null }
+  const plain = heightOf(body, 200)!
+  const near = heightOf(body, 200, 2160)!
+  assert.ok(near > plain && near - plain < 10, `${plain.toFixed(0)} -> ${near.toFixed(0)}`)
+  // At the size it was fitted round, nothing changes.
+  assert.equal(heightOf(body, 170, 2160)!.toFixed(6), heightOf(body, 170)!.toFixed(6))
 })

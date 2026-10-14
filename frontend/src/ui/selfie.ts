@@ -340,7 +340,7 @@ export function feetCut(
  * ponytail: one man's photographs; calibrate against more people of known
  * height (the selfie's hover text shows the estimate).
  */
-export const FACE_CM = 16.9
+export const FACE_CM = 17
 
 /** How far above the floor each mark is, as a share of a standing person's
  *  height. Nose and ankles are the usual proportions of an adult body; hips
@@ -368,12 +368,29 @@ export function statureOf(body: Body): { tall: number; floor: number } | null {
 }
 
 /** Roughly how tall a visitor is, in centimetres, from their body and their
- *  face's height (as `faces.findFace` measures it) in the same picture - see `FACE_CM`.
- *  Null when their body says too little. */
-export function heightOf(body: Body, faceTall: number | null): number | null {
+ *  face's height (as `faces.findFace` measures it) in the same picture - see
+ *  `FACE_CM` - and, given the picture's height, corrected for how near they
+ *  stand (`NEAR`). Null when their body says too little. */
+export function heightOf(body: Body, faceTall: number | null, pictureTall: number | null = null): number | null {
   const stature = statureOf(body)
-  return stature && faceTall && faceTall > 0 ? (stature.tall / faceTall) * FACE_CM : null
+  if (!stature || !faceTall || faceTall <= 0) return null
+  const near = pictureTall ? (faceTall / (NEAR.face * pictureTall)) ** NEAR.power : 1
+  return (stature.tall / faceTall) * FACE_CM * near
 }
+
+/**
+ * How a visitor's reading drifts with how near they stand, measured by their
+ * face's share of the picture's height. On twenty-nine photographs of one
+ * man of 175 cm from this cabinet, the nearest - a face a tenth of the
+ * picture tall, cut at the knees - read 155-160 and the furthest up to 186:
+ * near the lens a visitor leans in, and their face grows faster than their
+ * body. Scaling by (face share / `face`) to the `power` takes the spread from
+ * 9 cm to 8.3 and the worst from 26 to 15. A lens correction was fitted
+ * first and did nothing (9.0 to 8.7), so it is not the lens.
+ * ponytail: one camera and one man; refit with the selfie-tests of anybody
+ * else of known height, and for another cabinet's camera.
+ */
+export const NEAR = { face: 170 / 2160, power: 0.158 }
 
 export function arrange(
   frame: Size,
@@ -437,9 +454,11 @@ export function arrange(
   const visitors = theirs ? statureOf(bodies!.visitor) : null
   const byHeight = theirs && visitors ? { theirs, visitors, visitorCm: visitorCm! } : null
   if (byHeight) {
-    // Within a fifth either way: an estimate off by its usual 10 cm should
-    // not make a giant, and a star is not a third taller than anyone.
-    const ratio = clamp(tall! / byHeight.visitorCm, 0.85, 1.2) * HERO
+    // Within bounds: an estimate off by its usual 10 cm should not make a
+    // giant. At most 1.12 taller - 188 cm beside 168 - before `HERO`: at 1.2,
+    // a 175 cm visitor read as 157 put the star a quarter taller than him,
+    // and "now the height is too much".
+    const ratio = clamp(tall! / byHeight.visitorCm, 0.85, 1.12) * HERO
     k = clamp((byHeight.visitors.tall * scale * ratio) / byHeight.theirs.tall, 0.6 * byFace, 1.6 * byFace)
     // Never over the visitor's face, as on the other path: shorter than their
     // real difference beats one face drawn across another.

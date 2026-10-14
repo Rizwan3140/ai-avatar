@@ -290,7 +290,7 @@ export function Selfie({ who }: { who: Character }) {
           const seenFace = face
           void findBody(small, seenFace).then((found) => {
             body = found
-            visitorCm = found ? heightOf(found, seenFace.height) : null
+            visitorCm = found ? heightOf(found, seenFace.height, small.height) : null
             cutting = false
           })
         }
@@ -518,7 +518,7 @@ export function Selfie({ who }: { who: Character }) {
     // Their body, the one under their face: the character is fitted to it.
     const body = await findBody(shot, visitor)
     // How tall they are, by their face - measured at one size by `findFace`.
-    const visitorCm = body && visitor ? heightOf(body, visitor.height) : null
+    const visitorCm = body && visitor ? heightOf(body, visitor.height, shot.height) : null
     if (mine !== attempt.current) return
 
     // Where the character stands, before anything is drawn: if their feet

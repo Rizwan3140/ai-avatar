@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 155 checks
+(cd frontend && npm test)                   # 156 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-897 checks total. **Never run the Python suites through `unittest`** — they are
+898 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -449,6 +449,17 @@ company's prices out loud.
   photograph shows the estimate, to check against anybody else of known
   height. The preview's own canvas height was once named `tall`, hiding the
   character's: the preview stood every character by a height of 853 cm.
+- **A visitor near the lens reads short, and the star's lead is capped.**
+  On twenty-nine of the owner's photographs the nearest - a face a tenth of
+  the picture tall, cut at the knees - read him 155-160 cm against his 175,
+  and at the old cap (1.2, then `HERO`) Praboss stood a quarter taller than
+  him: "now the height is too much". `heightOf` now scales by the face's
+  share of the picture (`NEAR`, fitted on those photographs: spread 9 to 8.3
+  cm, worst 26 to 15), and the ratio is capped at 1.12 - 188 beside 168 -
+  before `HERO`. A lens-distortion correction was fitted first and changed
+  nothing, so the cause is the visitor leaning in, not the camera. On the two
+  photographs that showed it he went from 1.25 times the visitor to 1.18,
+  against 1.13 for his true height.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the
