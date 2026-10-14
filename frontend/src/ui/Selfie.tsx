@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { bus } from '../bus/bus.ts'
 import { keepSelfie, shareSelfie, type Character } from './booth.ts'
-import { faceTall, findBody, findFace, warmFaces } from './faces.ts'
+import { findBody, findFace, warmFaces } from './faces.ts'
 import {
   arrange,
   bounds,
@@ -285,9 +285,9 @@ export function Selfie({ who }: { who: Character }) {
           cutting = true
           cut = now
           const seenFace = face
-          void Promise.all([findBody(small, seenFace), tall ? faceTall(small, seenFace) : null]).then(([found, ruler]) => {
+          void findBody(small, seenFace).then((found) => {
             body = found
-            visitorCm = found ? heightOf(found, ruler) : null
+            visitorCm = found ? heightOf(found, seenFace.height) : null
             cutting = false
           })
         }
@@ -493,8 +493,8 @@ export function Selfie({ who }: { who: Character }) {
     const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
     // Their body, the one under their face: the character is fitted to it.
     const body = await findBody(shot, visitor)
-    // How tall they are, by their face measured at one size (`faceTall`).
-    const visitorCm = body && visitor ? heightOf(body, await faceTall(shot, visitor)) : null
+    // How tall they are, by their face - measured at one size by `findFace`.
+    const visitorCm = body && visitor ? heightOf(body, visitor.height) : null
     if (mine !== attempt.current) return
 
     // Mirrored, as the preview was: this is the picture they posed for.

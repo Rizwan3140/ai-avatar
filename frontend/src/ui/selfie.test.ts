@@ -387,9 +387,9 @@ test('a body\'s height and floor come from its nose and its lowest mark', () => 
   // (his face measured at one size, and MediaPipe's marks): to his shoes, cut
   // at the knees, and cut at the hips. Each within 10 cm of him.
   const him = [
-    { ruler: 132, body: { nose: 764, shoulders: null, hips: 1377, knees: 1674, ankles: 1924 } },
-    { ruler: 169, body: { nose: 638, shoulders: null, hips: 1466, knees: 1874, ankles: null } },
-    { ruler: 176, body: { nose: 85, shoulders: null, hips: 941, knees: null, ankles: null } },
+    { ruler: 127, body: { nose: 764, shoulders: null, hips: 1377, knees: 1674, ankles: 1924 } },
+    { ruler: 171, body: { nose: 638, shoulders: null, hips: 1466, knees: 1874, ankles: null } },
+    { ruler: 177, body: { nose: 85, shoulders: null, hips: 941, knees: null, ankles: null } },
   ]
   for (const { ruler, body } of him) {
     const cm = heightOf(body, ruler)!
@@ -402,7 +402,7 @@ test('given their real height, the character stands on the visitor\'s floor, tha
   const face = { x: 375, y: 140, width: 150, height: 150 }
   const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600 }
   // A visitor seen to the knees, estimated at 170 cm, their face 120 tall.
-  const visitorBody = { nose: 400, shoulders: 470, hips: null, knees: 400 + 0.71 * 960, ankles: null }
+  const visitorBody = { nose: 400, shoulders: 470, hips: null, knees: 400 + 0.68 * 960, ankles: null }
   const seen = { x: 210, y: 340, width: 96, height: 120 }
   const visitorTall = statureOf(visitorBody)!
   const figureTall = statureOf(figure)!

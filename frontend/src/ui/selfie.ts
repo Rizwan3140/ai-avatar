@@ -241,19 +241,19 @@ export const HERO = 1.05
 
 /**
  * How tall a face is, in centimetres, as MediaPipe's detector boxes it when
- * shown it at one size (`faces.faceTall`) - the ruler a visitor's height is
- * measured with. One webcam has no other: a person's height in the picture
- * says nothing until something in it has a known size, and adult faces vary
- * least. Fitted, with the hips and knees below, to sixteen photographs from
- * this cabinet of one man of 175 cm, about a metre from the camera: he reads
- * 159-194 cm, 175 on average, 8.5 either way - to his shoes or cut at the
- * knees alike. v2.3.0 (21, the box as found, a textbook's hips and knees) read
+ * shown it at one size (`faces.findFace` settles every face so) - the ruler
+ * a visitor's height is measured with. One webcam has no other: a person's
+ * height in the picture says nothing until something in it has a known
+ * size, and adult faces vary least. Fitted, with the hips and knees below, to
+ * sixteen photographs from this cabinet of one man of 175 cm, about a metre
+ * from the camera: he reads 175 cm on average, 8.6 either way and never 20
+ * off - to his shoes or cut at the knees alike. v2.3.0 (21, the box as found, a textbook's hips and knees) read
  * him 169-221 and 194 on average: the detector draws a small face's box
  * relatively larger, so it depended on which look found him.
  * ponytail: one man's photographs; calibrate against more people of known
  * height (the selfie's hover text shows the estimate).
  */
-export const FACE_CM = 17
+export const FACE_CM = 16.9
 
 /** How far above the floor each mark is, as a share of a standing person's
  *  height. Nose and ankles are the usual proportions of an adult body; hips
@@ -261,7 +261,7 @@ export const FACE_CM = 17
  *  shoes - the only ones they are used for. Lower than a textbook's 0.53 and
  *  0.285: a visitor close enough to be cut at the knees is looked down on by
  *  a camera a metre up, and their knees fall lower in the picture. */
-const ABOVE = { nose: 0.91, shoulders: 0.818, hips: 0.43, knees: 0.2, ankles: 0.039 } as const
+const ABOVE = { nose: 0.91, shoulders: 0.818, hips: 0.45, knees: 0.23, ankles: 0.039 } as const
 
 /**
  * A body's height in its picture's pixels, and where its floor is - from the
@@ -281,7 +281,7 @@ export function statureOf(body: Body): { tall: number; floor: number } | null {
 }
 
 /** Roughly how tall a visitor is, in centimetres, from their body and their
- *  face's height (`faces.faceTall`) in the same picture - see `FACE_CM`.
+ *  face's height (as `faces.findFace` measures it) in the same picture - see `FACE_CM`.
  *  Null when their body says too little. */
 export function heightOf(body: Body, faceTall: number | null): number | null {
   const stature = statureOf(body)

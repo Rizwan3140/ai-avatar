@@ -173,7 +173,7 @@ export async function findFace(image: HTMLCanvasElement, quick = false, patient 
           if (!best || weight(face) > weight(best)) best = face
         }
       }
-      if (best) return best
+      if (best) return settle(found, image, settle(found, image, best))
     }
     return null
   } catch {
@@ -182,33 +182,29 @@ export async function findFace(image: HTMLCanvasElement, quick = false, patient 
 }
 
 /**
- * How tall `face` is, measured again from a square four times its height
- * around it - so every face is the same share of what the detector sees, near
- * or far - or null. The ruler a visitor's height is read with (`FACE_CM`).
- * The box `findFace` returns is not one: the detector draws a small face's
- * box relatively larger, so it came from whichever look found them, and a
- * visitor near the lens read 20 cm taller than the same visitor further back.
+ * The face found, measured again from a square four times its height around
+ * it - so every face is the same share of what the detector sees, near or far,
+ * in a camera frame or a character's picture. The box as first found is not a
+ * ruler: the detector draws a small face's box relatively larger, so it came
+ * from whichever look found them. A visitor near the lens read 20 cm taller
+ * than the same visitor further back, and a character's face measured 193
+ * pixels in their picture and 271 once its empty edge was trimmed - so they
+ * were drawn two thirds the size their height asked for.
  */
-export async function faceTall(image: HTMLCanvasElement, face: Box): Promise<number | null> {
-  const found = await detector()
-  if (!found) return null
-  try {
-    const side = Math.round(face.height * 4)
-    const cx = face.x + face.width / 2
-    const cy = face.y + face.height / 2
-    const view = document.createElement('canvas')
-    view.width = view.height = side
-    view.getContext('2d')!.drawImage(image, cx - side / 2, cy - side / 2, side, side, 0, 0, side, side)
-    let best: { off: number; height: number } | null = null
-    for (const { boundingBox: box } of found.detect(view).detections) {
-      if (!box) continue
-      const off = Math.hypot(box.originX + box.width / 2 - side / 2, box.originY + box.height / 2 - side / 2)
-      if (!best || off < best.off) best = { off, height: box.height }
-    }
-    return best?.height ?? null
-  } catch {
-    return null
+function settle(found: Detector, image: HTMLCanvasElement, face: Box): Box {
+  const side = Math.round(face.height * 4)
+  const left = face.x + face.width / 2 - side / 2
+  const top = face.y + face.height / 2 - side / 2
+  const view = document.createElement('canvas')
+  view.width = view.height = side
+  view.getContext('2d')!.drawImage(image, left, top, side, side, 0, 0, side, side)
+  let best: { off: number; box: Box } | null = null
+  for (const { boundingBox: box } of found.detect(view).detections) {
+    if (!box) continue
+    const off = Math.hypot(box.originX + box.width / 2 - side / 2, box.originY + box.height / 2 - side / 2)
+    if (!best || off < best.off) best = { off, box: { x: left + box.originX, y: top + box.originY, width: box.width, height: box.height } }
   }
+  return best?.box ?? face
 }
 
 /** Squares of one size covering the picture, each overlapping the next by

@@ -389,16 +389,20 @@ company's prices out loud.
   Still never over the visitor's face (the same `fits` as below), and a
   picture cut above the shoes still has its edge at the frame's, not hanging
   in the room. No height given, and they are drawn `NEARER` (1.3) as before.
-- **The face that measures a visitor is measured again, at one size.** The
-  box `findFace` returns is not a ruler: the detector draws a small face's
+- **Every face is measured again, at one size - the character's too.** The
+  box the detector first returns is not a ruler: it draws a small face's
   box relatively larger, so it depended on which of its looks found the
-  visitor, and the same man read 169 cm at one crop and 229 at another.
-  `faces.faceTall` crops a square four face-heights wide round the face and
-  measures it there. `FACE_CM` (17) and the hip and knee proportions in
-  `ABOVE` (0.43, 0.20 - a textbook's are 0.53 and 0.285) were fitted together
-  on sixteen of the owner's photographs from this cabinet, 175 cm, standing
-  about a metre from the camera: he reads 175 on average, 8.5 cm either way,
-  to his shoes or cut at the knees. v2.3.0 as first released read him 194 on
+  face, and the same man read 169 cm at one crop and 229 at another. A
+  character's face measured 193 pixels in their picture and 271 once its
+  empty edge was trimmed, and the height fit - held within 40% of the face's
+  size - drew them 0.85 times a visitor they should have stood 1.13 over.
+  `findFace` now settles every face it returns: twice re-measured from a
+  square four face-heights wide round it, after which a face reads the same
+  however it was found (147 and 148 for that character). `FACE_CM` (16.9)
+  and the hip and knee proportions in `ABOVE` (0.45, 0.23 - a textbook's are
+  0.53 and 0.285) were fitted together on sixteen of the owner's photographs
+  from this cabinet, 175 cm, standing about a metre from the camera: he
+  reads 175 on average, 8.6 cm either way, to his shoes or cut at the knees. v2.3.0 as first released read him 194 on
   average and up to 221. One man's photographs - the hover text on a taken
   photograph shows the estimate, to check against anybody else of known
   height. The preview's own canvas height was once named `tall`, hiding the
