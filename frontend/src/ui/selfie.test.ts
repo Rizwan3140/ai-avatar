@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  HERO, NEARER, OVERLAP, castOf, finish, feetCut, reachOf, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
+  HERO, NEARER, OVERLAP, castOf, finish, feetCut, headEdge, reachOf, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -565,4 +565,18 @@ test('their head never leaves the frame: smaller rather than cut off', () => {
     const unbound = arrange(FRAME, VIEW, it.seen, PORTRAIT, face2, side, { visitor: it.body, figure: it.figure }, 250, 160)
     assert.ok(placed.figure.height <= unbound.figure.height, `${side}: smaller, not cut off`)
   }
+})
+
+test('a head is measured out from the face through the hair, not to a hand raised beside it', () => {
+  // 40 wide, 3 rows: a hand at columns 0-6 and a head at 15-30, a gap between.
+  const rgba = new Uint8ClampedArray(40 * 3 * 4)
+  const fill = (y: number, from: number, to: number) => { for (let x = from; x <= to; x++) rgba[(y * 40 + x) * 4 + 3] = 255 }
+  for (let y = 0; y < 3; y++) { fill(y, 0, 6); fill(y, 15, 30) }
+  // A strand of hair two pixels out, past a gap the walk steps over.
+  fill(1, 13, 13)
+  assert.equal(headEdge(rgba, 40, 0, 3, 22, 'left'), 13)
+  assert.equal(headEdge(rgba, 40, 0, 3, 22, 'right'), 30)
+  // The plain furthest pixel would have been the hand.
+  assert.equal(reachOf(rgba, 40, 0, 3, 'left'), 0)
+  assert.equal(headEdge(rgba, 40, 0, 3, 10, 'left'), null)
 })

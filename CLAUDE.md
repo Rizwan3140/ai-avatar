@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 154 checks
+(cd frontend && npm test)                   # 155 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-896 checks total. **Never run the Python suites through `unittest`** — they are
+897 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -391,9 +391,12 @@ company's prices out loud.
   visitor's floor - until their hair is below the top and there is room
   between the frame's edge and the visitor's shoulder for their head and
   near shoulder; their face is then kept that far in from their own edge.
-  How far their hair reaches (`crown`) is measured once from their picture,
-  top to mid-face and no lower: a selfie arm leaves from just under the
-  chin, and taken for hair it would drag the arm's cut end into the frame.
+  How far their hair reaches (`crown`) is measured once from their picture
+  by `headEdge`: out from the middle of their face through the hair to the
+  first real gap, top to mid-face. Not the furthest opaque pixel at head
+  height - a picture made with the selfie hand raised to head level, as
+  asked for, read as a head the width of the picture (column 0 against the
+  hair's 404) and the character came out a doll at the visitor's chest.
   Never smaller than 0.6 of the face's size, which is a doll. And when their
   shoes would show, the finished photograph is cut tighter from the top down
   to mid-shin (`selfie.feetCut`, "zoom in to cut his feet off"), taken from

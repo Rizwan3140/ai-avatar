@@ -20,6 +20,7 @@ import {
   lightGain,
   castOf,
   feetCut,
+  headEdge,
   reachOf,
   finish,
   meanColour,
@@ -464,11 +465,12 @@ export function Selfie({ who }: { who: Character }) {
     const bottom = body?.hips ?? 0.6 * image.height
     const reach = reachOf(pixels, image.width, top, bottom, side === 'left' ? 'right' : 'left')
     // And how far their hair reaches toward their own edge of the frame - so
-    // their head is never drawn off it. Top of the picture to the middle of
-    // their face, no lower: a selfie arm leaves from just under the chin, and
-    // counted as hair it would pull the cut end of the arm into the frame.
-    const eyes = face ? face.y + face.height / 2 : 0.15 * image.height
-    const crown = reachOf(pixels, image.width, 0, eyes, side === 'left' ? 'left' : 'right')
+    // their head is never drawn off it. Out from their face through the hair
+    // only (`headEdge`), top of the picture to the middle of their face: a
+    // selfie arm raised to their head is not their head.
+    const crown = face
+      ? headEdge(pixels, image.width, 0, face.y + face.height / 2, face.x + face.width / 2, side === 'left' ? 'left' : 'right')
+      : null
     return { image, face, body, reach, crown }
   }
 

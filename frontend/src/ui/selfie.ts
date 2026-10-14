@@ -271,6 +271,31 @@ export function reachOf(rgba: Uint8ClampedArray, width: number, top: number, bot
 }
 
 /**
+ * How far a head reaches toward one side, in its picture's pixels: walking
+ * out from `from` (the middle of the face) along each row between `top` and
+ * `bottom`, through the hair, to the first gap wider than a few pixels. Not
+ * simply the furthest opaque pixel at head height: a selfie arm raised to
+ * the head - the pose asked for - is opaque there too, and taken for hair it
+ * made the head as wide as the picture and the character was shrunk to a
+ * doll to fit it. Null when the face's own column is not opaque anywhere.
+ */
+export function headEdge(rgba: Uint8ClampedArray, width: number, top: number, bottom: number, from: number, toward: Side): number | null {
+  const height = rgba.length / 4 / width
+  const step = toward === 'right' ? 1 : -1
+  const gap = Math.max(4, Math.round(width / 150))
+  let edge: number | null = null
+  for (let y = Math.max(0, Math.floor(top)); y < Math.min(height, Math.ceil(bottom)); y++) {
+    const row = y * width * 4
+    let x = Math.round(from)
+    if (x < 0 || x >= width || rgba[row + x * 4 + 3] < 128) continue
+    let last = x
+    for (; x >= 0 && x < width && Math.abs(x - last) <= gap; x += step) if (rgba[row + x * 4 + 3] >= 128) last = x
+    if (edge === null || (toward === 'right' ? last > edge : last < edge)) edge = last
+  }
+  return edge
+}
+
+/**
  * Where to cut the finished photograph so the character's feet are not in it:
  * "zoom in to cut his feet off". A box of the frame's own shape, from its top
  * down to the middle of their shins - the top kept, because any window lower
