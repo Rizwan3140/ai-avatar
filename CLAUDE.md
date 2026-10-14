@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 153 checks
+(cd frontend && npm test)                   # 154 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-895 checks total. **Never run the Python suites through `unittest`** — they are
+896 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -384,7 +384,17 @@ company's prices out loud.
   wobbled 14% against his face from shot to shot - turning, arms, and the
   character's cut-out covering that shoulder - three times the face's own
   wobble, so it would have made the character's size jump; the size is still
-  set by faces and heights. And when their
+  set by faces and heights. Their head never leaves the frame: "i dont want
+  the avatar to go out of the screen never". Stood by height beside a visitor
+  far back, a tall star's hair ran off the top and his head off the side.
+  `arrange` now draws them smaller - about their feet, so they keep the
+  visitor's floor - until their hair is below the top and there is room
+  between the frame's edge and the visitor's shoulder for their head and
+  near shoulder; their face is then kept that far in from their own edge.
+  How far their hair reaches (`crown`) is measured once from their picture,
+  top to mid-face and no lower: a selfie arm leaves from just under the
+  chin, and taken for hair it would drag the arm's cut end into the frame.
+  Never smaller than 0.6 of the face's size, which is a doll. And when their
   shoes would show, the finished photograph is cut tighter from the top down
   to mid-shin (`selfie.feetCut`, "zoom in to cut his feet off"), taken from
   the same instant at the camera's own detail - a 4K camera on its side has

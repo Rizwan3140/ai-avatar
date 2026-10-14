@@ -361,6 +361,7 @@ export function arrange(
   tall: number | null = null,
   visitorCm: number | null = null,
   reach: number | null = null,
+  crown: number | null = null,
 ): { figure: Box; apart: boolean } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -432,16 +433,6 @@ export function arrange(
     y = chest - (chest - y) * nearer
     k *= nearer
   }
-  const drawn = { width: figure.width * k, height: figure.height * k }
-  const faceWide = face.width * k
-  // Shoulder to shoulder with the visitor, theirs a little in front: "no gap
-  // between the user and the avatar". Kept apart, the two read as a pair of
-  // cut-outs; this is two people standing together. Held back by three
-  // things only: never over the visitor's face; never so far across that the
-  // cut end of their outstretched arm shows inside the frame (their picture
-  // is cut where the arm leaves it); and their face inside the frame. A
-  // visitor standing in their place has no beside to stand at, so then they
-  // keep to a quarter of the way in, as they always did.
   const toward = onLeft ? 1 : -1
   // The outside of the visitor's shoulder on the character's side: from the
   // shoulder the pose detector found (mirrored, as the photograph is), else
@@ -451,6 +442,40 @@ export function arrange(
   const visitorShoulder = visitorAcross
     ? W - (onLeft ? visitorAcross[1] : visitorAcross[0]) * scale - toward * SHOULDER_PAD * headWide
     : headX - toward * 1.2 * headWide
+  const ours = bodies?.figure.across
+  // Never out of the frame: their whole head inside it, top and side - "i
+  // don't want the avatar to go out of the screen, never". Where it would not
+  // fit - their hair over the top, or too little room between the frame's
+  // edge and the visitor's shoulder for their head and near shoulder - they
+  // are drawn smaller, about their feet when those were stood on the
+  // visitor's floor, else about their face: smaller beats cut off. Not below
+  // 0.6 of the face's size, which is a doll.
+  const edge = 0.02 * W
+  const floorAt = fit ? statureOf(bodies!.figure)?.floor : undefined
+  const pivot = floorAt ?? face.y + face.height / 2
+  const shrink = (to: number) => {
+    to = Math.max(to, 0.6 * byFace)
+    if (to >= k) return
+    const kept = y + pivot * k
+    k = to
+    y = kept - pivot * k
+  }
+  if (y < 0.02 * H) shrink((y + pivot * k - 0.02 * H) / pivot)
+  if (crown !== null && ours) {
+    const span = onLeft ? ours[1] + SHOULDER_PAD * face.width - crown : crown - ours[0] + SHOULDER_PAD * face.width
+    const across = onLeft ? visitorShoulder - edge : W - edge - visitorShoulder
+    if (span > 0 && across > 0) shrink(across / span)
+  }
+  const drawn = { width: figure.width * k, height: figure.height * k }
+  const faceWide = face.width * k
+  // Shoulder to shoulder with the visitor, theirs a little in front: "no gap
+  // between the user and the avatar". Kept apart, the two read as a pair of
+  // cut-outs; this is two people standing together. Held back by three
+  // things only: never over the visitor's face; never so far across that the
+  // cut end of their outstretched arm shows inside the frame (their picture
+  // is cut where the arm leaves it); and their head inside the frame. A
+  // visitor standing in their place has no beside to stand at, so then they
+  // keep to a quarter of the way in, as they always did.
   const faceAt = (face.x + face.width / 2) * k
   let centre: number
   if (fits === Infinity) {
@@ -460,7 +485,6 @@ export function arrange(
     // Their shoulder against the visitor's, and not over it: "against my
     // shoulder, not overlap my shoulder". From where the detector found their
     // near shoulder in their picture, else a face and a bit from their face.
-    const ours = bodies?.figure.across
     const touching = ours
       ? visitorShoulder - toward * SHOULDER_PAD * faceWide + faceAt - (onLeft ? ours[1] : ours[0]) * k
       : visitorShoulder - toward * 1.1 * faceWide
@@ -474,8 +498,11 @@ export function arrange(
     centre = onLeft
       ? Math.min(touching, clearOfFace, armOut, bodyClear)
       : Math.max(touching, clearOfFace, armOut, bodyClear)
-    centre = onLeft ? Math.max(centre, faceWide / 2) : Math.min(centre, W - faceWide / 2)
   }
+  // Their head inside the frame on their own side: the far edge of their hair
+  // (`crown`), else their face.
+  const headIn = crown === null ? faceWide / 2 + edge : edge + toward * (faceAt - crown * k)
+  centre = onLeft ? Math.max(centre, headIn) : Math.min(centre, W - headIn)
   // Still a gap, because the visitor stands further over than the picture
   // can follow: the preview asks them to step closer. Measured from the edge
   // of their body where it is known, else from their face.

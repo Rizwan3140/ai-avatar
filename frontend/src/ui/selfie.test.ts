@@ -54,12 +54,14 @@ test('the preview and the photograph are the same cut of the camera', () => {
 })
 
 test("their face is the visitor's, a step nearer the camera, their eyes a little higher", () => {
+  // Low enough in the picture that their hair stays inside it (see "never
+  // leaves the frame").
   for (const tall of [180, 260]) {
-    const placed = arrange(FRAME, VIEW, visitor(tall), PORTRAIT, THEIR_FACE)
+    const placed = arrange(FRAME, VIEW, visitor(tall, 250, 520), PORTRAIT, THEIR_FACE)
     const ratio = theirFaceTall(placed) / (tall * DRAWN)
     assert.ok(Math.abs(ratio - NEARER) < 0.02, `face ratio ${ratio.toFixed(2)} at ${tall}`)
     const theirs = placed.figure.y + ((THEIR_FACE.y + THEIR_FACE.height / 2) * placed.figure.height) / PORTRAIT.height
-    const lift = 400 * DRAWN - theirs
+    const lift = 520 * DRAWN - theirs
     assert.ok(lift > 0 && lift < tall * DRAWN, `a little higher at ${tall}: ${lift.toFixed(0)}`)
   }
   const near = arrange(FRAME, VIEW, visitor(260), PORTRAIT, THEIR_FACE)
@@ -82,7 +84,7 @@ test('a wide picture of them is not shrunk to fit: they run off the edge', () =>
   // not grow to match a visitor at a kiosk, and came out two thirds the size.
   const wide = { width: 1400, height: 1500 }
   const face = { x: 620, y: 200, width: 260, height: 300 }
-  const placed = arrange(FRAME, VIEW, visitor(260), wide, face)
+  const placed = arrange(FRAME, VIEW, visitor(260, 250, 600), wide, face)
   assert.ok(Math.abs((face.height * placed.figure.width) / wide.width / (260 * DRAWN) - NEARER) < 0.02)
   assert.ok(placed.figure.x < 0, 'their arm is off the left of the picture')
 })
@@ -330,7 +332,7 @@ test('the character stands shoulder to shoulder with the visitor, no gap', () =>
     assert.ok(gap <= 0.5 * THEIR_FACE.width * k || placed.apart, `${cx}: gap ${gap.toFixed(0)}`)
     // Not laid over the visitor - unless, larger than them beside a visitor in
     // the middle, their face is already as near their own edge as it goes.
-    const pinned = theirFace <= (THEIR_FACE.width * k) / 2 + 1
+    const pinned = theirFace <= (THEIR_FACE.width * k) / 2 + 0.02 * FRAME.width + 1
     assert.ok(gap > -0.5 * THEIR_FACE.width * k || pinned, `${cx}: not laid over the visitor: ${gap.toFixed(0)}`)
     // And never over the visitor's face.
     assert.ok(theirFace + (THEIR_FACE.width / 2) * k < headX - 180 * 0.4 * DRAWN, `${cx}: faces apart`)
@@ -402,8 +404,9 @@ test('given their real height, the character stands on the visitor\'s floor, tha
   const face = { x: 375, y: 140, width: 150, height: 150 }
   const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600 }
   // A visitor seen to the knees, estimated at 170 cm, their face 120 tall.
-  const visitorBody = { nose: 400, shoulders: 470, hips: null, knees: 400 + 0.68 * 960, ankles: null }
-  const seen = { x: 210, y: 340, width: 96, height: 120 }
+  // Low enough in the picture that the taller of them stays inside it.
+  const visitorBody = { nose: 560, shoulders: 630, hips: null, knees: 560 + 0.68 * 960, ankles: null }
+  const seen = { x: 210, y: 500, width: 96, height: 120 }
   const visitorTall = statureOf(visitorBody)!
   const figureTall = statureOf(figure)!
   for (const tall of [180, 200]) {
@@ -535,4 +538,31 @@ test("their shoulder stands against the visitor's, not over it", () => {
   const yours = FRAME.width - 346 * DRAWN - 0.3 * seen.width * DRAWN
   assert.equal(placed.apart, false)
   assert.ok(Math.abs(theirs - yours) < 1, `touching: ${theirs.toFixed(0)} against ${yours.toFixed(0)}`)
+})
+
+test('their head never leaves the frame: smaller rather than cut off', () => {
+  // A tall star (250 cm asked for) beside a visitor standing far back and
+  // well over toward the character's side: by height alone his hair ran
+  // off the top and his head off the side.
+  const face = { x: 375, y: 140, width: 150, height: 150 }
+  const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600, across: [250, 650] as [number, number] }
+  const seen = { x: 380, y: 200, width: 60, height: 75 }
+  const body = { nose: 240, shoulders: 290, hips: 240 + 0.46 * 700, knees: 240 + 0.68 * 700, ankles: null, across: [370, 450] as [number, number] }
+  const crown = 300
+  for (const side of ['left', 'right'] as const) {
+    const it = side === 'left' ? { seen, body, crown, figure } : {
+      seen: { ...seen, x: VIEW.width - seen.x - seen.width },
+      body: { ...body, across: [VIEW.width - 450, VIEW.width - 370] as [number, number] },
+      crown: PORTRAIT.width - crown,
+      figure: { ...figure, across: [PORTRAIT.width - 650, PORTRAIT.width - 250] as [number, number] },
+    }
+    const face2 = side === 'left' ? face : { ...face, x: PORTRAIT.width - face.x - face.width }
+    const placed = arrange(FRAME, VIEW, it.seen, PORTRAIT, face2, side, { visitor: it.body, figure: it.figure }, 250, 160, null, it.crown)
+    const k = placed.figure.height / PORTRAIT.height
+    assert.ok(placed.figure.y >= 0.02 * FRAME.height - 1, `${side}: hair below the top, ${placed.figure.y.toFixed(0)}`)
+    const hair = placed.figure.x + it.crown * k
+    assert.ok(hair >= 0 && hair <= FRAME.width, `${side}: head inside, ${hair.toFixed(0)}`)
+    const unbound = arrange(FRAME, VIEW, it.seen, PORTRAIT, face2, side, { visitor: it.body, figure: it.figure }, 250, 160)
+    assert.ok(placed.figure.height <= unbound.figure.height, `${side}: smaller, not cut off`)
+  }
 })

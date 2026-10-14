@@ -64,7 +64,7 @@ type Stage = 'closed' | 'countdown' | 'result' | 'refused'
 const COUNT = 5
 
 /** The avatar, cut out and ready to place, and where their face is in it. */
-type Figure = { image: HTMLCanvasElement; face: Box | null; body: Body | null; reach: number | null }
+type Figure = { image: HTMLCanvasElement; face: Box | null; body: Body | null; reach: number | null; crown: number | null }
 
 /** How long a picture of somebody stays up with nobody touching it. */
 const UNATTENDED = 120_000
@@ -268,7 +268,7 @@ export function Selfie({ who }: { who: Character }) {
         const who = ready.current
         if (who) {
           const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall, visitorCm, who.reach)
+          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall, visitorCm, who.reach, who.crown)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -463,7 +463,13 @@ export function Selfie({ who }: { who: Character }) {
     const top = body?.shoulders ?? 0.2 * image.height
     const bottom = body?.hips ?? 0.6 * image.height
     const reach = reachOf(pixels, image.width, top, bottom, side === 'left' ? 'right' : 'left')
-    return { image, face, body, reach }
+    // And how far their hair reaches toward their own edge of the frame - so
+    // their head is never drawn off it. Top of the picture to the middle of
+    // their face, no lower: a selfie arm leaves from just under the chin, and
+    // counted as hair it would pull the cut end of the arm into the frame.
+    const eyes = face ? face.y + face.height / 2 : 0.15 * image.height
+    const crown = reachOf(pixels, image.width, 0, eyes, side === 'left' ? 'left' : 'right')
+    return { image, face, body, reach, crown }
   }
 
   async function shoot() {
@@ -517,7 +523,7 @@ export function Selfie({ who }: { who: Character }) {
     // would show, the photograph is cut tighter (`feetCut`) - from `full`,
     // so the room keeps every pixel - and everything placed moves with it.
     let place = who
-      ? arrange(frame, shot, visitor, who.image, who.face, side, body && who.body ? { visitor: body, figure: who.body } : null, tall, visitorCm, who.reach)
+      ? arrange(frame, shot, visitor, who.image, who.face, side, body && who.body ? { visitor: body, figure: who.body } : null, tall, visitorCm, who.reach, who.crown)
       : null
     if (who && place && full && who.body) {
       const k = place.figure.width / who.image.width
