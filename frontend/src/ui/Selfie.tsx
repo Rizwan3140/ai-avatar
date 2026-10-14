@@ -720,11 +720,18 @@ export function Selfie({ who }: { who: Character }) {
     }
   }
 
+  /** Another, as the first was taken: the result put away at once, the
+   *  booth while the camera opens, then the count. The result was left up
+   *  emptied - three dots under a card - for the second the camera took. */
   function again() {
     layers.current = null
     photo.current = null
+    if (url.current) URL.revokeObjectURL(url.current)
+    url.current = ''
     setPicture('')
     setShared('')
+    setProblem('')
+    setStage('closed')
     void start()
   }
 
