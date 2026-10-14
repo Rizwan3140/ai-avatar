@@ -371,17 +371,27 @@ company's prices out loud.
   the dropdown card under "Open selfie screen" that now holds the picture,
   clip and side too. The visitor's height is estimated from the photograph -
   their height in the picture (`selfie.statureOf`, nose to the lowest body
-  mark by the usual adult proportions) over their face's, times `FACE_CM` -
-  and the character is drawn on the same floor, as much taller or shorter as
-  they really are and `HERO` (5%) more: "the actual height difference and a
-  little bit more". Held within 0.85-1.2 times the visitor, so a misread
-  estimate makes no giant. `FACE_CM` was 15 from a textbook face and read a
-  grown man as 123 cm; 21 is one photograph taken as a man of about 175 cm.
-  It is a guess to be calibrated - the photograph's hover text shows the
-  estimate beside the character's height. Still never over the visitor's
-  face (the same `fits` as below), and a picture cut above the shoes still
-  has its edge at the frame's, not hanging in the room. No height given, and they are
-  drawn `NEARER` (1.3) as before.
+  mark) over their face's, times `FACE_CM` - and the character is drawn on
+  the same floor, as much taller or shorter as they really are and `HERO`
+  (5%) more: "the actual height difference and a little bit more". Held
+  within 0.85-1.2 times the visitor, so a misread estimate makes no giant.
+  Still never over the visitor's face (the same `fits` as below), and a
+  picture cut above the shoes still has its edge at the frame's, not hanging
+  in the room. No height given, and they are drawn `NEARER` (1.3) as before.
+- **The face that measures a visitor is measured again, at one size.** The
+  box `findFace` returns is not a ruler: the detector draws a small face's
+  box relatively larger, so it depended on which of its looks found the
+  visitor, and the same man read 169 cm at one crop and 229 at another.
+  `faces.faceTall` crops a square four face-heights wide round the face and
+  measures it there. `FACE_CM` (17) and the hip and knee proportions in
+  `ABOVE` (0.43, 0.20 - a textbook's are 0.53 and 0.285) were fitted together
+  on sixteen of the owner's photographs from this cabinet, 175 cm, standing
+  about a metre from the camera: he reads 175 on average, 8.5 cm either way,
+  to his shoes or cut at the knees. v2.3.0 as first released read him 194 on
+  average and up to 221. One man's photographs - the hover text on a taken
+  photograph shows the estimate, to check against anybody else of known
+  height. The preview's own canvas height was once named `tall`, hiding the
+  character's: the preview stood every character by a height of 853 cm.
 - **The detector cannot see a face across the room unless it is shown one.**
   It shrinks every picture to 128 pixels square, so somebody two metres from a
   webcam is a face five pixels tall and comes back as nobody — precisely the
