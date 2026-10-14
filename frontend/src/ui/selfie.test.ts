@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  HERO, NEARER, castOf, finish, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
+  HERO, NEARER, OVERLAP, castOf, finish, feetCut, reachOf, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -464,4 +464,59 @@ test('the finish lifts black off zero, warms shadows, cools highlights, and dark
   assert.ok(low[0] >= 6 && low[0] > low[2], `a lifted, warm black: ${low}`)
   assert.ok(high[2] > high[0], `a cool white: ${high}`)
   assert.ok(black[1] < low[1] && white[1] < high[1], 'the top darker')
+})
+
+test('a cut-out reaches as far as its furthest opaque pixel, between the rows given', () => {
+  // 10 wide, 4 tall: opaque to column 6 in rows 1-2, to column 9 in row 3.
+  const rgba = new Uint8ClampedArray(10 * 4 * 4)
+  const fill = (y: number, from: number, to: number) => { for (let x = from; x <= to; x++) rgba[(y * 10 + x) * 4 + 3] = 255 }
+  fill(1, 2, 6); fill(2, 3, 5); fill(3, 1, 9)
+  assert.equal(reachOf(rgba, 10, 1, 3, 'right'), 6)
+  assert.equal(reachOf(rgba, 10, 1, 3, 'left'), 2)
+  assert.equal(reachOf(rgba, 10, 1, 4, 'right'), 9)
+  assert.equal(reachOf(rgba, 10, 0, 1, 'right'), null)
+})
+
+test("their body covers the visitor's shoulder by a little at most", () => {
+  // A broad picture: their face 150 wide, and their body reaching 500 pixels
+  // past its middle toward the visitor - an arm at their side, a hand in a
+  // pocket - beside a visitor standing well over on the other side.
+  const face = { x: 375, y: 140, width: 150, height: 150 }
+  const figure = { nose: 290, shoulders: 420, hips: 900, knees: 1250, ankles: 1600 }
+  const body = { nose: 400, shoulders: 470, hips: 400 + 0.46 * 960, knees: 400 + 0.68 * 960, ankles: null }
+  for (const side of ['left', 'right'] as const) {
+    const toward = side === 'left' ? 1 : -1
+    const reach = 450 + toward * 500
+    // Unmirrored in the camera's picture: their left is the photograph's right.
+    const seen = { x: side === 'left' ? 60 : VIEW.width - 60 - 96, y: 340, width: 96, height: 120 }
+    const placed = arrange(FRAME, VIEW, seen, PORTRAIT, face, side, { visitor: body, figure }, 188, 175, reach)
+    const k = placed.figure.height / PORTRAIT.height
+    const headWide = seen.width * DRAWN
+    const headX = FRAME.width - (seen.x + seen.width / 2) * DRAWN
+    const shoulder = headX - toward * 1.2 * headWide
+    const edge = placed.figure.x + reach * k
+    assert.ok(toward * (edge - shoulder) <= OVERLAP * headWide + 1, `${side}: over by ${((toward * (edge - shoulder)) / headWide).toFixed(2)} faces`)
+    // Without it, the same picture covered far more of them.
+    const before = arrange(FRAME, VIEW, seen, PORTRAIT, face, side, { visitor: body, figure }, 188, 175)
+    assert.ok(toward * (before.figure.x + reach * k - shoulder) > OVERLAP * headWide, `${side}: the check has something to catch`)
+  }
+})
+
+test('their feet are cut off by zooming in, never past the camera\'s own detail', () => {
+  const frame = { width: 1215, height: 2160 }
+  // Drawn 2000 tall from a 1700 picture: knees at 1400, ankles at 1800.
+  const figure = { x: -200, y: 0, width: 1100, height: 2000 }
+  const marks = { knees: 1400 * 0.85, ankles: 1800 * 0.85 }
+  const cut = feetCut(frame, figure, marks, 1700, 600, 1.78)!
+  assert.equal(cut.y, 0)
+  assert.ok(Math.abs(cut.height - 1600) < 1, `to mid-shin: ${cut.height}`)
+  assert.ok(Math.abs(cut.width / cut.height - frame.width / frame.height) < 1e-9)
+  assert.ok(cut.x >= 0 && cut.x + cut.width <= frame.width)
+  // Feet already off the bottom, or no feet in their picture: nothing cut.
+  assert.equal(feetCut(frame, { ...figure, y: 400 }, marks, 1700, 600, 1.78), null)
+  assert.equal(feetCut(frame, figure, { knees: 1190, ankles: null }, 1700, 600, 1.78), null)
+  // Far away, their feet high in the picture: zoomed no more than the camera allows.
+  const small = feetCut(frame, { ...figure, height: 1000 }, marks, 1700, 600, 1.78)!
+  assert.ok(Math.abs(small.height - 2160 / 1.78) < 1)
+  assert.equal(feetCut(frame, figure, marks, 1700, 600, 1), null)
 })

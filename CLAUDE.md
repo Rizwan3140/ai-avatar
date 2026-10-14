@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 149 checks
+(cd frontend && npm test)                   # 152 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-891 checks total. **Never run the Python suites through `unittest`** — they are
+894 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -366,6 +366,25 @@ company's prices out loud.
   their cut-out's rim pulled in. Then one grade over the whole photograph -
   darker, cooler, firmer, darker at the edges - so both are in one light.
   This undoes "never larger than the visitor" by the owner's choice.
+- **Their body covers the visitor by a little at most, and their feet are
+  cut off after the photograph.** Placed by the face alone, a broad picture
+  (Praboss's body reaches 1.7 face-widths past his face toward the visitor,
+  where the rule assumed 1.1) stood across the visitor's shoulder and arm:
+  "it's overlapping me, it can only do it just a bit". `selfie.reachOf`
+  measures how far their cut-out reaches toward the visitor, shoulders to
+  hips, once when the picture loads, and `arrange` keeps that edge within
+  `OVERLAP` (a quarter of the visitor's face width) of the visitor's
+  shoulder - unless that would put their face off the frame. And when their
+  shoes would show, the finished photograph is cut tighter from the top down
+  to mid-shin (`selfie.feetCut`, "zoom in to cut his feet off"), taken from
+  the same instant at the camera's own detail - a 4K camera on its side has
+  1.78 times the photograph's - and never zoomed past that: "there shouldn't
+  be any quality loss". This is the one place the photograph differs from
+  the preview, and it was asked for that way ("crop it after the picture is
+  taken"). The character's own picture is enlarged with it: a picture of
+  them under 3,000 pixels tall is the soft part of a zoomed photograph. The
+  count is five seconds, down from eight - a getting-ready clip longer than
+  that is cut off by the shutter.
 - **The room's light is read from what is colourless.** `toneGains` leaned
   the character toward the plain average colour round the visitor, which is
   their clothes: beside a red shirt a character in white linen came out

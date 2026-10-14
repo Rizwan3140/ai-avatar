@@ -239,6 +239,64 @@ export const NEARER = 1.3
  */
 export const HERO = 1.05
 
+/** How far the character's body may cover the visitor's shoulder, in the
+ *  visitor's face-widths: a little, as one person half in front of another. */
+export const OVERLAP = 0.25
+
+/** No limit, in whichever direction is toward the visitor. */
+const centreFar = (onLeft: boolean) => (onLeft ? Infinity : -Infinity)
+
+/**
+ * How far a cut-out reaches toward the visitor, in its picture's pixels: the
+ * furthest opaque pixel on that side (`toward`), between the rows given -
+ * their shoulders to their hips, where an arm at their side or a hand in a
+ * pocket stands out. Null when nothing there is opaque.
+ */
+export function reachOf(rgba: Uint8ClampedArray, width: number, top: number, bottom: number, toward: Side): number | null {
+  const height = rgba.length / 4 / width
+  let edge: number | null = null
+  for (let y = Math.max(0, Math.floor(top)); y < Math.min(height, Math.ceil(bottom)); y++) {
+    const row = y * width * 4
+    if (toward === 'right') {
+      for (let x = width - 1; x > (edge ?? -1); x--) if (rgba[row + x * 4 + 3] >= 128) { edge = x; break }
+    } else {
+      for (let x = 0; x < (edge ?? width); x++) if (rgba[row + x * 4 + 3] >= 128) { edge = x; break }
+    }
+  }
+  return edge
+}
+
+/**
+ * Where to cut the finished photograph so the character's feet are not in it:
+ * "zoom in to cut his feet off". A box of the frame's own shape, from its top
+ * down to the middle of their shins - the top kept, because any window lower
+ * down shows more of their feet, not less - centred on `between` (the middle
+ * of the two of them). Null when their feet are already out of the frame or
+ * their picture has none. Never zoomed past `most`, the camera's own detail
+ * over the photograph's, so nothing is enlarged: past that, a little of their
+ * shoes beats a soft photograph.
+ */
+export function feetCut(
+  frame: Size,
+  figure: Box,
+  marks: { knees: number | null; ankles: number | null },
+  pictureHeight: number,
+  between: number,
+  most: number,
+): Box | null {
+  const { width: W, height: H } = frame
+  if (marks.ankles === null || most <= 1) return null
+  const k = figure.height / pictureHeight
+  const ankles = figure.y + marks.ankles * k
+  if (ankles >= H) return null
+  const knees = marks.knees === null ? null : figure.y + marks.knees * k
+  const bottom = knees === null ? ankles - 0.06 * H : knees + 0.5 * (ankles - knees)
+  const tall = Math.min(H, Math.max(bottom, H / most))
+  const wide = (tall * W) / H
+  const x = Math.max(0, Math.min(W - wide, between - wide / 2))
+  return { x, y: 0, width: wide, height: tall }
+}
+
 /**
  * How tall a face is, in centimetres, as MediaPipe's detector boxes it when
  * shown it at one size (`faces.findFace` settles every face so) - the ruler
@@ -298,6 +356,7 @@ export function arrange(
   bodies: { visitor: Body; figure: Body } | null = null,
   tall: number | null = null,
   visitorCm: number | null = null,
+  reach: number | null = null,
 ): { figure: Box; apart: boolean } {
   const { width: W, height: H } = frame
   const scale = W / view.width
@@ -390,12 +449,21 @@ export function arrange(
     const touching = visitorShoulder - toward * 1.1 * faceWide
     const clearOfFace = headX - toward * (headWide / 2 + faceWide / 2 + 0.02 * W)
     const armOut = onLeft ? faceAt : W - (drawn.width - faceAt)
-    centre = onLeft ? Math.min(touching, clearOfFace, armOut) : Math.max(touching, clearOfFace, armOut)
+    // And their body - the shoulder, the arm at their side - over the
+    // visitor's by a little at most (`OVERLAP`): "it's overlapping me, it can
+    // only do it just a bit". The face alone said nothing of how far a
+    // broad-shouldered picture reaches across.
+    const bodyClear = reach === null ? centreFar(onLeft) : visitorShoulder + toward * OVERLAP * headWide + faceAt - reach * k
+    centre = onLeft
+      ? Math.min(touching, clearOfFace, armOut, bodyClear)
+      : Math.max(touching, clearOfFace, armOut, bodyClear)
     centre = onLeft ? Math.max(centre, faceWide / 2) : Math.min(centre, W - faceWide / 2)
   }
   // Still a gap, because the visitor stands further over than the picture
-  // can follow: the preview asks them to step closer.
-  const apart = fits !== Infinity && toward * (visitorShoulder - (centre + toward * 1.3 * faceWide)) > 0.5 * faceWide
+  // can follow: the preview asks them to step closer. Measured from the edge
+  // of their body where it is known, else from their face.
+  const near = reach === null ? centre + toward * 1.3 * faceWide : centre - faceAt + reach * k
+  const apart = fits !== Infinity && toward * (visitorShoulder - near) > 0.5 * faceWide
   // And out to the edge on their own side, at least. Their picture is cut
   // where their arm leaves it; a little way inside the frame, that cut is a
   // ruled line down the photograph.

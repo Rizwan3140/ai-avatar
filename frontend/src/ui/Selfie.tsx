@@ -19,6 +19,8 @@ import {
   isCutOut,
   lightGain,
   castOf,
+  feetCut,
+  reachOf,
   finish,
   meanColour,
   regionOf,
@@ -30,7 +32,7 @@ import {
 /**
  * A selfie with a character.
  *
- * They get ready, the panel counts down from eight, and the visitor gets a
+ * They get ready, the panel counts down from five, and the visitor gets a
  * picture of the two of them in the room the visitor is standing in.
  *
  * The picture is made here, in the browser: the camera frame, with the
@@ -48,7 +50,7 @@ import {
  *   was a card in between — "A selfie with …?", what would happen, yes and no —
  *   and the owner had it taken out: on a screen whose one button is a camera,
  *   pressing it is the asking. The count that follows has a Cancel on it, and
- *   is the visitor's eight seconds to change their mind.
+ *   is the visitor's five seconds to change their mind.
  * - The frame is taken once and the camera stops that instant.
  * - Nothing is kept. Closing deletes it, and so does walking away: a stranger's
  *   face is not left on a shop window for the next person.
@@ -57,12 +59,12 @@ import {
  */
 type Stage = 'closed' | 'countdown' | 'result' | 'refused'
 
-/** Seconds of count. Long enough for the clip of them getting ready — five or
- *  six seconds — to finish and be held, and for a visitor to stop laughing. */
-const COUNT = 8
+/** Seconds of count: five, asked down from eight. The clip of them getting
+ *  ready should be no longer, or the shutter goes before it finishes. */
+const COUNT = 5
 
 /** The avatar, cut out and ready to place, and where their face is in it. */
-type Figure = { image: HTMLCanvasElement; face: Box | null; body: Body | null }
+type Figure = { image: HTMLCanvasElement; face: Box | null; body: Body | null; reach: number | null }
 
 /** How long a picture of somebody stays up with nobody touching it. */
 const UNATTENDED = 120_000
@@ -266,7 +268,7 @@ export function Selfie({ who }: { who: Character }) {
         const who = ready.current
         if (who) {
           const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall, visitorCm)
+          const place = arrange(onto, small, face, who.image, who.face, side, fitted, tall, visitorCm, who.reach)
           drawFigure(ctx, who.image, place)
           // Their face, mirrored as the preview is, on the character rather
           // than beside them: they are standing where the character stands.
@@ -454,7 +456,14 @@ export function Selfie({ who }: { who: Character }) {
     // No face found is left to `arrange`, which knows where one is in a
     // picture taken from the phone. Both waited for in full - see `findFace`.
     const face = await findFace(image, false, true)
-    return { image, face, body: await findBody(image, face, true) }
+    const body = await findBody(image, face, true)
+    // How far their body reaches toward the visitor, shoulders to hips - so
+    // it covers the visitor's shoulder by a little at most (`OVERLAP`).
+    const pixels = image.getContext('2d')!.getImageData(0, 0, image.width, image.height).data
+    const top = body?.shoulders ?? 0.2 * image.height
+    const bottom = body?.hips ?? 0.6 * image.height
+    const reach = reachOf(pixels, image.width, top, bottom, side === 'left' ? 'right' : 'left')
+    return { image, face, body, reach }
   }
 
   async function shoot() {
@@ -472,11 +481,17 @@ export function Selfie({ who }: { who: Character }) {
     // was. Everything after this is arithmetic on a picture that already exists.
     const frame = frameOf(camera)
     const { width: WIDTH, height: HEIGHT } = frame
-    const shot = framed(camera, WIDTH)
+    let shot = framed(camera, WIDTH)
+    // The same instant at the camera's own detail, for cutting the character's
+    // feet off without enlarging anything (`feetCut`): from a 4K camera stood
+    // on its side, 1.78 times the photograph's.
+    const native = centreCut(upright(camera), frame).width
+    const most = Math.min(2, native / WIDTH)
+    const full = most > 1.01 ? framed(camera, Math.round(WIDTH * most)) : null
     // How much the camera needs. One enlarged to make the photograph is soft
     // and gets all of `enhance`; a 4K one shrunk to it is sharp already, and
     // given the same came out crunchy, with dark faces darker still.
-    const needs = Math.min(1, Math.max(0.3, (WIDTH / centreCut(upright(camera), frame).width) ** 2))
+    let needs = Math.min(1, Math.max(0.3, (WIDTH / native) ** 2))
     // What the camera actually gave. "I'm blurry, she is fine" has one cause
     // worth ruling out before any other, and it is a number: a camera handing
     // over 640 by 480 makes a soft photograph whatever is done afterwards.
@@ -490,12 +505,42 @@ export function Selfie({ who }: { who: Character }) {
     setShared('')
     setStage('result')
 
-    const [who, visitor] = await Promise.all([figure.current, findFace(shot)])
+    const [who, found] = await Promise.all([figure.current, findFace(shot)])
+    let visitor = found
     // Their body, the one under their face: the character is fitted to it.
     const body = await findBody(shot, visitor)
     // How tall they are, by their face - measured at one size by `findFace`.
     const visitorCm = body && visitor ? heightOf(body, visitor.height) : null
     if (mine !== attempt.current) return
+
+    // Where the character stands, before anything is drawn: if their feet
+    // would show, the photograph is cut tighter (`feetCut`) - from `full`,
+    // so the room keeps every pixel - and everything placed moves with it.
+    let place = who
+      ? arrange(frame, shot, visitor, who.image, who.face, side, body && who.body ? { visitor: body, figure: who.body } : null, tall, visitorCm, who.reach)
+      : null
+    if (who && place && full && who.body) {
+      const k = place.figure.width / who.image.width
+      const theirs = who.face ? place.figure.x + (who.face.x + who.face.width / 2) * k : place.figure.x + place.figure.width / 2
+      const yours = visitor ? WIDTH - (visitor.x + visitor.width / 2) : WIDTH / 2
+      const cut = feetCut(frame, place.figure, who.body, who.image.height, (theirs + yours) / 2, most)
+      if (cut) {
+        const by = WIDTH / cut.width
+        // The camera's picture is unmirrored; the cut is in the mirrored photograph.
+        const across = WIDTH - cut.x - cut.width
+        const f = full.width / WIDTH
+        const zoomed = canvas(WIDTH, HEIGHT)
+        const zctx = zoomed.getContext('2d')!
+        zctx.imageSmoothingQuality = 'high'
+        zctx.drawImage(full, across * f, cut.y * f, cut.width * f, cut.height * f, 0, 0, WIDTH, HEIGHT)
+        shot = zoomed
+        // Less shrunk from the camera now, so a little more of `enhance`.
+        needs = Math.min(1, Math.max(0.3, ((WIDTH * by) / native) ** 2))
+        if (visitor) visitor = { x: (visitor.x - across) * by, y: (visitor.y - cut.y) * by, width: visitor.width * by, height: visitor.height * by }
+        const at = place.figure
+        place = { ...place, figure: { x: (at.x - cut.x) * by, y: (at.y - cut.y) * by, width: at.width * by, height: at.height * by } }
+      }
+    }
 
     // Mirrored, as the preview was: this is the picture they posed for.
     //
@@ -523,8 +568,7 @@ export function Selfie({ who }: { who: Character }) {
       placed = canvas(WIDTH, HEIGHT)
       const onto = placed.getContext('2d', { willReadFrequently: true })!
       onto.imageSmoothingQuality = 'high'
-      const fitted = body && who.body ? { visitor: body, figure: who.body } : null
-      const place = arrange(frame, shot, visitor, who.image, who.face, side, fitted, tall, visitorCm)
+      if (!place) return
       // For whoever is setting the cabinet up: how tall the visitor was
       // estimated to be, beside how tall they are - see `FACE_CM`.
       if (visitorCm) setTaken((was) => `${was} Visitor about ${Math.round(visitorCm)} cm${tall ? `, ${name} ${tall} cm` : ''}.`)
