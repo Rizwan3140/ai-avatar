@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  HERO, NEARER, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
+  HERO, NEARER, castOf, finish, FACE_CM, arrange, heightOf, statureOf, bodyOf, bounds, lightGain, regionOf, centreCut, fitBodies, clarify, crispness, cutOut, frameFor, grade, isCutOut, meanColour, tone, toneGains, turned, turnFrom, cameraTurn,
 } from './selfie.ts'
 
 // A 1440x2160 picture; the middle of a 1920x1080 webcam, cut to that shape, is
@@ -445,4 +445,23 @@ test('stood by height, they are never drawn over the visitor\'s face, and never 
   const wholeBody = { nose: 200, shoulders: 290, hips: 200 + 0.38 * 900, knees: 200 + 0.625 * 900, ankles: 200 + 0.871 * 900 }
   const stood = arrange(FRAME, VIEW, whole, SHORT, face, 'left', { visitor: wholeBody, figure: kneed }, 188, 175)
   assert.ok(stood.figure.y + stood.figure.height >= FRAME.height - 1, 'no floating edge')
+})
+
+test('the room\'s light is read from what is colourless, not from a red shirt', () => {
+  const px = (n: number, rgb: number[]) => Array.from({ length: n }, () => [...rgb, 255]).flat()
+  // Mostly a red shirt, under a grey ceiling lit a little blue.
+  const room = new Uint8ClampedArray([...px(3000, [180, 30, 40]), ...px(2000, [190, 195, 210])])
+  const [r, g, b] = castOf(room)!
+  assert.ok(b > r && Math.abs(r - 190) < 2 && Math.abs(g - 195) < 2, `${r} ${g} ${b}`)
+  assert.equal(castOf(new Uint8ClampedArray(px(4000, [180, 30, 40]))), null)
+})
+
+test('the finish lifts black off zero, warms shadows, cools highlights, and darkens the ceiling', () => {
+  // Two rows: black and white at the top, black and white at the bottom.
+  const one = new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255])
+  finish(one, 2)
+  const [black, white, low, high] = [0, 4, 8, 12].map((i) => [...one.slice(i, i + 3)])
+  assert.ok(low[0] >= 6 && low[0] > low[2], `a lifted, warm black: ${low}`)
+  assert.ok(high[2] > high[0], `a cool white: ${high}`)
+  assert.ok(black[1] < low[1] && white[1] < high[1], 'the top darker')
 })

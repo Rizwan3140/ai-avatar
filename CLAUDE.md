@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 147 checks
+(cd frontend && npm test)                   # 149 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-889 checks total. **Never run the Python suites through `unittest`** — they are
+891 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -366,6 +366,17 @@ company's prices out loud.
   their cut-out's rim pulled in. Then one grade over the whole photograph -
   darker, cooler, firmer, darker at the edges - so both are in one light.
   This undoes "never larger than the visitor" by the owner's choice.
+- **The room's light is read from what is colourless.** `toneGains` leaned
+  the character toward the plain average colour round the visitor, which is
+  their clothes: beside a red shirt a character in white linen came out
+  pink. `selfie.castOf` averages only nearly grey pixels - ceiling, walls,
+  anything white - on the room and on the character alike. The finishing
+  grade (`selfie.finish`) was measured against two selfies the owner held up
+  as the quality wanted: it had crushed the darkest twentieth to 0 and
+  washed the picture blue; now blacks sit at 6, shadows lean warm and
+  highlights cool as theirs do, and the ceiling is brought down. A stronger
+  detail pass was tried and left out: at a radius big enough to show, it
+  drew a glowing rim round both heads.
 - **Given a character's real height, they stand beside the visitor by it
   (v2.3.0).** The studio's Selfie tab takes their height in centimetres, in
   the dropdown card under "Open selfie screen" that now holds the picture,

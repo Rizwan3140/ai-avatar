@@ -582,6 +582,52 @@ export function meanColour(rgba: Uint8ClampedArray): Colour {
   return n ? [r / n, g / n, b / n] : [128, 128, 128]
 }
 
+/**
+ * The colour of the light, not of what it falls on: the average of the
+ * nearly colourless pixels - ceiling, walls, a white shirt - which show the
+ * light's tint and nothing else. The plain average was the light's colour
+ * only in a grey room: beside a visitor in a red shirt it was red, and a
+ * character in white linen came out pink. Null with too few to go by.
+ */
+export function castOf(rgba: Uint8ClampedArray): Colour | null {
+  let r = 0
+  let g = 0
+  let b = 0
+  let n = 0
+  for (let i = 0; i < rgba.length; i += 16) {
+    if (rgba[i + 3] < 128) continue
+    const hi = Math.max(rgba[i], rgba[i + 1], rgba[i + 2])
+    const lo = Math.min(rgba[i], rgba[i + 1], rgba[i + 2])
+    if (hi < 40 || hi > 250 || hi - lo > 0.2 * hi) continue
+    r += rgba[i]
+    g += rgba[i + 1]
+    b += rgba[i + 2]
+    n++
+  }
+  return n > 50 ? [r / n, g / n, b / n] : null
+}
+
+/**
+ * The finishing grade of the whole photograph, from two selfies the owner
+ * held up as the quality wanted: blacks lifted off zero (the old grade
+ * crushed the darkest twentieth to 0), shadows a little warm and highlights a
+ * little cool - as a phone renders skin against an office - and the top of
+ * the picture, the ceiling of lamps, brought down.
+ */
+export function finish(rgba: Uint8ClampedArray, width: number): void {
+  const height = rgba.length / 4 / width
+  for (let i = 0; i < rgba.length; i += 4) {
+    const l = clamp((0.3 * rgba[i] + 0.59 * rgba[i + 1] + 0.11 * rgba[i + 2]) / 255, 0, 1)
+    const warm = (1 - l) * (1 - l)
+    const cool = l * l
+    const y = Math.floor(i / 4 / width) / height
+    const down = 0.86 + 0.14 * clamp(y / 0.45, 0, 1)
+    rgba[i] = (6 + (rgba[i] + 7 * warm - 10 * cool) * (249 / 255)) * down
+    rgba[i + 1] = (6 + rgba[i + 1] * (249 / 255)) * down
+    rgba[i + 2] = (6 + (rgba[i + 2] - 7 * warm + 10 * cool) * (249 / 255)) * down
+  }
+}
+
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 const light = ([r, g, b]: Colour) => 0.299 * r + 0.587 * g + 0.114 * b || 1
 

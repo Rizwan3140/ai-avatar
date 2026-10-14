@@ -18,6 +18,8 @@ import {
   turned,
   isCutOut,
   lightGain,
+  castOf,
+  finish,
   meanColour,
   regionOf,
   toneGains,
@@ -541,7 +543,12 @@ export function Selfie({ who }: { who: Character }) {
         ? regionOf(whole, WIDTH, { x: mirrored.x - mirrored.width, y: mirrored.y, width: mirrored.width * 3, height: HEIGHT - mirrored.y })
         : new Uint8ClampedArray(0)
       const around = theirsAround.length > 4000 ? theirsAround : whole
-      const gains = toneGains(meanColour(around), meanColour(pixels.data))
+      // The light's colour on each, from what is colourless (`castOf`): the
+      // visitor's clothes are not the room's light.
+      const gains = toneGains(
+        castOf(whole) ?? meanColour(around),
+        castOf(pixels.data) ?? meanColour(pixels.data),
+      )
       const light = lightGain(tone(around).high, tone(pixels.data).high)
       for (let i = 0; i < pixels.data.length; i += 4) {
         const alpha = pixels.data[i + 3]
@@ -616,9 +623,10 @@ export function Selfie({ who }: { who: Character }) {
     ctx.filter = 'brightness(0.9) contrast(1.18) saturate(0.86)'
     ctx.drawImage(both, 0, 0)
     ctx.filter = 'none'
-    ctx.globalCompositeOperation = 'soft-light'
-    ctx.fillStyle = 'rgba(40, 70, 110, 0.24)'
-    ctx.fillRect(0, 0, WIDTH, HEIGHT)
+    // Blacks off zero, warm shadows and cool highlights, the ceiling down.
+    const graded = ctx.getImageData(0, 0, WIDTH, HEIGHT)
+    finish(graded.data, WIDTH)
+    ctx.putImageData(graded, 0, 0)
     // And darker toward the edges, the ceiling most: the eye goes to the two
     // faces, and the lamps overhead stop competing with them.
     ctx.globalCompositeOperation = 'multiply'
