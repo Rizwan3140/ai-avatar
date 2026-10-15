@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './ui/App.tsx'
 import { SelfieBooth } from './ui/SelfieBooth.tsx'
+import { fillScreenOnTouch } from './ui/fullscreen.ts'
 
 /**
  * Three surfaces, one build.
@@ -55,6 +56,10 @@ createRoot(document.getElementById('root')!).render(
     )}
   </StrictMode>,
 )
+
+// The showroom and the selfie fill the display from the first tap; the
+// studio is a page somebody works in, tabs and all.
+if (!isStudio) fillScreenOnTouch()
 
 if (!isStudio && !isSelfie) {
   // Booting the kiosk pulls in Whisper, the microphone and the renderer. The
