@@ -56,7 +56,13 @@ export function SelfieBooth() {
   }`
 
   return (
-    <main className="kiosk-root bg-canvas relative flex h-full flex-col overflow-hidden">
+    // Nothing on the booth can be dragged - the character, the photograph,
+    // its code - a picture pulled about by a finger is a broken screen.
+    // React hands the selfie's own portal up to here, so this covers it too.
+    <main
+      className="kiosk-root bg-canvas relative flex h-full flex-col overflow-hidden"
+      onDragStart={(event) => event.preventDefault()}
+    >
       <div className="relative min-h-0 flex-1">
         {who?.picture && <img src={who.picture} alt="" aria-hidden className={stand} />}
         {who?.clip && (
