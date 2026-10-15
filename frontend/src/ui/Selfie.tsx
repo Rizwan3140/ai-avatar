@@ -811,7 +811,7 @@ export function Selfie({ who }: { who: Character }) {
       {stage === 'starting' && (
         <div className="bg-canvas/50 absolute inset-0 z-30 flex items-center justify-center px-safe py-safe backdrop-blur-sm">
           <div className={`${PANEL} lay-down`}>
-            <Loader label="Opening the camera" hint={name ? `Get ready for your selfie with ${name}` : 'Get ready for your selfie'} />
+            <Loader label="Opening the camera" />
           </div>
         </div>
       )}
@@ -905,51 +905,65 @@ export function Selfie({ who }: { who: Character }) {
 }
 
 /**
- * The selfie's wait - the camera opening, the photograph being made: a lens
- * ring sweeping round the camera the visitor pressed, which breathes. It was
- * three grey dots, which read as a page loading rather than a camera at work.
+ * The blades of a camera's aperture, as six SVG paths in a 100-unit square:
+ * a hexagon open in the middle, each blade running from one of its corners
+ * along the next edge out to the rim. Worked out here rather than pasted, so
+ * the gaps and the opening can be changed in one place.
  */
-function Loader({ label, hint }: { label: string; hint?: string }) {
+const BLADES = (() => {
+  const centre = 50
+  const rim = 48
+  const opening = 18
+  // Turned so the first blade to light is at the top, as in the original.
+  const corner = (k: number) => {
+    const angle = ((k - 2.5) * Math.PI) / 3
+    return [centre + opening * Math.cos(angle), centre + opening * Math.sin(angle)]
+  }
+  // Where the line along the hexagon's edge from corner k to k+1 meets the rim.
+  const out = (k: number) => {
+    const [ax, ay] = corner(k)
+    const [bx, by] = corner(k + 1)
+    const [dx, dy] = [bx - ax, by - ay]
+    const [px, py] = [ax - centre, ay - centre]
+    const a = dx * dx + dy * dy
+    const b = 2 * (px * dx + py * dy)
+    const t = (-b + Math.sqrt(b * b - 4 * a * (px * px + py * py - rim * rim))) / (2 * a)
+    return [ax + t * dx, ay + t * dy]
+  }
+  const f = (n: number) => n.toFixed(2)
+  return [0, 1, 2, 3, 4, 5].map((k) => {
+    const [vx, vy] = corner(k + 1)
+    const [sx, sy] = out(k)
+    const [ex, ey] = out(k + 1)
+    return `M${f(vx)} ${f(vy)}L${f(sx)} ${f(sy)}A${rim} ${rim} 0 0 1 ${f(ex)} ${f(ey)}Z`
+  })
+})()
+
+/**
+ * The selfie's wait - the camera opening, the photograph being made: a
+ * camera's aperture whose blades light one after another round the circle,
+ * then rest, after an animation the owner chose (a six-blade shutter in
+ * lime) redrawn in the booth's own ink. It was three grey dots, which read as
+ * a page loading rather than a camera at work, then a spinning ring.
+ */
+function Loader({ label }: { label: string }) {
+  // No words on screen ("remove the text thing"): the label is for a
+  // screen reader only.
   return (
-    <div role="status" aria-live="polite" className="flex flex-col items-center gap-[0.8em] px-[1em] py-[0.6em] text-center">
-      <div className="relative grid size-[clamp(88px,11vh,400px)] place-items-center">
-        {/* Two soft rings spreading out from the camera, half a beat apart. */}
-        {[0, 0.8].map((delay) => (
-          <span
-            key={delay}
-            aria-hidden
-            className="border-ink/60 absolute inset-0 rounded-full border-[clamp(2px,0.22vh,8px)]"
-            style={{ animation: `ripple 1.6s ${delay}s var(--ease-human) infinite backwards` }}
+    <div role="status" aria-live="polite" aria-label={label} className="px-[1em] py-[0.6em]">
+      <svg viewBox="0 0 100 100" aria-hidden className="text-ink size-[clamp(88px,11vh,400px)]">
+        {BLADES.map((d, k) => (
+          <path
+            key={k}
+            d={d}
+            fill="currentColor"
+            stroke="var(--color-canvas)"
+            strokeWidth={3.2}
+            strokeLinejoin="round"
+            style={{ animation: `blade 2.6s ${k * 0.2}s var(--ease-human) infinite backwards` }}
           />
         ))}
-        <svg viewBox="0 0 100 100" aria-hidden className="text-ink absolute inset-0">
-          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeOpacity="0.1" strokeWidth="3.5" />
-        </svg>
-        <svg
-          viewBox="0 0 100 100"
-          aria-hidden
-          className="text-ink absolute inset-0 animate-[orbit_1.3s_cubic-bezier(0.55,0.1,0.45,0.9)_infinite]"
-        >
-          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="72 217" />
-        </svg>
-        <span className="bg-ink shadow-float grid size-[64%] animate-[swell_1.3s_var(--ease-human)_infinite] place-items-center rounded-full text-white">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-            className="size-[46%]"
-          >
-            <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2.5h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
-            <circle cx="12" cy="13" r="3.3" />
-          </svg>
-        </span>
-      </div>
-      <p className="text-body font-semibold">{label}</p>
-      {hint && <p className="text-ink-soft text-label text-balance">{hint}</p>}
+      </svg>
     </div>
   )
 }

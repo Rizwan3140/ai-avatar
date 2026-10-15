@@ -284,33 +284,18 @@ html:has(.kiosk-root) * {
   }
 }
 
-/* The selfie's wait: a lens ring sweeping round a camera that breathes. The
-   sweep eases in and out of each turn so it reads as a lens hunting focus,
-   not a spinner. */
-@keyframes orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes ripple {
-  from {
-    transform: scale(0.66);
-    opacity: 0.55;
-  }
-  to {
-    transform: scale(1.55);
-    opacity: 0;
-  }
-}
-
-@keyframes swell {
+/* The selfie's wait: a camera aperture whose blades light one after another
+   round the circle - each flares and fades, so the light trails - and then
+   all rest before the next sweep. Six blades a fifth of a second apart, and
+   the last has faded with most of a second of the cycle left. */
+@keyframes blade {
   0%,
+  35%,
   100% {
-    transform: scale(0.92);
+    fill-opacity: 0.1;
   }
-  50% {
-    transform: scale(1);
+  5% {
+    fill-opacity: 1;
   }
 }
 
