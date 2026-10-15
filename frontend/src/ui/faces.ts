@@ -13,7 +13,7 @@ import { bodyOf, type Body, type Box } from './selfie.ts'
  * the one runtime dependency the panel has taken, because the alternative was
  * guessing a head from skin colour. Served from this machine
  * (`public/facefinder`), so it works with the network down, and loaded only
- * when the selfie screen asks — the showroom never downloads it.
+ * when the selfie screen asks, or the showroom reads hands (`AirHand`).
  *
  * It never throws. No face, no detector, a model that failed to load: all are
  * `null`, and the selfie falls back to an arrangement that assumes an
@@ -34,7 +34,7 @@ let loading: Promise<Detector | null> | null = null
 let runtime: Promise<{ vision: typeof import('@mediapipe/tasks-vision'); files: unknown }> | null = null
 
 /** MediaPipe and its WASM, loaded once for the face and pose finders both. */
-function mediapipe() {
+export function mediapipe() {
   runtime ??= (async () => {
     const vision = await import('@mediapipe/tasks-vision')
     return { vision, files: await vision.FilesetResolver.forVisionTasks(HOME) }

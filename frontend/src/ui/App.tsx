@@ -1,4 +1,5 @@
 import { Mp4VideoRenderer } from '../renderer/Mp4VideoRenderer.tsx'
+import { AirHand } from './AirHand.tsx'
 import { Masthead } from './Masthead.tsx'
 import { Prompts } from './Prompts.tsx'
 import { useStore } from '../state/store.ts'
@@ -56,6 +57,7 @@ export function App() {
         className="pointer-events-none absolute inset-0 bg-black transition-opacity duration-1000 ease-(--ease-human)"
         style={{ opacity: sleeping && !hasCampaigns ? 1 : 0 }}
       />
+      <AirHand />
     </main>
   )
 }

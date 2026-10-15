@@ -171,6 +171,12 @@ html:has(.kiosk-root) * {
 /* The listening pulse. The ring spread scales with the panel like the button it
    surrounds — at a fixed 14px it was a halo on a laptop and a hairline on the
    cabinet, which is the same mistake the type sizes made. */
+/* What a raised finger is over (`AirHand`): the thing a held point will press. */
+[data-air] {
+  outline: clamp(3px, 0.25vh, 9px) solid var(--color-accent);
+  outline-offset: clamp(2px, 0.2vh, 7px);
+}
+
 @keyframes glow {
   0%,
   100% {

@@ -152,6 +152,7 @@ function watchForSleep() {
 
   document.addEventListener('pointerdown', activity)
   document.addEventListener('keydown', activity)
+  bus.on('HAND_SEEN', activity)
   useStore.subscribe(arm)
   arm()
 }

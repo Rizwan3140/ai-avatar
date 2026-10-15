@@ -23,7 +23,7 @@ Full scope: `Docs/`, and the plan at
 ```
 
 ```bash
-(cd frontend && npm test)                   # 158 checks
+(cd frontend && npm test)                   # 167 checks
 ./.venv/bin/python -m backend.test_catalog  # 242 — catalog, ingest, crawler
 ./.venv/bin/python -m backend.test_platform # 301 — accounts, tenancy, knowledge, try-on
 ./.venv/bin/python -m backend.test_api      # 199 — the same through the real routes
@@ -37,7 +37,7 @@ Full scope: `Docs/`, and the plan at
 ./.venv/bin/python -m backend.categorize --report  # the report alone; changes nothing
 ```
 
-900 checks total. **Never run the Python suites through `unittest`** — they are
+909 checks total. **Never run the Python suites through `unittest`** — they are
 assert scripts, not `TestCase` classes, so discovery reports zero tests and looks
 like a pass.
 
@@ -251,8 +251,8 @@ company's prices out loud.
   is opened by it, and sharing is filed against the org it resolves to.
 - **The character is sized from the visitor's face, which is why the panel has a
   dependency.** `ui/faces.ts` loads MediaPipe's face detector from
-  `public/facefinder` — served here, so it works offline; lazily, so the
-  showroom never fetches it. Chrome's own `FaceDetector` is behind a flag and
+  `public/facefinder` — served here, so it works offline; lazily, and the
+  showroom fetches it only to read hands (below). Chrome's own `FaceDetector` is behind a flag and
   absent on a real cabinet. `selfie.arrange` then draws the character's face
   the size of the visitor's, level with it, and slides the camera picture so
   the visitor is where the character is not. It needs `'wasm-unsafe-eval'` in the CSP, and the
@@ -481,6 +481,22 @@ company's prices out loud.
   connected to the frame's edge* — measured, backdrop is within 8 between its
   channels and skin never under 25 — and was first written keyed on ">= 242
   white", which removed nothing from either. Check a cut-out on a real frame.
+- **The showroom can be worked without touching it.** Asked for to cut down
+  hands on the glass. `ui/AirHand.tsx` opens the same camera try-on uses (same
+  constraints, so try-on shares it), reads one hand with MediaPipe's gesture
+  recognizer (`public/facefinder/gesture_recognizer.task`) and drops the frame:
+  a raised finger moves a cursor and pointing at a button for 1s presses it;
+  an open hand swept sideways is the next screenful of the rail, or the next
+  piece when one is open; an open palm held 1.2s presses the on-screen Back
+  (`data-back`) and nothing else, so clearing stays deliberate; a thumb up
+  held 1s is the microphone button. Every hold fills a ring on the cursor
+  first. A hand also counts as somebody there (`HAND_SEEN`), so it wakes the
+  cabinet - which means the camera stays open through sleep, unlike the
+  microphone. GPU only: on the CPU it was 106 ms a look against 12, and the
+  avatar's video would stall, so without a GPU it stays off. `?gestures=0`
+  switches a browser off, remembered like `?turn=`. `REACH` in `AirHand` is
+  the calibration knob, set at a desk: the hand recognition was checked on
+  MediaPipe's sample photographs, never yet with a visitor at the cabinet.
 - **A PDF's tables are not mined for products.** Recovering columns from glyph
   positions is guesswork, and a price silently attached to the wrong product is
   worse than not importing at all, because nobody checks what looked like it

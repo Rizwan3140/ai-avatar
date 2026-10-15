@@ -208,6 +208,7 @@ function Strip({
 
       <div
         ref={row}
+        data-row
         // No copying from the list: the pictures are the shop's. The detail view
         // is where a garment may be dragged, which Anywear needs.
         onContextMenu={(e) => e.preventDefault()}
@@ -419,6 +420,7 @@ function Detail({
                 exit but asking out loud. */}
             <button
               type="button"
+              data-back
               // A shelf with one piece on it opens straight to that piece —
               // this shop's men's Pants tile does. Its way back is the tiles it
               // came from, not an empty panel.
@@ -598,6 +600,7 @@ function Heading({ title, tally, back }: { title: string; tally: string; back?: 
         {back && (
           <button
             type="button"
+            data-back
             onClick={back.to}
             className="border-line/80 text-ink-soft text-label hover:border-ink/25 hover:text-ink shrink-0 rounded-full border px-[1em] py-[0.45em] transition-colors"
           >

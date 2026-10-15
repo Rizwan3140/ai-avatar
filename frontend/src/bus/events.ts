@@ -75,6 +75,9 @@ export type Events = {
   /** The count before the shutter. They hold the pose, if they have footage of
    *  one, and the panel clears the space under them. */
   SELFIE_POSING: { posing: boolean }
+  /** A hand in front of the camera (`AirHand`), at most once a second. Counts
+   *  as somebody there, like a touch: it wakes the cabinet and keeps it awake. */
+  HAND_SEEN: void
 }
 
 /** Core fields every vertical shares; the rest arrives in `attributes`. */

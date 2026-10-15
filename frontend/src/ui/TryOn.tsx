@@ -42,7 +42,7 @@ const TURN = cameraTurn()
  * that was a visitor lying on their side — in the preview, and in the
  * photograph handed to the model.
  */
-function upright(camera: HTMLVideoElement, into: HTMLCanvasElement, longest: number, mirror = false) {
+export function upright(camera: HTMLVideoElement, into: HTMLCanvasElement, longest: number, mirror = false) {
   const whole = turned({ width: camera.videoWidth, height: camera.videoHeight }, TURN)
   const by = Math.min(1, longest / Math.max(whole.width, whole.height))
   const width = Math.round(whole.width * by)
