@@ -3,6 +3,7 @@
 # release's copy is the one read, so older lines never need changing.
 #
 # version | what someone choosing a version needs to know
+v3.0.0 | Everything in 2.3, and the showroom works without touching the screen: point and hold to press, swipe an open hand to scroll products, hold a palm for Back, thumbs up to talk, raise a hand to wake. Uses the camera on the showroom screen; open the link with ?gestures=0 to switch it off.
 v2.3.0 | Everything in 2.2, and the selfie stands each character beside the visitor by their real heights: give a character's height in the studio's Selfie tab (in the dropdown under Open selfie screen, with the picture, clip and side). Without a Google key, try-on is the Anywear extension, as in 2.1.
 v2.2.0 | Everything in 2.1, but try-on runs in the app through Google's Virtual Try-On: one photo, and the garment is put on the visitor in a few seconds. Needs a Google Cloud key in .env; the photo is sent to Google. Without the key it behaves like 2.1.
 v2.1.0 | Everything in 2.0, plus the selfie: a photo booth of its own, opened from the studio's Selfie tab. Make a selfie character from a cut-out picture and a getting-ready clip; a visitor is photographed beside them and can send the picture to their phone. Recommended.
